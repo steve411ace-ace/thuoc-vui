@@ -64,7 +64,7 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
     if (intent.action == ACTION_CHECKIN) {
       try {
         checkinNextDose(context)
-      } catch (_) {
+      } catch (_: Exception) {
         // Không làm gì thêm: widget vẫn hiện, người dùng bấm lại hoặc mở app.
       }
       val manager = AppWidgetManager.getInstance(context)
@@ -149,9 +149,13 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
         val time = times.optString(j)
         val parts = time.split(":")
         if (parts.size != 2) continue
+        // Không dùng ?: continue trong apply (Kotlin 1.8 coi đó là tính năng
+        // thử nghiệm): tính giờ/phút trước, rồi mới tạo Calendar.
+        val hour = parts[0].toIntOrNull() ?: continue
+        val minute = parts[1].toIntOrNull() ?: continue
         val slotCal = Calendar.getInstance().apply {
-          set(Calendar.HOUR_OF_DAY, parts[0].toIntOrNull() ?: continue)
-          set(Calendar.MINUTE, parts[1].toIntOrNull() ?: continue)
+          set(Calendar.HOUR_OF_DAY, hour)
+          set(Calendar.MINUTE, minute)
           set(Calendar.SECOND, 0)
           set(Calendar.MILLISECOND, 0)
         }
