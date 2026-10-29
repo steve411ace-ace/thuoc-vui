@@ -289,6 +289,20 @@ class ThuocStore extends ChangeNotifier {
     } catch (_) {}
   }
 
+  /// Lần bấm nút trên thông báo cuối, do receiver native ghi lại, để
+  /// chẩn đoán "bấm Đã uống / Nhắc lại sau không có tác dụng": nếu bấm
+  /// rồi mà giá trị này không đổi thì lệnh bấm không tới receiver; nếu
+  /// đổi mà app không cập nhật thì lỗi nằm ở phần ghi log / nạp lại.
+  Future<String> lastNotificationActionSummary() async {
+    try {
+      final value = await HomeWidget.getWidgetData<String>('last_notification_action', defaultValue: '');
+      if (value == null || value.isEmpty) return 'Chưa ghi nhận lần bấm nút thông báo nào.';
+      return value;
+    } catch (_) {
+      return 'Không đọc được lần bấm thông báo.';
+    }
+  }
+
   Future<bool> requestIgnoreBatteryOptimizations() async {
     try {
       const channel = MethodChannel('thuoc_vui/reminders');
