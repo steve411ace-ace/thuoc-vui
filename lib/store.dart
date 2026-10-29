@@ -231,7 +231,7 @@ class ThuocStore extends ChangeNotifier {
         999999,
         'Thông báo thử từ Thuốc Vui',
         'Nếu bạn thấy thông báo này thì nhắc uống thuốc sẽ hoạt động bình thường.',
-        NotificationDetails(
+        const NotificationDetails(
           android: AndroidNotificationDetails(
             _channelId,
             'Nhắc uống thuốc',
