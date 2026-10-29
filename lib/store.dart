@@ -17,19 +17,44 @@ class AppSettings {
   bool vibration;
   String quietStart; // HH:mm
   String quietEnd; // HH:mm
+  // Báo lại tự động khi chưa check-in: mỗi remindIntervalMinutes phút,
+  // tối đa remindTimes lần sau lần nhắc chính (0 = tắt báo lại).
+  int remindIntervalMinutes;
+  int remindTimes;
 
   AppSettings({
     this.sound = true,
     this.vibration = true,
     this.quietStart = '22:00',
     this.quietEnd = '07:00',
+    this.remindIntervalMinutes = 10,
+    this.remindTimes = 3,
   });
+
+  AppSettings copyWith({
+    bool? sound,
+    bool? vibration,
+    String? quietStart,
+    String? quietEnd,
+    int? remindIntervalMinutes,
+    int? remindTimes,
+  }) =>
+      AppSettings(
+        sound: sound ?? this.sound,
+        vibration: vibration ?? this.vibration,
+        quietStart: quietStart ?? this.quietStart,
+        quietEnd: quietEnd ?? this.quietEnd,
+        remindIntervalMinutes: remindIntervalMinutes ?? this.remindIntervalMinutes,
+        remindTimes: remindTimes ?? this.remindTimes,
+      );
 
   Map<String, dynamic> toJson() => {
         'sound': sound,
         'vibration': vibration,
         'quietStart': quietStart,
         'quietEnd': quietEnd,
+        'remindIntervalMinutes': remindIntervalMinutes,
+        'remindTimes': remindTimes,
       };
 
   factory AppSettings.fromJson(Map<String, dynamic>? j) {
@@ -39,6 +64,8 @@ class AppSettings {
       vibration: j['vibration'] as bool? ?? true,
       quietStart: j['quietStart'] as String? ?? '22:00',
       quietEnd: j['quietEnd'] as String? ?? '07:00',
+      remindIntervalMinutes: (j['remindIntervalMinutes'] as num?)?.toInt() ?? 10,
+      remindTimes: (j['remindTimes'] as num?)?.toInt() ?? 3,
     );
   }
 
@@ -262,12 +289,17 @@ class ThuocStore extends ChangeNotifier {
   }
 
   Future<void> _markLogTaken(String key) async {
+    // Đã uống/trễ/bỏ qua rồi thì bỏ qua, tránh lần nhắc lại bấm nhầm
+    // ghi đè trạng thái cũ (ví dụ đã uống đúng giờ thành trễ).
+    final existing = logs[key]?.status;
+    if (existing == 'taken' || existing == 'late' || existing == 'skipped') return;
     final slot = _slotFromKey(key);
     final now = DateTime.now();
     final status = slot == null ? 'taken' : _statusForCheckIn(slot, now);
     logs[key] = DoseLog(status: status, at: now.toIso8601String());
     await _save();
     notifyListeners();
+    await rescheduleAll();
   }
 
   Future<void> _onNotificationResponse(NotificationResponse response) async {
@@ -299,8 +331,52 @@ class ThuocStore extends ChangeNotifier {
     }
   }
 
+  /// Lên lịch 1 thông báo lặp hàng tuần, thử báo thức chính xác trước,
+  /// nếu máy chưa cấp quyền thì dùng lịch không chính xác.
+  Future<void> _scheduleWeekly(
+    int id,
+    String title,
+    String body,
+    tz.TZDateTime scheduled,
+    NotificationDetails details,
+    String payload,
+  ) async {
+    try {
+      await notifications.zonedSchedule(
+        id,
+        title,
+        body,
+        scheduled,
+        details,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+        matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
+        payload: payload,
+      );
+    } catch (_) {
+      try {
+        await notifications.zonedSchedule(
+          id,
+          title,
+          body,
+          scheduled,
+          details,
+          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+          uiLocalNotificationDateInterpretation:
+              UILocalNotificationDateInterpretation.absoluteTime,
+          matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
+          payload: payload,
+        );
+      } catch (_) {}
+    }
+  }
+
   /// Lên lịch nhắc hàng tuần cho mọi thuốc, mọi ngày, mọi giờ.
   /// Mỗi lần đổi thuốc là hủy hết rồi lên lịch lại cho chắc chắn.
+  /// Ngoài lần nhắc chính, mỗi lần uống còn có thêm remindTimes lần nhắc
+  /// lại hàng tuần, mỗi lần cách nhau remindIntervalMinutes phút, để
+  /// nhắc lại khi người dùng chưa bấm đã uống.
   Future<void> rescheduleAll() async {
     if (!notificationsReady) return;
     try {
@@ -328,35 +404,40 @@ class ThuocStore extends ChangeNotifier {
             );
             final body = '${med.formEmoji} ${med.name} — ${med.dose}'
                 '${med.note.isNotEmpty ? '\n${med.note}' : ''}';
-            try {
-              await notifications.zonedSchedule(
-                id,
-                'Đến giờ uống thuốc rồi!',
-                body,
-                scheduled,
-                details,
-                androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-                uiLocalNotificationDateInterpretation:
-                    UILocalNotificationDateInterpretation.absoluteTime,
-                matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
-                payload: 'taken2|${med.id}|$time',
-              );
-            } catch (_) {
-              // Máy chưa cấp quyền báo thức chính xác thì dùng lịch không chính xác.
-              try {
-                await notifications.zonedSchedule(
-                  id,
-                  'Đến giờ uống thuốc rồi!',
-                  body,
-                  scheduled,
+            await _scheduleWeekly(
+              id,
+              'Đến giờ uống thuốc rồi!',
+              body,
+              scheduled,
+              details,
+              'taken2|${med.id}|$time',
+            );
+            // Báo lại tự động: nhắc lại hàng tuần vào giờ uống + khoảng cách.
+            // Nếu giờ nhắc lại rơi vào giờ yên lặng thì bỏ qua lần đó.
+            // Lưu ý: nhắc lại cũng là lịch đặt trước, nên khi người dùng
+            // bấm đã uống trong app thì markTaken() sẽ lên lịch lại để hủy
+            // các lần nhắc lại còn lại trong ngày đó; nếu bấm trên widget
+            // mà chưa mở app thì lần nhắc lại vẫn có thể hiện 1 lần.
+            if (settings.remindTimes > 0 && settings.remindIntervalMinutes > 0) {
+              final baseParts = time.split(':');
+              final baseMinutes = int.parse(baseParts[0]) * 60 + int.parse(baseParts[1]);
+              for (var i = 1; i <= settings.remindTimes; i++) {
+                final total = baseMinutes + settings.remindIntervalMinutes * i;
+                final daysOver = total ~/ 1440;
+                final remindMinutes = total % 1440;
+                final remindWeekday = ((weekday - 1 + daysOver) % 7) + 1;
+                final remindHhmm =
+                    '${(remindMinutes ~/ 60).toString().padLeft(2, '0')}:${(remindMinutes % 60).toString().padLeft(2, '0')}';
+                if (settings.inQuietHours(remindHhmm)) continue;
+                await _scheduleWeekly(
+                  stableHash('remind|${med.id}|$weekday|$time|$i') % 2000000000,
+                  'Nhắc lại lần $i: đến giờ uống thuốc!',
+                  '${med.formEmoji} ${med.name} — ${med.dose}\nChưa thấy bạn bấm đã uống, nhắc lại lần $i.',
+                  _nextWeekdayTime(remindWeekday, remindHhmm),
                   details,
-                  androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-                  uiLocalNotificationDateInterpretation:
-                      UILocalNotificationDateInterpretation.absoluteTime,
-                  matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
-                  payload: 'taken2|${med.id}|$time',
+                  'taken2|${med.id}|$time',
                 );
-              } catch (_) {}
+              }
             }
           }
         }
@@ -389,7 +470,8 @@ class ThuocStore extends ChangeNotifier {
       if (parts.length != 3) return;
       final med = medicines.where((m) => m.id == parts[0]).toList();
       if (med.isEmpty) return;
-      final at = tz.TZDateTime.now(tz.local).add(const Duration(minutes: 10));
+      final at = tz.TZDateTime.now(tz.local)
+          .add(Duration(minutes: settings.remindIntervalMinutes > 0 ? settings.remindIntervalMinutes : 10));
       await notifications.zonedSchedule(
         stableHash('snooze|$slotKey') % 2000000000,
         'Nhắc lại: đến giờ uống thuốc!',
@@ -439,6 +521,8 @@ class ThuocStore extends ChangeNotifier {
     logs[slot.key] = DoseLog(status: status, at: now.toIso8601String());
     await _save();
     notifyListeners();
+    // Lên lịch lại để hủy các lần nhắc lại còn lại trong ngày của lần này.
+    await rescheduleAll();
     return status;
   }
 
@@ -450,6 +534,7 @@ class ThuocStore extends ChangeNotifier {
     );
     await _save();
     notifyListeners();
+    await rescheduleAll();
   }
 
   Future<void> addMedicine(Medicine med) async {
