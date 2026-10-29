@@ -114,17 +114,27 @@ class ReReminderReceiver : BroadcastReceiver() {
     }
   }
 
+  private fun writeNotificationActionDiagnostic(context: Context, text: String) {
+    try {
+      val timeStr = SimpleDateFormat("HH:mm:ss", Locale.US).format(Calendar.getInstance().time)
+      context.getSharedPreferences("HomeWidgetPreferences", Context.MODE_PRIVATE)
+          .edit().putString("last_notification_action", "$timeStr - $text").apply()
+    } catch (_: Exception) {}
+  }
+
   override fun onReceive(context: Context, intent: Intent) {
     when (intent.action) {
       ACTION_CHECKIN -> {
         val slotKey = intent.getStringExtra("slotKey") ?: return
         val notificationId = intent.getIntExtra("notificationId", 0)
+        writeNotificationActionDiagnostic(context, "Đã uống $slotKey")
         markTaken(context, slotKey)
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         try { manager.cancel(notificationId) } catch (_: Exception) {}
         return
       }
       ACTION_SCHEDULE_SNOOZE -> {
+        writeNotificationActionDiagnostic(context, "Nhắc lại sau ${intent.getStringExtra("medId") ?: ""}|${intent.getStringExtra("slotTime") ?: ""}")
         val notificationId = intent.getIntExtra("notificationId", 0)
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         try { manager.cancel(notificationId) } catch (_: Exception) {}
@@ -274,14 +284,18 @@ class ReReminderReceiver : BroadcastReceiver() {
       val openIntent = Intent(context, MainActivity::class.java)
       val openFlags = PendingIntent.FLAG_UPDATE_CURRENT or
           if (Build.VERSION.SDK_INT >= 23) PendingIntent.FLAG_IMMUTABLE else 0
-      val openPending = PendingIntent.getActivity(context, id, openIntent, openFlags)
+      // 1.2.11: dùng requestCode riêng cho từng nút, thay vì cùng id với
+      // báo thức gốc. Trước đây cả báo thức, nút Đã uống, nút Nhắc lại
+      // sau và nút mở app đều dùng chung requestCode = id, nên Android
+      // có thể gộp / ghi đè PendingIntent, bấm nút không tới receiver.
+      val openPending = PendingIntent.getActivity(context, id + 300000, openIntent, openFlags)
 
       val checkinIntent = Intent(context, ReReminderReceiver::class.java).apply {
         action = ACTION_CHECKIN
         putExtra("slotKey", slotKey)
         putExtra("notificationId", id)
       }
-      val checkinPending = PendingIntent.getBroadcast(context, id, checkinIntent, openFlags)
+      val checkinPending = PendingIntent.getBroadcast(context, id + 100000, checkinIntent, openFlags)
 
       val snoozeIntent = Intent(context, ReReminderReceiver::class.java).apply {
         action = ACTION_SCHEDULE_SNOOZE
@@ -295,7 +309,7 @@ class ReReminderReceiver : BroadcastReceiver() {
         putExtra("sound", sound)
         putExtra("vibration", vibration)
       }
-      val snoozePending = PendingIntent.getBroadcast(context, id, snoozeIntent, openFlags)
+      val snoozePending = PendingIntent.getBroadcast(context, id + 200000, snoozeIntent, openFlags)
 
       val builder = if (Build.VERSION.SDK_INT >= 26) {
         Notification.Builder(context, CHANNEL_ID)
@@ -310,8 +324,8 @@ class ReReminderReceiver : BroadcastReceiver() {
           .setStyle(Notification.BigTextStyle().bigText(body))
           .setContentIntent(openPending)
           .setAutoCancel(true)
-          .addAction(0, "Đã uống", checkinPending)
-          .addAction(0, "Nhắc lại sau", snoozePending)
+          .addAction(R.drawable.ic_stat_pip, "Đã uống", checkinPending)
+          .addAction(R.drawable.ic_stat_pip, "Nhắc lại sau", snoozePending)
       manager.notify(id, builder.build())
     } catch (_: Exception) {
     }
