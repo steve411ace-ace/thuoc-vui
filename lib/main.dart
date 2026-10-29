@@ -134,6 +134,42 @@ class _HomeScreenState extends State<HomeScreen> {
     final overdue = slots.any((s) =>
         store.statusOf(s) == null && s.dateTime.isBefore(DateTime.now()));
     final allDone = slots.isNotEmpty && taken == slots.length;
+    // Cải tiến Pip (theo yêu cầu sau bản 1.2, gộp luôn vào bản sửa build này):
+    // trước đây Pip chỉ có 3 trạng thái thô (đủ = ăn mừng, quá giờ = lo,
+    // còn lại = vui + câu chào theo giờ). Nay Pip phân biệt rõ hơn:
+    // đủ + đúng giờ hết, đủ nhưng có trễ, bỏ qua, quá giờ, và luôn cho biết
+    // lần uống tiếp theo + chuỗi đúng giờ, để mặt và thông tin khớp với thực tế.
+    final lateCount = slots.where((s) => store.statusOf(s) == 'late').length;
+    final skippedCount = slots.where((s) => store.statusOf(s) == 'skipped').length;
+    final allOnTime = slots.isNotEmpty && onTime == slots.length;
+    final streak = store.onTimeStreak();
+    DoseSlot? nextSlot;
+    for (final s in slots) {
+      if (store.statusOf(s) == null) { nextSlot = s; break; }
+    }
+    final PipMood pipMood;
+    final String pipMessage;
+    if (allOnTime) {
+      pipMood = PipMood.celebrate;
+      pipMessage = streak >= 2
+          ? 'Hôm nay bạn uống đủ và đúng giờ hết rồi, tuyệt vời! Chuỗi đúng giờ: $streak ngày 🔥'
+          : 'Hôm nay bạn uống đủ và đúng giờ hết rồi, tuyệt vời!';
+    } else if (allDone) {
+      pipMood = PipMood.happy;
+      pipMessage = 'Hôm nay uống đủ hết rồi, có $lateCount lần trễ, lần sau cố đúng giờ nhé!';
+    } else if (overdue) {
+      pipMood = PipMood.worried;
+      pipMessage = 'Ơ, có lần uống quá giờ chưa thấy bạn bấm, uống bù nhé?';
+    } else if (skippedCount > 0) {
+      pipMood = PipMood.worried;
+      pipMessage = 'Hôm nay bạn bỏ qua $skippedCount lần, mai cố nhé?';
+    } else if (nextSlot != null) {
+      pipMood = PipMood.happy;
+      pipMessage = '$_greeting\nTiếp theo: ${nextSlot.medicine.formEmoji} ${nextSlot.medicine.name} lúc ${nextSlot.time}';
+    } else {
+      pipMood = PipMood.happy;
+      pipMessage = _greeting;
+    }
 
     return Stack(
       children: [
@@ -144,11 +180,7 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 PipWidget(
                   size: 96,
-                  mood: allDone
-                      ? PipMood.celebrate
-                      : overdue
-                          ? PipMood.worried
-                          : PipMood.happy,
+                  mood: pipMood,
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -162,11 +194,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ],
                     ),
                     child: Text(
-                      allDone
-                          ? 'Hôm nay bạn uống đủ hết rồi, tuyệt vời!'
-                          : overdue
-                              ? 'Ơ, có lần uống quá giờ chưa thấy bạn bấm, uống bù nhé?'
-                              : _greeting,
+                      pipMessage,
                       style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                     ),
                   ),
