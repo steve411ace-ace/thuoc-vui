@@ -607,7 +607,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: const Text('Xóa toàn bộ dữ liệu'),
         ),
         const SizedBox(height: 16),
-        const Center(child: Text('Thuốc Vui • Phiên bản 1.2.0', style: TextStyle(color: Colors.black54))),
+        const Center(child: Text('Thuốc Vui • Phiên bản 1.2.1', style: TextStyle(color: Colors.black54))),
       ],
     );
   }
