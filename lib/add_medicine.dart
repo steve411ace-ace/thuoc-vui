@@ -28,6 +28,9 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
   final _name = TextEditingController();
   final _dose = TextEditingController();
   final _note = TextEditingController();
+  final _totalPills = TextEditingController();
+  final _startPill = TextEditingController();
+  final _pillsPerDose = TextEditingController();
   String _form = 'vien';
   int _color = _palette[0];
   List<String> _times = ['08:00'];
@@ -51,6 +54,9 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
       _start = DateTime.parse(e.startDate);
       _end = e.endDate != null && e.endDate!.isNotEmpty ? DateTime.parse(e.endDate!) : null;
       _meal = e.mealNote;
+      if (e.totalPills > 0) _totalPills.text = e.totalPills.toString();
+      if (e.startPill > 1) _startPill.text = e.startPill.toString();
+      if (e.pillsPerDose > 1) _pillsPerDose.text = e.pillsPerDose.toString();
     }
   }
 
@@ -59,6 +65,9 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
     _name.dispose();
     _dose.dispose();
     _note.dispose();
+    _totalPills.dispose();
+    _startPill.dispose();
+    _pillsPerDose.dispose();
     super.dispose();
   }
 
@@ -127,6 +136,10 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
       endDate: _end == null ? null : _dateKey(_end!),
       mealNote: _meal,
       note: _note.text.trim(),
+      totalPills: int.tryParse(_totalPills.text.trim()) ?? 0,
+      startPill: int.tryParse(_startPill.text.trim()) ?? 1,
+      pillsPerDose: int.tryParse(_pillsPerDose.text.trim()) ?? 1,
+      stockFrom: widget.existing?.stockFrom ?? '',
     );
     widget.onSave(med);
   }
@@ -180,6 +193,33 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
             controller: _dose,
             decoration: const InputDecoration(
               hintText: 'Ví dụ: 1 viên, 5 ml, 2 viên...',
+              border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(16))),
+            ),
+          ),
+          _sectionTitle('Đếm viên thuốc (tùy chọn, để trống nếu không cần)'),
+          TextField(
+            controller: _totalPills,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              hintText: 'Số viên trong 1 hộp/vỉ, ví dụ: 30',
+              border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(16))),
+            ),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _startPill,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              hintText: 'Ngày bắt đầu là viên thứ mấy, ví dụ: 1 (đang uống dở thì nhập 10)',
+              border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(16))),
+            ),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _pillsPerDose,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              hintText: 'Số viên mỗi lần uống, ví dụ: 1',
               border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(16))),
             ),
           ),
