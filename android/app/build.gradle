@@ -7,7 +7,10 @@ plugins {
 
 android {
     namespace = "com.thuocvui.thuoc_vui"
-    compileSdk = flutter.compileSdkVersion
+    // 35, not flutter.compileSdkVersion (34): home_widget and flutter_timezone
+    // plugins require Android SDK 35, otherwise CI fails with
+    // "project is configured to compile against Android SDK 34".
+    compileSdk = 35
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
