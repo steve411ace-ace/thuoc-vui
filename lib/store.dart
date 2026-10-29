@@ -132,6 +132,18 @@ class ThuocStore extends ChangeNotifier {
     }
   }
 
+  /// Nạp lại dữ liệu từ máy khi app mở lại (resumed). Cần thiết vì
+  /// check-in từ widget (Kotlin) ghi trực tiếp vào SharedPreferences,
+  /// còn Dart đang giữ bản cũ trong bộ nhớ: nếu không nạp lại mà Dart
+  /// ghi đè thì sẽ xóa mất check-in từ widget.
+  Future<void> reload() async {
+    await _load();
+    notifyListeners();
+    try {
+      await updateHomeWidget();
+    } catch (_) {}
+  }
+
   Future<void> _save() async {
     final prefs = await SharedPreferences.getInstance();
     final data = {
