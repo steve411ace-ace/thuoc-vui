@@ -470,9 +470,7 @@ class _HomeScreenState extends State<HomeScreen> {
       );
       if (picked == null) return;
       final value = '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
-      final next = AppSettings(
-        sound: settings.sound,
-        vibration: settings.vibration,
+      final next = settings.copyWith(
         quietStart: isStart ? value : settings.quietStart,
         quietEnd: isStart ? settings.quietEnd : value,
       );
@@ -488,26 +486,14 @@ class _HomeScreenState extends State<HomeScreen> {
           title: const Text('Âm thanh nhắc'),
           value: settings.sound,
           onChanged: (v) async {
-            final next = AppSettings(
-              sound: v,
-              vibration: settings.vibration,
-                    quietStart: settings.quietStart,
-              quietEnd: settings.quietEnd,
-            );
-            await store.updateSettings(next);
+            await store.updateSettings(settings.copyWith(sound: v));
           },
         ),
         SwitchListTile(
           title: const Text('Rung khi nhắc'),
           value: settings.vibration,
           onChanged: (v) async {
-            final next = AppSettings(
-              sound: settings.sound,
-              vibration: v,
-                    quietStart: settings.quietStart,
-              quietEnd: settings.quietEnd,
-            );
-            await store.updateSettings(next);
+            await store.updateSettings(settings.copyWith(vibration: v));
           },
         ),
         ListTile(
@@ -587,6 +573,65 @@ class _HomeScreenState extends State<HomeScreen> {
             );
           },
           child: const Text('Cho phép báo thức chính xác'),
+        ),
+        ListTile(
+          title: const Text('Báo lại sau mỗi'),
+          trailing: Text('${settings.remindIntervalMinutes} phút',
+              style: const TextStyle(fontWeight: FontWeight.bold)),
+          onTap: () async {
+            final picked = await showDialog<int>(
+              context: context,
+              builder: (ctx) => SimpleDialog(
+                title: const Text('Báo lại sau mỗi'),
+                children: [
+                  for (final m in [5, 10, 15, 30, 60])
+                    SimpleDialogOption(
+                      onPressed: () => Navigator.pop(ctx, m),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Text('$m phút', style: const TextStyle(fontSize: 16)),
+                      ),
+                    ),
+                ],
+              ),
+            );
+            if (picked != null) {
+              await store.updateSettings(settings.copyWith(remindIntervalMinutes: picked));
+            }
+          },
+        ),
+        ListTile(
+          title: const Text('Số lần báo lại nếu chưa uống'),
+          trailing: Text(settings.remindTimes == 0 ? 'Tắt' : '${settings.remindTimes} lần',
+              style: const TextStyle(fontWeight: FontWeight.bold)),
+          onTap: () async {
+            final picked = await showDialog<int>(
+              context: context,
+              builder: (ctx) => SimpleDialog(
+                title: const Text('Số lần báo lại nếu chưa uống'),
+                children: [
+                  for (final n in [0, 1, 2, 3, 5])
+                    SimpleDialogOption(
+                      onPressed: () => Navigator.pop(ctx, n),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Text(n == 0 ? 'Tắt' : '$n lần', style: const TextStyle(fontSize: 16)),
+                      ),
+                    ),
+                ],
+              ),
+            );
+            if (picked != null) {
+              await store.updateSettings(settings.copyWith(remindTimes: picked));
+            }
+          },
+        ),
+        const Padding(
+          padding: EdgeInsets.symmetric(vertical: 8),
+          child: Text(
+            'Báo lại là nhắc tự động sau lần nhắc chính, chỉ khi chưa bấm đã uống. Bấm đã uống trong app sẽ hủy các lần báo lại còn lại trong ngày đó.',
+            style: TextStyle(color: Colors.black54),
+          ),
         ),
         const Divider(height: 32),
         const Text('Sao lưu dữ liệu', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
@@ -668,7 +713,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: const Text('Xóa toàn bộ dữ liệu'),
         ),
         const SizedBox(height: 16),
-        const Center(child: Text('Thuốc Vui • Phiên bản 1.2.3', style: TextStyle(color: Colors.black54))),
+        const Center(child: Text('Thuốc Vui • Phiên bản 1.2.4', style: TextStyle(color: Colors.black54))),
       ],
     );
   }
