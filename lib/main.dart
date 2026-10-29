@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:home_widget/home_widget.dart';
 import 'add_medicine.dart';
 import 'history.dart';
@@ -314,10 +315,15 @@ class _HomeScreenState extends State<HomeScreen> {
                       '${slot.medicine.note.isNotEmpty ? ' • ${slot.medicine.note}' : ''}',
                       style: const TextStyle(color: Colors.black54),
                     ),
+                    // Trạng thái nằm trong cột Expanded, không nằm ngoài Row:
+                    // trước đây Text trạng thái dài (ví dụ "Đã uống trễ lúc
+                    // 20:11 (trễ 671 phút)") chiếm hết chiều ngang, ép cột
+                    // tên thuốc còn rộng ~1 ký tự nên chữ xếp dọc từng ký tự.
+                    const SizedBox(height: 4),
+                    Text(statusText, style: const TextStyle(fontWeight: FontWeight.bold)),
                   ],
                 ),
               ),
-              Text(statusText, style: const TextStyle(fontWeight: FontWeight.bold)),
             ],
           ),
           if (status == null) ...[
@@ -494,6 +500,61 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         const Divider(height: 32),
+        const Text('Sao lưu dữ liệu', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+        const Padding(
+          padding: EdgeInsets.symmetric(vertical: 8),
+          child: Text(
+            'Gỡ app sẽ xóa dữ liệu trong máy. Trước khi gỡ để cài bản mới, bấm Sao lưu rồi dán chuỗi sao lưu vào Ghi chú hoặc email để giữ. Sau khi cài lại, bấm Khôi phục rồi dán chuỗi đó vào.',
+            style: TextStyle(color: Colors.black54),
+          ),
+        ),
+        Row(
+          children: [
+            Expanded(
+              child: ElevatedButton(
+                onPressed: () async {
+                  await Clipboard.setData(ClipboardData(text: store.exportBackup()));
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Đã copy chuỗi sao lưu. Dán vào Ghi chú hoặc email để giữ lại nhé!')),
+                  );
+                },
+                child: const Text('Sao lưu (copy)'),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: OutlinedButton(
+                onPressed: () async {
+                  final controller = TextEditingController();
+                  final pasted = await showDialog<String>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('Khôi phục dữ liệu'),
+                      content: TextField(
+                        controller: controller,
+                        maxLines: 5,
+                        decoration: const InputDecoration(hintText: 'Dán chuỗi sao lưu vào đây'),
+                      ),
+                      actions: [
+                        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+                        TextButton(onPressed: () => Navigator.pop(ctx, controller.text), child: const Text('Khôi phục')),
+                      ],
+                    ),
+                  );
+                  if (pasted == null || pasted.trim().isEmpty) return;
+                  final ok = await store.importBackup(pasted.trim());
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(ok ? 'Khôi phục xong!' : 'Chuỗi sao lưu không đúng định dạng, chưa đổi gì cả.')),
+                  );
+                },
+                child: const Text('Khôi phục (dán)'),
+              ),
+            ),
+          ],
+        ),
+        const Divider(height: 32),
         const Text(
           'Lưu ý: app chỉ nhắc giờ uống và ghi lại việc đã uống, không thay thế chỉ định của bác sĩ. Sau khi khởi động lại điện thoại, mở app một lần để lịch nhắc hoạt động lại.',
           style: TextStyle(color: Colors.black54),
@@ -518,7 +579,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: const Text('Xóa toàn bộ dữ liệu'),
         ),
         const SizedBox(height: 16),
-        const Center(child: Text('Thuốc Vui • Phiên bản 1.1.0', style: TextStyle(color: Colors.black54))),
+        const Center(child: Text('Thuốc Vui • Phiên bản 1.2.0', style: TextStyle(color: Colors.black54))),
       ],
     );
   }
