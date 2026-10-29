@@ -304,7 +304,7 @@ class ReReminderReceiver : BroadcastReceiver() {
         Notification.Builder(context)
       }
       builder
-          .setSmallIcon(R.mipmap.ic_launcher)
+          .setSmallIcon(R.drawable.ic_stat_pip)
           .setContentTitle(title)
           .setContentText(body)
           .setStyle(Notification.BigTextStyle().bigText(body))
