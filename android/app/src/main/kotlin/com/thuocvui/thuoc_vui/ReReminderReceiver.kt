@@ -48,6 +48,8 @@ class ReReminderReceiver : BroadcastReceiver() {
         slotTime: String,
         intervalMinutes: Int,
         oneTime: Boolean,
+        sound: Boolean = true,
+        vibration: Boolean = true,
     ) {
       val intent = Intent(context, ReReminderReceiver::class.java).apply {
         this.action = action
@@ -59,6 +61,8 @@ class ReReminderReceiver : BroadcastReceiver() {
         putExtra("intervalMinutes", intervalMinutes)
         putExtra("oneTime", oneTime)
         putExtra("triggerMillis", triggerMillis)
+        putExtra("sound", sound)
+        putExtra("vibration", vibration)
       }
       val flags = PendingIntent.FLAG_UPDATE_CURRENT or
           if (Build.VERSION.SDK_INT >= 23) PendingIntent.FLAG_IMMUTABLE else 0
@@ -140,6 +144,8 @@ class ReReminderReceiver : BroadcastReceiver() {
             intent.getStringExtra("slotTime") ?: "",
             safeInterval,
             true,
+            intent.getBooleanExtra("sound", true),
+            intent.getBooleanExtra("vibration", true),
         )
         return
       }
@@ -164,6 +170,8 @@ class ReReminderReceiver : BroadcastReceiver() {
               slotTime,
               intent.getIntExtra("intervalMinutes", 10),
               false,
+              intent.getBooleanExtra("sound", true),
+              intent.getBooleanExtra("vibration", true),
           )
         }
         if (medId.isEmpty() || slotTime.isEmpty()) return
@@ -253,10 +261,24 @@ class ReReminderReceiver : BroadcastReceiver() {
   private fun showNotification(context: Context, intent: Intent, id: Int) {
     try {
       val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+      val sound = intent.getBooleanExtra("sound", true)
+      val vibration = intent.getBooleanExtra("vibration", true)
       if (Build.VERSION.SDK_INT >= 26) {
+        // Xóa kênh cũ rồi tạo lại, vì kênh đã tạo thì đổi âm thanh/rung
+        // sẽ không có tác dụng (hệ thống giữ kênh cũ).
+        try { manager.deleteNotificationChannel(CHANNEL_ID) } catch (_: Exception) {}
         val channel = NotificationChannel(
             CHANNEL_ID, "Nhắc uống thuốc", NotificationManager.IMPORTANCE_HIGH)
         channel.description = "Nhắc uống thuốc đúng giờ mỗi ngày"
+        channel.enableVibration(vibration)
+        if (vibration) {
+          channel.vibrationPattern = longArrayOf(0L, 500L, 250L, 500L)
+        } else {
+          channel.vibrationPattern = longArrayOf(0L)
+        }
+        if (!sound) {
+          channel.setSound(null, null)
+        }
         try { manager.createNotificationChannel(channel) } catch (_: Exception) {}
       }
       val medId = intent.getStringExtra("medId") ?: ""
@@ -287,6 +309,8 @@ class ReReminderReceiver : BroadcastReceiver() {
         putExtra("medId", medId)
         putExtra("slotTime", slotTime)
         putExtra("intervalMinutes", interval)
+        putExtra("sound", sound)
+        putExtra("vibration", vibration)
       }
       val snoozePending = PendingIntent.getBroadcast(context, id, snoozeIntent, openFlags)
 
