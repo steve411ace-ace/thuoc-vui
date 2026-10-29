@@ -172,6 +172,78 @@ class ThuocStore extends ChangeNotifier {
     }
   }
 
+  /// Kiểm tra quyền thông báo hiện tại (dùng trong tab Cài đặt).
+  Future<bool> notificationsEnabled() async {
+    try {
+      final android = notifications.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+      return await android?.areNotificationsEnabled() ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Xin lại quyền thông báo (bấm từ Cài đặt). Nếu người dùng đã từ chối
+  /// vĩnh viễn thì Android không hiện hộp thoại nữa, hàm trả về false và
+  /// app sẽ hướng dẫn bật tay trong Cài đặt hệ thống.
+  Future<bool> requestNotificationPermission() async {
+    try {
+      final android = notifications.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+      final granted = await android?.requestNotificationsPermission() ?? false;
+      if (granted) {
+        notificationsReady = true;
+        await rescheduleAll();
+      }
+      return granted;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Kiểm tra + xin quyền báo thức chính xác (Android 12+ cần quyền này thì
+  /// nhắc đúng giờ mới chính xác; chưa có thì app vẫn nhắc nhưng có thể lệch).
+  Future<bool> canScheduleExact() async {
+    try {
+      final android = notifications.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+      return await android?.canScheduleExactNotifications() ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> requestExactAlarmPermission() async {
+    try {
+      final android = notifications.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+      return await android?.requestExactAlarmsPermission() ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Gửi 1 thông báo thử ngay lập tức. Mục đích: tạo kênh thông báo để app
+  /// xuất hiện trong Cài đặt > Thông báo của máy, và chứng minh nhắc hoạt động.
+  Future<void> sendTestNotification() async {
+    try {
+      await notifications.show(
+        999999,
+        'Thông báo thử từ Thuốc Vui',
+        'Nếu bạn thấy thông báo này thì nhắc uống thuốc sẽ hoạt động bình thường.',
+        NotificationDetails(
+          android: AndroidNotificationDetails(
+            _channelId,
+            'Nhắc uống thuốc',
+            channelDescription: 'Nhắc uống thuốc đúng giờ mỗi ngày',
+            importance: Importance.max,
+            priority: Priority.high,
+          ),
+        ),
+      );
+    } catch (_) {}
+  }
+
   /// Giờ hẹn của một slot, suy từ key dạng medId|yyyy-MM-dd|HH:mm.
   DoseSlot? _slotFromKey(String key) {
     final parts = key.split('|');
