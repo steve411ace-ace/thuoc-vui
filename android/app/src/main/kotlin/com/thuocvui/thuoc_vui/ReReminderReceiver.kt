@@ -188,15 +188,7 @@ class ReReminderReceiver : BroadcastReceiver() {
   private fun isCompletedToday(context: Context, medId: String, slotTime: String): Boolean {
     try {
       val flutterPrefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
-      var raw: String? = flutterPrefs.getString("thuoc_vui_v1", null)
-      if (raw == null) {
-        for ((key, value) in flutterPrefs.all) {
-          if (key.endsWith("thuoc_vui_v1") && value is String) {
-            raw = value
-            break
-          }
-        }
-      }
+      val raw = ThuocVuiPrefs.read(flutterPrefs)?.second
       if (raw.isNullOrEmpty()) return false
       val data = JSONObject(raw)
       val logs = data.optJSONObject("logs") ?: return false
@@ -210,18 +202,9 @@ class ReReminderReceiver : BroadcastReceiver() {
   private fun markTaken(context: Context, slotKey: String) {
     try {
       val flutterPrefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
-      var raw: String? = flutterPrefs.getString("thuoc_vui_v1", null)
-      var rawKey: String? = "thuoc_vui_v1"
-      if (raw == null) {
-        for ((key, value) in flutterPrefs.all) {
-          if (key.endsWith("thuoc_vui_v1") && value is String) {
-            raw = value
-            rawKey = key
-            break
-          }
-        }
-      }
-      if (raw.isNullOrEmpty() || rawKey == null) return
+      val readResult = ThuocVuiPrefs.read(flutterPrefs) ?: return
+      val rawKey = readResult.first
+      val raw = readResult.second
       val data = JSONObject(raw)
       val logs = data.optJSONObject("logs") ?: JSONObject()
       val existing = logs.optJSONObject(slotKey)?.optString("status")
@@ -253,7 +236,7 @@ class ReReminderReceiver : BroadcastReceiver() {
       }
       logs.put(slotKey, logObj)
       data.put("logs", logs)
-      flutterPrefs.edit().putString(rawKey, data.toString()).apply()
+      ThuocVuiPrefs.write(flutterPrefs, rawKey, data.toString())
     } catch (_: Exception) {
     }
   }
