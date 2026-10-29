@@ -5,8 +5,30 @@ plugins {
     id "dev.flutter.flutter-gradle-plugin"
 }
 
+// Khóa ký CỐ ĐỊNH cho mọi bản build (sửa lỗi phải gỡ app mỗi lần cập nhật):
+// trước đây mỗi máy build cloud tự tạo 1 debug.keystore ngẫu nhiên nên chữ ký
+// khác nhau, Android không cho cài đè. Nay khóa được lưu dưới dạng base64
+// (file debug.keystore.base64, dạng text nên đẩy qua GitHub được, còn file
+// keystore nhị phân thì không) và giải mã lại thành debug.keystore ngay lúc
+// build, nên mọi bản sau này đều cùng 1 chữ ký, cài đè được luôn.
+// Đây là khóa DEBUG (mật khẩu chuẩn android/android), không phải khóa phát
+// hành Play Store, và repo này đang công khai nên đừng dùng nó cho bản phát hành thật.
+def fixedDebugKeystore = file("debug.keystore")
+def fixedDebugKeystoreBase64 = file("debug.keystore.base64")
+if (!fixedDebugKeystore.exists() && fixedDebugKeystoreBase64.exists()) {
+    fixedDebugKeystore.bytes = java.util.Base64.getDecoder().decode(fixedDebugKeystoreBase64.text.trim())
+}
+
 android {
     namespace = "com.thuocvui.thuoc_vui"
+    signingConfigs {
+        debug {
+            storeFile = fixedDebugKeystore
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
     // Back to Flutter default (34): home_widget is now pinned to 0.7.0,
     // which uses compileSdk 34, so the SDK-35 requirement is gone.
     compileSdk = flutter.compileSdkVersion
