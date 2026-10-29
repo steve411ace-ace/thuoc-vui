@@ -1,7 +1,7 @@
 name: thuoc_vui
 description: "Thuốc Vui - Nhắc nhở lịch uống thuốc hàng ngày, phong cách hoạt hình vui nhộn."
 publish_to: "none"
-version: 1.2.7+10
+version: 1.2.8+11
 
 environment:
   sdk: ">=3.4.0 <4.0.0"
