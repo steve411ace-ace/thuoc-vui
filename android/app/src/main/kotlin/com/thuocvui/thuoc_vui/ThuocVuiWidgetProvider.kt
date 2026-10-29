@@ -41,9 +41,16 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
         if (allDone) {
           setViewVisibility(R.id.widget_checkin, View.GONE)
           setViewVisibility(R.id.widget_done, View.VISIBLE)
+          // Trước đây cả widget_next ("🎉 Đã xong hôm nay!" từ dữ liệu
+          // next_text) và widget_done đều hiện cùng lúc nên bị trùng 2 dòng.
+          // Khi đã xong thì chỉ hiện widget_done, ẩn 2 dòng next đi.
+          setViewVisibility(R.id.widget_next, View.GONE)
+          setViewVisibility(R.id.widget_next_time, View.GONE)
         } else {
           setViewVisibility(R.id.widget_checkin, View.VISIBLE)
           setViewVisibility(R.id.widget_done, View.GONE)
+          setViewVisibility(R.id.widget_next, View.VISIBLE)
+          setViewVisibility(R.id.widget_next_time, View.VISIBLE)
           // Bấm trực tiếp trên widget: gửi broadcast về chính provider này,
           // provider tự ghi check-in bằng Kotlin (không qua Dart background
           // engine / JobIntentService của plugin, vốn hay bị Samsung và
