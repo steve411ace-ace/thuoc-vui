@@ -66,6 +66,21 @@ Future<void> widgetInteractivityCallback(Uri? uri) async {
         break;
       }
     }
+    final skipped = slots.where((s) => logs[s.key]?.status == 'skipped').length;
+    final overdue = slots.any((s) => logs[s.key]?.status == null && s.dateTime.isBefore(DateTime.now()));
+    final String pipMessage;
+    if (completed == slots.length && onTime == slots.length) {
+      pipMessage = '🥳 Hôm nay uống đủ và đúng giờ hết rồi, tuyệt vời!';
+    } else if (completed == slots.length) {
+      pipMessage = '😊 Hôm nay uống đủ hết rồi, có ${completed - onTime} lần trễ, lần sau cố đúng giờ nhé!';
+    } else if (overdue) {
+      pipMessage = '😟 Ơ, có lần uống quá giờ chưa thấy bạn bấm, uống bù nhé?';
+    } else if (skipped > 0) {
+      pipMessage = '😟 Hôm nay bạn bỏ qua $skipped lần, mai cố nhé?';
+    } else {
+      pipMessage = '😊 Hôm nay còn ${slots.length - completed} lần nữa là xong, cố lên nhé!';
+    }
+    await HomeWidget.saveWidgetData<String>('pip_message', pipMessage);
     await HomeWidget.saveWidgetData<String>(
         'progress', 'Hôm nay: $completed/${slots.length} lần • đúng giờ $onTime lần');
     await HomeWidget.saveWidgetData<String>(
