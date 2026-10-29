@@ -303,6 +303,73 @@ class ThuocStore extends ChangeNotifier {
     }
   }
 
+  /// Số viên còn lại của 1 thuốc, null nếu không theo dõi (totalPills <= 0).
+  /// Còn lại = tổng hộp − (viên bắt đầu − 1) − (số lần đã uống × viên mỗi lần).
+  /// Chỉ đếm log taken/late từ ngày bắt đầu hộp (stockFrom, mặc định startDate).
+  int? remainingPills(Medicine med) {
+    if (med.totalPills <= 0) return null;
+    final from = med.stockFrom.isNotEmpty ? med.stockFrom : med.startDate;
+    var taken = 0;
+    for (final entry in logs.entries) {
+      if (!entry.key.startsWith('${med.id}|')) continue;
+      if (entry.value.status != 'taken' && entry.value.status != 'late') continue;
+      final parts = entry.key.split('|');
+      if (parts.length != 3) continue;
+      if (parts[1].compareTo(from) < 0) continue;
+      taken++;
+    }
+    final perDose = med.pillsPerDose > 0 ? med.pillsPerDose : 1;
+    final start = med.startPill > 0 ? med.startPill : 1;
+    final remaining = med.totalPills - (start - 1) - taken * perDose;
+    return remaining < 0 ? 0 : remaining;
+  }
+
+  /// Số ngày uống còn đủ (ước tính theo số lần mỗi ngày, giả sử uống đều
+  /// mỗi ngày; nếu thuốc không uống hàng ngày thì đây là ước tính thấp).
+  int? daysSupply(Medicine med) {
+    final remaining = remainingPills(med);
+    if (remaining == null || med.times.isEmpty) return null;
+    final perDose = med.pillsPerDose > 0 ? med.pillsPerDose : 1;
+    final perDay = med.times.length * perDose;
+    if (perDay <= 0) return null;
+    return remaining ~/ perDay;
+  }
+
+  /// Câu nhắc mua thuốc cho 1 thuốc, null nếu không cần nhắc (còn nhiều
+  /// hoặc không theo dõi). Dùng cho Pip và widget.
+  String? buyPrompt(Medicine med) {
+    final remaining = remainingPills(med);
+    if (remaining == null) return null;
+    if (remaining <= 0) return 'Hết thuốc ${med.name} rồi! Mua hộp mới ngay nhé!';
+    final days = daysSupply(med);
+    if (days != null && days <= 3) {
+      return 'Sắp hết thuốc ${med.name}, còn $remaining viên (đủ khoảng $days ngày), nhớ mua trước nhé!';
+    }
+    if (days != null && days > 7) return null; // Còn nhiều, khỏi nhắc mua.
+    return null; // 4–7 ngày: chỉ hiện số viên, không nhắc mua.
+  }
+
+  /// Câu nhắc mua chung cho hôm nay (ưu tiên hết thuốc, rồi sắp hết).
+  String? todayBuyPrompt() {
+    String? low;
+    for (final med in medicines) {
+      final prompt = buyPrompt(med);
+      if (prompt == null) continue;
+      if (prompt.startsWith('Hết thuốc')) return prompt;
+      low ??= prompt;
+    }
+    return low;
+  }
+
+  /// Đã mua hộp mới: tính lại từ hôm nay, viên bắt đầu = 1.
+  Future<void> buyNewBox(Medicine med) async {
+    med.stockFrom = todayKey(DateTime.now());
+    med.startPill = 1;
+    await _save();
+    notifyListeners();
+    await updateHomeWidget();
+  }
+
   Future<bool> requestIgnoreBatteryOptimizations() async {
     try {
       const channel = MethodChannel('thuoc_vui/reminders');
@@ -776,10 +843,18 @@ class ThuocStore extends ChangeNotifier {
             ? '😊 Hôm nay còn ${slots.length - completed} lần nữa là xong! Chuỗi: $streak ngày 🔥'
             : '😊 Hôm nay còn ${slots.length - completed} lần nữa là xong, cố lên nhé!';
       }
-      await HomeWidget.saveWidgetData<String>('pip_message', pipMessage);
+      // Nhắc mua thuốc lên widget luôn (nếu có), để người dùng thấy
+      // ngay cả khi không mở app.
+      final buyPrompt = todayBuyPrompt();
+      await HomeWidget.saveWidgetData<String>(
+          'pip_message', buyPrompt == null ? pipMessage : '$pipMessage 🛒 $buyPrompt');
       await HomeWidget.saveWidgetData<String>('progress', slots.isEmpty ? 'Chưa có thuốc hôm nay' : 'Hôm nay: $completed/${slots.length} lần • đúng giờ $onTime lần');
       await HomeWidget.saveWidgetData<String>('next_text', next == null ? (slots.isEmpty ? 'Thêm thuốc để Pip nhắc bạn nhé!' : '🎉 Đã xong hôm nay!') : '${next.medicine.formEmoji} ${next.medicine.name} — ${next.medicine.dose}');
-      await HomeWidget.saveWidgetData<String>('next_time', next == null ? '' : 'Lúc ${next.time} • ${next.medicine.mealLabel}');
+      await HomeWidget.saveWidgetData<String>('next_time',
+          next == null
+              ? ''
+              : 'Lúc ${next.time} • ${next.medicine.mealLabel}'
+                  '${remainingPills(next.medicine) != null ? ' • Còn ${remainingPills(next.medicine)} viên' : ''}');
       await HomeWidget.saveWidgetData<String>('all_done', next == null && slots.isNotEmpty ? '1' : '0');
       await HomeWidget.updateWidget(name: 'ThuocVuiWidgetProvider', androidName: 'ThuocVuiWidgetProvider');
     } catch (_) {}
