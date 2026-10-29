@@ -115,6 +115,39 @@ class ThuocStore extends ChangeNotifier {
     try { await updateHomeWidget(); } catch (_) {}
   }
 
+  /// Chuỗi sao lưu để copy ra ngoài app (dán vào Ghi chú/email giữ lại).
+  /// Đây chính là dữ liệu đang lưu trong máy, dùng để khôi phục sau khi
+  /// gỡ và cài lại app, vì gỡ app sẽ xóa dữ liệu trong máy.
+  String exportBackup() {
+    final data = {
+      'medicines': medicines.map((m) => m.toJson()).toList(),
+      'logs': logs.map((k, v) => MapEntry(k, v.toJson())),
+      'settings': settings.toJson(),
+    };
+    return jsonEncode(data);
+  }
+
+  /// Khôi phục từ chuỗi sao lưu. Trả về false nếu chuỗi không đúng định dạng.
+  Future<bool> importBackup(String raw) async {
+    try {
+      final data = jsonDecode(raw) as Map<String, dynamic>;
+      final meds = (data['medicines'] as List<dynamic>)
+          .map((e) => Medicine.fromJson(e as Map<String, dynamic>))
+          .toList();
+      final logMap = data['logs'] as Map<String, dynamic>? ?? {};
+      final newLogs = logMap.map((k, v) => MapEntry(k, DoseLog.fromJson(v as Map<String, dynamic>)));
+      medicines = meds;
+      logs = newLogs;
+      settings = AppSettings.fromJson(data['settings'] as Map<String, dynamic>?);
+      await _save();
+      await rescheduleAll();
+      notifyListeners();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<void> _initNotifications() async {
     try {
       tz.initializeTimeZones();
