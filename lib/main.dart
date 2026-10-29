@@ -528,6 +528,67 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         const Divider(height: 32),
+        const Text('Thông báo', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+        const Padding(
+          padding: EdgeInsets.symmetric(vertical: 8),
+          child: Text(
+            'Nếu chưa từng thấy thông báo, bấm "Gửi thông báo thử" trước: thông báo thử sẽ tạo kênh nhắc để app xuất hiện trong Cài đặt > Thông báo của máy. Nếu máy đã từ chối quyền vĩnh viễn thì hộp xin quyền sẽ không hiện nữa, anh bật tay theo đường dẫn: Cài đặt máy > Ứng dụng > Thuốc Vui > Thông báo.',
+            style: TextStyle(color: Colors.black54),
+          ),
+        ),
+        Row(
+          children: [
+            Expanded(
+              child: ElevatedButton(
+                onPressed: () async {
+                  await store.sendTestNotification();
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Đã gửi thông báo thử. Kiểm tra thanh thông báo nhé!')),
+                  );
+                },
+                child: const Text('Gửi thông báo thử'),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: OutlinedButton(
+                onPressed: () async {
+                  final granted = await store.requestNotificationPermission();
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(granted
+                          ? 'Đã có quyền thông báo, lịch nhắc đã lên lại!'
+                          : 'Chưa có quyền thông báo. Anh bật tay: Cài đặt máy > Ứng dụng > Thuốc Vui > Thông báo.'),
+                    ),
+                  );
+                },
+                child: const Text('Xin quyền thông báo'),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        OutlinedButton(
+          onPressed: () async {
+            final canExact = await store.canScheduleExact();
+            if (canExact) {
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Máy đã cho phép báo thức chính xác rồi, nhắc sẽ đúng giờ.')),
+              );
+              return;
+            }
+            await store.requestExactAlarmPermission();
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Đã mở màn hình Báo thức & nhắc nhở. Bật "Cho phép đặt báo thức và nhắc nhở" cho Thuốc Vui nhé!')),
+            );
+          },
+          child: const Text('Cho phép báo thức chính xác'),
+        ),
+        const Divider(height: 32),
         const Text('Sao lưu dữ liệu', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
         const Padding(
           padding: EdgeInsets.symmetric(vertical: 8),
@@ -607,7 +668,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: const Text('Xóa toàn bộ dữ liệu'),
         ),
         const SizedBox(height: 16),
-        const Center(child: Text('Thuốc Vui • Phiên bản 1.2.2', style: TextStyle(color: Colors.black54))),
+        const Center(child: Text('Thuốc Vui • Phiên bản 1.2.3', style: TextStyle(color: Colors.black54))),
       ],
     );
   }
