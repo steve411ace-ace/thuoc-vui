@@ -197,7 +197,7 @@ class ThuocStore extends ChangeNotifier {
       } catch (_) {
         tz.setLocalLocation(tz.getLocation('Asia/Ho_Chi_Minh'));
       }
-      const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+      const androidInit = AndroidInitializationSettings('ic_stat_pip');
       const initSettings = InitializationSettings(android: androidInit);
       await notifications.initialize(
         initSettings,
@@ -277,6 +277,7 @@ class ThuocStore extends ChangeNotifier {
           android: AndroidNotificationDetails(
             _channelId,
             'Nhắc uống thuốc',
+          icon: 'ic_stat_pip',
             channelDescription: 'Nhắc uống thuốc đúng giờ mỗi ngày',
             importance: Importance.max,
             priority: Priority.high,
@@ -300,6 +301,7 @@ class ThuocStore extends ChangeNotifier {
         android: AndroidNotificationDetails(
           _channelId,
           'Nhắc uống thuốc',
+          icon: 'ic_stat_pip',
           channelDescription: 'Nhắc uống thuốc đúng giờ mỗi ngày',
           importance: Importance.max,
           priority: Priority.high,
@@ -351,8 +353,47 @@ class ThuocStore extends ChangeNotifier {
       lines.add('');
       lines.add('Nếu lịch có mà đến giờ vẫn không hiện, khả năng cao là máy chặn báo thức chính xác hoặc tối ưu pin. Bấm "Cho phép báo thức chính xác" và tắt tối ưu pin cho Thuốc Vui trong Cài đặt máy.');
       return lines.join('\n');
+    } catch (e) {
+      // Đừng giấu lỗi thành "không đọc được": lỗi thật mới cho biết
+      // vì sao lịch không lên / không đọc được (ví dụ plugin chưa sẵn).
+      return 'Không đọc được lịch đang chờ.\nLỗi: $e\n\nNếu vừa bấm "Nhắc thử theo lịch sau 1 phút" mà sau 1 phút không thấy, thì lịch theo giờ đang bị máy chặn (báo thức chính xác / tối ưu pin), chứ không phải do thuốc hay giờ uống.';
+    }
+  }
+
+  /// Trạng thái quyền báo thức chính xác + miễn tối ưu pin, để chẩn đoán
+  /// "gửi ngay thì hiện, đến giờ thì không": lịch theo giờ cần cả hai.
+  Future<String> alarmPermissionStatus() async {
+    final exact = await canScheduleExact();
+    bool ignoringBattery = false;
+    try {
+      const channel = MethodChannel('thuoc_vui/reminders');
+      ignoringBattery = await channel.invokeMethod<bool>('isIgnoringBatteryOptimizations') ?? false;
+    } catch (_) {}
+    return 'Báo thức chính xác: ${exact ? 'ĐÃ BẬT' : 'CHƯA BẬT'}\n'
+        'Miễn tối ưu pin: ${ignoringBattery ? 'ĐÃ BẬT' : 'CHƯA BẬT'}\n\n'
+        'Cả hai đều cần BẬT thì lịch theo giờ mới chạy đúng giờ trên Samsung. '
+        'Nếu báo thức chính xác CHƯA BẬT, bấm "Cho phép báo thức chính xác" rồi bật trong Cài đặt máy. '
+        'Nếu miễn tối ưu pin CHƯA BẬT, bấm "Tắt tối ưu pin cho Thuốc Vui".';
+  }
+
+  /// Nhắc thử bằng báo thức native sau 1 phút (không qua plugin):
+  /// nếu native này hiện mà nhắc thử plugin không hiện, thì plugin mới
+  /// là thủ phạm; nếu native này cũng không hiện, thì máy đang chặn
+  /// báo thức (pin / báo thức chính xác) và không code nào cứu được
+  /// cho tới khi bật 2 quyền đó.
+  Future<void> sendNativeScheduledTestNotification() async {
+    try {
+      const channel = MethodChannel('thuoc_vui/reminders');
+      await channel.invokeMethod('scheduleNativeTest');
+    } catch (_) {}
+  }
+
+  Future<bool> requestIgnoreBatteryOptimizations() async {
+    try {
+      const channel = MethodChannel('thuoc_vui/reminders');
+      return await channel.invokeMethod<bool>('requestIgnoreBatteryOptimizations') ?? false;
     } catch (_) {
-      return 'Không đọc được lịch đang chờ.';
+      return false;
     }
   }
 
@@ -430,47 +471,6 @@ class ThuocStore extends ChangeNotifier {
     }
   }
 
-  /// Lên lịch 1 thông báo lặp hàng tuần, thử báo thức chính xác trước,
-  /// nếu máy chưa cấp quyền thì dùng lịch không chính xác.
-  Future<void> _scheduleWeekly(
-    int id,
-    String title,
-    String body,
-    tz.TZDateTime scheduled,
-    NotificationDetails details,
-    String payload,
-  ) async {
-    try {
-      await notifications.zonedSchedule(
-        id,
-        title,
-        body,
-        scheduled,
-        details,
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
-        matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
-        payload: payload,
-      );
-    } catch (_) {
-      try {
-        await notifications.zonedSchedule(
-          id,
-          title,
-          body,
-          scheduled,
-          details,
-          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-          uiLocalNotificationDateInterpretation:
-              UILocalNotificationDateInterpretation.absoluteTime,
-          matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
-          payload: payload,
-        );
-      } catch (_) {}
-    }
-  }
-
   /// Lên lịch nhắc hàng tuần cho mọi thuốc, mọi ngày, mọi giờ.
   /// Mỗi lần đổi thuốc là hủy hết rồi lên lịch lại cho chắc chắn.
   /// Ngoài lần nhắc chính, mỗi lần uống còn có thêm remindTimes lần nhắc
@@ -480,37 +480,32 @@ class ThuocStore extends ChangeNotifier {
     if (!notificationsReady) return;
     try {
       await notifications.cancelAll();
+      // Lần nhắc chính KHÔNG dùng lịch plugin nữa (1.2.8): lịch plugin
+      // zonedSchedule không bao giờ tới giờ trên máy anh, kể cả nhắc thử
+      // sau 1 phút, dù gửi ngay vẫn hiện. Thay vào đó, lần nhắc chính
+      // cũng dùng báo thức native qua ReReminderReceiver, giống báo lại:
+      // lúc báo tới, receiver đọc log hôm nay trước, đã uống/trễ/bỏ qua
+      // rồi thì không hiện, chưa bấm thì hiện với nút Đã uống / Nhắc lại
+      // sau, và tự đặt lại cho tuần sau. Xem scheduleNativeAlarms().
+      final mainAlarms = <Map<String, dynamic>>[];
       for (final med in medicines) {
         for (final weekday in med.weekdays) {
           for (final time in med.times) {
             if (settings.inQuietHours(time)) continue;
-            final id = stableHash('${med.id}|$weekday|$time') % 2000000000;
             final scheduled = _nextWeekdayTime(weekday, time);
-            final details = NotificationDetails(
-              android: AndroidNotificationDetails(
-                _channelId,
-                'Nhắc uống thuốc',
-                channelDescription: 'Nhắc uống thuốc đúng giờ mỗi ngày',
-                importance: Importance.max,
-                priority: Priority.high,
-                playSound: settings.sound,
-                enableVibration: settings.vibration,
-                actions: const [
-                  AndroidNotificationAction('taken', 'Đã uống'),
-                  AndroidNotificationAction('snooze', 'Nhắc lại sau'),
-                ],
-              ),
-            );
             final body = '${med.formEmoji} ${med.name} — ${med.dose}'
                 '${med.note.isNotEmpty ? '\n${med.note}' : ''}';
-            await _scheduleWeekly(
-              id,
-              'Đến giờ uống thuốc rồi!',
-              body,
-              scheduled,
-              details,
-              'taken2|${med.id}|$time',
-            );
+            mainAlarms.add({
+              'id': stableHash('main|${med.id}|$weekday|$time') % 2000000000,
+              'triggerMillis': scheduled.millisecondsSinceEpoch,
+              'title': 'Đến giờ uống thuốc rồi!',
+              'body': body,
+              'medId': med.id,
+              'slotTime': time,
+              'intervalMinutes': settings.remindIntervalMinutes,
+              'sound': settings.sound,
+              'vibration': settings.vibration,
+            });
             // Báo lại KHÔNG dùng lịch plugin ở đây nữa. Lý do: lịch plugin
             // hiện thông báo vô điều kiện khi tới giờ, nên bấm đã uống trên
             // widget (ghi log trực tiếp bằng Kotlin, không qua Dart) sẽ
@@ -519,11 +514,11 @@ class ThuocStore extends ChangeNotifier {
             // đặt báo thức riêng: lúc báo thức tới, receiver đọc log hôm
             // nay trước, đã uống/trễ/bỏ qua rồi thì không hiện thông báo
             // nữa, bất kể lần uống đó được bấm ở app, widget hay thông báo.
-            // Xem scheduleNativeReReminders() ở cuối rescheduleAll.
+            // Xem scheduleNativeAlarms() ở cuối rescheduleAll.
           }
         }
       }
-      await scheduleNativeReReminders();
+      await scheduleNativeAlarms(mainAlarms);
     } catch (_) {}
   }
 
@@ -532,7 +527,7 @@ class ThuocStore extends ChangeNotifier {
   /// remindIntervalMinutes phút. Nếu giờ báo lại rơi vào giờ yên lặng thì
   /// bỏ qua lần đó. Native sẽ tự đặt lại cho tuần sau mỗi khi báo thức tới,
   /// nên báo lại chạy hàng tuần mà không cần mở app.
-  Future<void> scheduleNativeReReminders() async {
+  Future<void> scheduleNativeAlarms(List<Map<String, dynamic>> mainAlarms) async {
     try {
       const channel = MethodChannel('thuoc_vui/reminders');
       final alarms = <Map<String, dynamic>>[];
@@ -568,7 +563,8 @@ class ThuocStore extends ChangeNotifier {
           }
         }
       }
-      await channel.invokeMethod('scheduleReReminders', {'alarms': alarms});
+      final allAlarms = <Map<String, dynamic>>[...mainAlarms, ...alarms];
+      await channel.invokeMethod('scheduleReReminders', {'alarms': allAlarms});
     } catch (_) {
       // Native chưa sẵn sàng thì lần nhắc chính (plugin) vẫn chạy,
       // chỉ thiếu báo lại; lần reschedule sau sẽ thử lại.
@@ -611,6 +607,7 @@ class ThuocStore extends ChangeNotifier {
           android: AndroidNotificationDetails(
             _channelId,
             'Nhắc uống thuốc',
+          icon: 'ic_stat_pip',
             channelDescription: 'Nhắc uống thuốc đúng giờ mỗi ngày',
             importance: Importance.max,
             priority: Priority.high,
