@@ -642,6 +642,28 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         SizedBox(
           width: double.infinity,
           child: OutlinedButton.icon(
+            icon: const Icon(Icons.notifications_active_outlined),
+            label: const Text('Xem lần bấm nút thông báo cuối'),
+            onPressed: () async {
+              final action = await store.lastNotificationActionSummary();
+              if (!mounted) return;
+              await showDialog<void>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('Lần bấm nút thông báo cuối'),
+                  content: Text(action),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Đóng')),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
             icon: const Icon(Icons.touch_app_outlined),
             label: const Text('Xem lần bấm widget cuối'),
             onPressed: () async {
@@ -800,7 +822,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           child: const Text('Xóa toàn bộ dữ liệu'),
         ),
         const SizedBox(height: 16),
-        const Center(child: Text('Thuốc Vui • Phiên bản 1.2.10', style: TextStyle(color: Colors.black54))),
+        const Center(child: Text('Thuốc Vui • Phiên bản 1.2.11', style: TextStyle(color: Colors.black54))),
       ],
     );
   }
