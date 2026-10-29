@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:home_widget/home_widget.dart';
 import 'add_medicine.dart';
 import 'history.dart';
 import 'models.dart';
 import 'pip.dart';
 import 'store.dart';
+import 'widget_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  HomeWidget.registerInteractivityCallback(widgetInteractivityCallback);
   final store = ThuocStore();
   await store.init();
   runApp(ThuocVuiApp(store: store));
@@ -125,7 +128,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final store = widget.store;
     final today = DateTime.now();
     final slots = store.slotsForDay(today);
-    final taken = slots.where((s) => store.statusOf(s) == 'taken').length;
+    final taken = slots.where((s) => store.statusOf(s) == 'taken' || store.statusOf(s) == 'late').length;
+    final onTime = slots.where((s) => store.statusOf(s) == 'taken').length;
     final overdue = slots.any((s) =>
         store.statusOf(s) == null && s.dateTime.isBefore(DateTime.now()));
     final allDone = slots.isNotEmpty && taken == slots.length;
@@ -198,7 +202,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Hôm nay: đã uống $taken/${slots.length} lần',
+                      'Hôm nay: đã uống $taken/${slots.length} lần • đúng giờ $onTime lần',
                       style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 10),
@@ -216,6 +220,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
               ),
+              const SizedBox(height: 20),
+              _badgesSection(store),
               const SizedBox(height: 20),
               const Text('Lịch uống hôm nay', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 10),
@@ -260,8 +266,15 @@ class _HomeScreenState extends State<HomeScreen> {
       cardColor = const Color(0xFFE3F7E8);
       final at = log != null && log.at.isNotEmpty ? DateTime.tryParse(log.at) : null;
       statusText = at == null
-          ? 'Đã uống'
-          : 'Đã uống lúc ${at.hour.toString().padLeft(2, '0')}:${at.minute.toString().padLeft(2, '0')}';
+          ? 'Đã uống đúng giờ'
+          : 'Đã uống đúng giờ lúc ${at.hour.toString().padLeft(2, '0')}:${at.minute.toString().padLeft(2, '0')}';
+    } else if (status == 'late') {
+      cardColor = const Color(0xFFFFF0D6);
+      final at = log != null && log.at.isNotEmpty ? DateTime.tryParse(log.at) : null;
+      final lateMin = at?.difference(slot.dateTime).inMinutes ?? 0;
+      statusText = at == null
+          ? 'Đã uống trễ'
+          : 'Đã uống trễ lúc ${at.hour.toString().padLeft(2, '0')}:${at.minute.toString().padLeft(2, '0')}${lateMin > 0 ? ' (trễ $lateMin phút)' : ''}';
     } else if (status == 'skipped') {
       cardColor = const Color(0xFFF1F1F1);
       statusText = 'Đã bỏ qua${log != null && log.reason.isNotEmpty ? ' (${log.reason})' : ''}';
@@ -314,12 +327,26 @@ class _HomeScreenState extends State<HomeScreen> {
                 Expanded(
                   child: ElevatedButton(
                     onPressed: () async {
-                      await store.markTaken(slot);
+                      final beforeBadges = store.earnedBadgeIds();
+                      final result = await store.markTaken(slot);
                       if (!mounted) return;
-                      setState(() => _showConfetti = true);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Giỏi quá! Bạn uống đúng giờ rồi! 🌟')),
-                      );
+                      if (result == 'late') {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Đã ghi uống trễ, lần sau cố đúng giờ nhé! ⏰')),
+                        );
+                      } else {
+                        setState(() => _showConfetti = true);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Giỏi quá! Bạn uống đúng giờ rồi! 🌟')),
+                        );
+                      }
+                      final newBadges = store.earnedBadgeIds().difference(beforeBadges);
+                      if (newBadges.isNotEmpty && mounted) {
+                        final badge = allBadges.firstWhere((b) => b.id == newBadges.first);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Mở khóa danh hiệu mới: ${badge.emoji} ${badge.title}!')),
+                        );
+                      }
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF2BB3A3),
@@ -353,6 +380,45 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _badgesSection(ThuocStore store) {
+    final earned = store.earnedBadgeIds();
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Danh hiệu đúng giờ', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 4),
+          Text('Chuỗi đúng giờ: ${store.onTimeStreak()} ngày • Tổng lần đúng giờ: ${store.totalOnTime()}',
+              style: const TextStyle(color: Colors.black54)),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: allBadges.map((b) {
+              final got = earned.contains(b.id);
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: got ? const Color(0xFFFFF0D6) : const Color(0xFFF1F1F1),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Text(
+                  got ? '${b.emoji} ${b.title}' : '🔒 ${b.title}',
+                  style: TextStyle(fontWeight: got ? FontWeight.bold : FontWeight.normal),
+                ),
+              );
+            }).toList(),
+          ),
         ],
       ),
     );
@@ -452,7 +518,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: const Text('Xóa toàn bộ dữ liệu'),
         ),
         const SizedBox(height: 16),
-        const Center(child: Text('Thuốc Vui • Phiên bản 1.0.0', style: TextStyle(color: Colors.black54))),
+        const Center(child: Text('Thuốc Vui • Phiên bản 1.1.0', style: TextStyle(color: Colors.black54))),
       ],
     );
   }
