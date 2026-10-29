@@ -15,6 +15,13 @@
         android:textStyle="bold"
         android:textColor="#333333" />
     <TextView
+        android:id="@+id/widget_pip"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:textSize="13sp"
+        android:textColor="#333333" />
+    <TextView
         android:id="@+id/widget_progress"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
