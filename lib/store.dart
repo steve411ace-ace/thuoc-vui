@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:home_widget/home_widget.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest.dart' as tz;
@@ -66,6 +67,7 @@ class ThuocStore extends ChangeNotifier {
     loaded = true;
     notifyListeners();
     await rescheduleAll();
+    await updateHomeWidget();
   }
 
   Future<void> _load() async {
@@ -84,6 +86,16 @@ class ThuocStore extends ChangeNotifier {
           .toList();
       final logMap = data['logs'] as Map<String, dynamic>? ?? {};
       logs = logMap.map((k, v) => MapEntry(k, DoseLog.fromJson(v as Map<String, dynamic>)));
+      // Di chuyển dữ liệu cũ: log 'taken' nhưng check-in realtime trễ quá 30 phút
+      // so với giờ hẹn thì chuyển thành 'late'.
+      for (final entry in logs.entries.toList()) {
+        if (entry.value.status != 'taken') continue;
+        final slot = _slotFromKey(entry.key);
+        final at = DateTime.tryParse(entry.value.at);
+        if (slot != null && at != null && at.isAfter(slot.dateTime.add(const Duration(minutes: 30)))) {
+          logs[entry.key] = DoseLog(status: 'late', at: entry.value.at, reason: entry.value.reason);
+        }
+      }
       settings = AppSettings.fromJson(data['settings'] as Map<String, dynamic>?);
     } catch (_) {
       medicines = [];
@@ -100,6 +112,7 @@ class ThuocStore extends ChangeNotifier {
       'settings': settings.toJson(),
     };
     await prefs.setString(_storageKey, jsonEncode(data));
+    try { await updateHomeWidget(); } catch (_) {}
   }
 
   Future<void> _initNotifications() async {
@@ -126,30 +139,58 @@ class ThuocStore extends ChangeNotifier {
     }
   }
 
+  /// Giờ hẹn của một slot, suy từ key dạng medId|yyyy-MM-dd|HH:mm.
+  DoseSlot? _slotFromKey(String key) {
+    final parts = key.split('|');
+    if (parts.length != 3) return null;
+    final meds = medicines.where((m) => m.id == parts[0]).toList();
+    if (meds.isEmpty) return null;
+    final dateParts = parts[1].split('-');
+    if (dateParts.length != 3) return null;
+    final day = DateTime(int.parse(dateParts[0]), int.parse(dateParts[1]), int.parse(dateParts[2]));
+    return DoseSlot(medicine: meds.first, time: parts[2], day: day);
+  }
+
+  /// Ghi check-in realtime: trễ quá 30 phút so với giờ hẹn thì là 'late'.
+  String _statusForCheckIn(DoseSlot slot, DateTime at) {
+    return at.isAfter(slot.dateTime.add(const Duration(minutes: 30))) ? 'late' : 'taken';
+  }
+
+  Future<void> _markLogTaken(String key) async {
+    final slot = _slotFromKey(key);
+    final now = DateTime.now();
+    final status = slot == null ? 'taken' : _statusForCheckIn(slot, now);
+    logs[key] = DoseLog(status: status, at: now.toIso8601String());
+    await _save();
+    notifyListeners();
+  }
+
   Future<void> _onNotificationResponse(NotificationResponse response) async {
+    final action = response.actionId;
     final payload = response.payload ?? '';
+    // Bấm vào thân noti (không có actionId) chỉ mở app, không ghi gì.
+    if (action == null || action.isEmpty) return;
+    if (action == 'snooze') {
+      String? key;
+      if (payload.startsWith('taken2|')) {
+        final rest = payload.substring('taken2|'.length).split('|');
+        if (rest.length == 2) key = '${rest[0]}|${todayKey(DateTime.now())}|${rest[1]}';
+      } else if (payload.startsWith('taken|')) {
+        key = payload.substring('taken|'.length);
+      }
+      if (key != null) await scheduleSnooze(key);
+      return;
+    }
+    if (action != 'taken') return;
     if (payload.startsWith('taken2|')) {
-      // Nhắc hàng tuần lặp lại nên payload không mang ngày cố định:
-      // bấm "Đã uống" thì ghi cho lần uống của chính ngày hôm nay.
       final rest = payload.substring('taken2|'.length).split('|');
       if (rest.length == 2) {
-        final today = todayKey(DateTime.now());
-        final key = '${rest[0]}|$today|${rest[1]}';
-        logs[key] = DoseLog(status: 'taken', at: DateTime.now().toIso8601String());
-        await _save();
-        notifyListeners();
+        await _markLogTaken('${rest[0]}|${todayKey(DateTime.now())}|${rest[1]}');
       }
       return;
     }
     if (payload.startsWith('taken|')) {
-      final key = payload.substring('taken|'.length);
-      final log = DoseLog(status: 'taken', at: DateTime.now().toIso8601String());
-      logs[key] = log;
-      await _save();
-      notifyListeners();
-    } else if (payload.startsWith('snooze|')) {
-      final key = payload.substring('snooze|'.length);
-      await scheduleSnooze(key);
+      await _markLogTaken(payload.substring('taken|'.length));
     }
   }
 
@@ -286,10 +327,14 @@ class ThuocStore extends ChangeNotifier {
 
   String? statusOf(DoseSlot slot) => logs[slot.key]?.status;
 
-  Future<void> markTaken(DoseSlot slot) async {
-    logs[slot.key] = DoseLog(status: 'taken', at: DateTime.now().toIso8601String());
+  /// Trả về 'taken' (đúng giờ) hoặc 'late' (trễ quá 30 phút, tính theo giờ realtime).
+  Future<String> markTaken(DoseSlot slot) async {
+    final now = DateTime.now();
+    final status = _statusForCheckIn(slot, now);
+    logs[slot.key] = DoseLog(status: status, at: now.toIso8601String());
     await _save();
     notifyListeners();
+    return status;
   }
 
   Future<void> markSkipped(DoseSlot slot, String reason) async {
@@ -351,7 +396,7 @@ class ThuocStore extends ChangeNotifier {
         day = day.subtract(const Duration(days: 1));
         continue;
       }
-      final allTaken = slots.every((s) => logs[s.key]?.status == 'taken');
+      final allTaken = slots.every((s) => logs[s.key]?.status == 'taken' || logs[s.key]?.status == 'late');
       if (!allTaken) break;
       streak++;
       day = day.subtract(const Duration(days: 1));
@@ -369,7 +414,7 @@ class ThuocStore extends ChangeNotifier {
       for (final slot in slotsForDay(day)) {
         if (slot.dateTime.isAfter(now)) continue;
         total++;
-        if (logs[slot.key]?.status == 'taken') taken++;
+        if (logs[slot.key]?.status == 'taken' || logs[slot.key]?.status == 'late') taken++;
       }
     }
     if (total == 0) return 0;
@@ -395,5 +440,70 @@ class ThuocStore extends ChangeNotifier {
       if (e.value > best.value) best = e;
     }
     return '${best.key} (${best.value} lần)';
+  }
+
+  bool _isCompleted(DoseSlot s) =>
+      logs[s.key]?.status == 'taken' || logs[s.key]?.status == 'late';
+  bool _isOnTime(DoseSlot s) => logs[s.key]?.status == 'taken';
+
+  /// Chuỗi ngày liên tiếp uống đủ VÀ đúng giờ (không trễ, không bỏ qua).
+  int onTimeStreak() {
+    var streak = 0;
+    var day = DateTime.now().subtract(const Duration(days: 1));
+    for (var i = 0; i < 365; i++) {
+      final slots = slotsForDay(day);
+      if (slots.isEmpty) {
+        day = day.subtract(const Duration(days: 1));
+        continue;
+      }
+      if (!slots.every(_isOnTime)) break;
+      streak++;
+      day = day.subtract(const Duration(days: 1));
+    }
+    return streak;
+  }
+
+  int totalOnTime() => logs.values.where((l) => l.status == 'taken').length;
+
+  bool _isPerfectDay(DateTime day) {
+    final slots = slotsForDay(day);
+    return slots.isNotEmpty && slots.every(_isOnTime);
+  }
+
+  Set<String> earnedBadgeIds() {
+    final earned = <String>{};
+    final onTime = totalOnTime();
+    final streak = onTimeStreak();
+    if (onTime >= 1) earned.add('first_ontime');
+    var day = DateTime.now();
+    for (var i = 0; i < 365; i++) {
+      if (_isPerfectDay(day)) { earned.add('perfect_day'); break; }
+      day = day.subtract(const Duration(days: 1));
+    }
+    if (streak >= 3) earned.add('streak_3');
+    if (streak >= 7) earned.add('streak_7');
+    if (streak >= 30) earned.add('streak_30');
+    if (onTime >= 50) earned.add('ontime_50');
+    if (onTime >= 100) earned.add('ontime_100');
+    return earned;
+  }
+
+  /// Đẩy dữ liệu hôm nay lên widget màn hình chính.
+  Future<void> updateHomeWidget() async {
+    try {
+      final today = DateTime.now();
+      final slots = slotsForDay(today);
+      final completed = slots.where(_isCompleted).length;
+      final onTime = slots.where(_isOnTime).length;
+      DoseSlot? next;
+      for (final s in slots) {
+        if (!_isCompleted(s)) { next = s; break; }
+      }
+      await HomeWidget.saveWidgetData<String>('progress', slots.isEmpty ? 'Chưa có thuốc hôm nay' : 'Hôm nay: $completed/${slots.length} lần • đúng giờ $onTime lần');
+      await HomeWidget.saveWidgetData<String>('next_text', next == null ? (slots.isEmpty ? 'Thêm thuốc để Pip nhắc bạn nhé!' : '🎉 Đã xong hôm nay!') : '${next.medicine.formEmoji} ${next.medicine.name} — ${next.medicine.dose}');
+      await HomeWidget.saveWidgetData<String>('next_time', next == null ? '' : 'Lúc ${next.time} • ${next.medicine.mealLabel}');
+      await HomeWidget.saveWidgetData<String>('all_done', next == null && slots.isNotEmpty ? '1' : '0');
+      await HomeWidget.updateWidget(name: 'ThuocVuiWidgetProvider', androidName: 'ThuocVuiWidgetProvider');
+    } catch (_) {}
   }
 }
