@@ -47,9 +47,30 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   int _tab = 0;
   bool _showConfetti = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // Mở lại app sau khi bấm widget: nạp lại log để không ghi đè
+      // check-in từ widget bằng bản cũ trong bộ nhớ.
+      widget.store.reload();
+    }
+  }
 
   List<String> get _greetings {
     final hour = DateTime.now().hour;
@@ -778,7 +799,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: const Text('Xóa toàn bộ dữ liệu'),
         ),
         const SizedBox(height: 16),
-        const Center(child: Text('Thuốc Vui • Phiên bản 1.2.6', style: TextStyle(color: Colors.black54))),
+        const Center(child: Text('Thuốc Vui • Phiên bản 1.2.7', style: TextStyle(color: Colors.black54))),
       ],
     );
   }
