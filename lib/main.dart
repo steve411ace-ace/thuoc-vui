@@ -522,57 +522,122 @@ class _HomeScreenState extends State<HomeScreen> {
             style: TextStyle(color: Colors.black54),
           ),
         ),
-        Row(
-          children: [
-            Expanded(
-              child: ElevatedButton(
-                onPressed: () async {
-                  await store.sendTestNotification();
-                  if (!mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Đã gửi thông báo thử. Kiểm tra thanh thông báo nhé!')),
-                  );
-                },
-                child: const Text('Gửi thông báo thử'),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: OutlinedButton(
-                onPressed: () async {
-                  final granted = await store.requestNotificationPermission();
-                  if (!mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(granted
-                          ? 'Đã có quyền thông báo, lịch nhắc đã lên lại!'
-                          : 'Chưa có quyền thông báo. Anh bật tay: Cài đặt máy > Ứng dụng > Thuốc Vui > Thông báo.'),
-                    ),
-                  );
-                },
-                child: const Text('Xin quyền thông báo'),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        OutlinedButton(
-          onPressed: () async {
-            final canExact = await store.canScheduleExact();
-            if (canExact) {
+        // Nút thông báo xếp dọc full-width, không chia đôi nữa: chia đôi
+        // làm chữ dài bị wrap 2 dòng, trông xấu và khó bấm.
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            icon: const Icon(Icons.notifications_active_outlined),
+            label: const Text('Gửi thông báo thử'),
+            onPressed: () async {
+              await store.sendTestNotification();
               if (!mounted) return;
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Máy đã cho phép báo thức chính xác rồi, nhắc sẽ đúng giờ.')),
+                const SnackBar(content: Text('Đã gửi thông báo thử. Kiểm tra thanh thông báo nhé!')),
               );
-              return;
-            }
-            await store.requestExactAlarmPermission();
-            if (!mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Đã mở màn hình Báo thức & nhắc nhở. Bật "Cho phép đặt báo thức và nhắc nhở" cho Thuốc Vui nhé!')),
-            );
-          },
-          child: const Text('Cho phép báo thức chính xác'),
+            },
+          ),
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            icon: const Icon(Icons.notifications_outlined),
+            label: const Text('Xin quyền thông báo'),
+            onPressed: () async {
+              final granted = await store.requestNotificationPermission();
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(granted
+                      ? 'Đã có quyền thông báo, lịch nhắc đã lên lại!'
+                      : 'Chưa có quyền thông báo. Anh bật tay: Cài đặt máy > Ứng dụng > Thuốc Vui > Thông báo.'),
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            icon: const Icon(Icons.alarm_outlined),
+            label: const Text('Cho phép báo thức chính xác'),
+            onPressed: () async {
+              final canExact = await store.canScheduleExact();
+              if (canExact) {
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Máy đã cho phép báo thức chính xác rồi, nhắc sẽ đúng giờ.')),
+                );
+                return;
+              }
+              await store.requestExactAlarmPermission();
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Đã mở màn hình Báo thức & nhắc nhở. Bật "Cho phép đặt báo thức và nhắc nhở" cho Thuốc Vui nhé!')),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            icon: const Icon(Icons.schedule_outlined),
+            label: const Text('Nhắc thử theo lịch sau 1 phút'),
+            onPressed: () async {
+              await store.sendScheduledTestNotification();
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Đã lên lịch thử sau 1 phút. Nếu sau 1 phút không thấy thì lịch nhắc đang bị chặn, không phải kênh thông báo.')),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            icon: const Icon(Icons.touch_app_outlined),
+            label: const Text('Xem lần bấm widget cuối'),
+            onPressed: () async {
+              final tap = await store.lastWidgetTapSummary();
+              if (!mounted) return;
+              await showDialog<void>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('Lần bấm widget cuối'),
+                  content: Text(tap),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Đóng')),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            icon: const Icon(Icons.list_alt_outlined),
+            label: const Text('Xem lịch nhắc đang chờ'),
+            onPressed: () async {
+              final pending = await store.pendingNotificationsSummary();
+              if (!mounted) return;
+              await showDialog<void>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('Lịch nhắc đang chờ'),
+                  content: SingleChildScrollView(child: Text(pending)),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Đóng')),
+                  ],
+                ),
+              );
+            },
+          ),
         ),
         ListTile(
           title: const Text('Báo lại sau mỗi'),
@@ -713,7 +778,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: const Text('Xóa toàn bộ dữ liệu'),
         ),
         const SizedBox(height: 16),
-        const Center(child: Text('Thuốc Vui • Phiên bản 1.2.5', style: TextStyle(color: Colors.black54))),
+        const Center(child: Text('Thuốc Vui • Phiên bản 1.2.6', style: TextStyle(color: Colors.black54))),
       ],
     );
   }
