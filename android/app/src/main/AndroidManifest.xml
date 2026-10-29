@@ -43,6 +43,8 @@
             <meta-data android:name="android.appwidget.provider"
                 android:resource="@xml/thuoc_vui_widget_info" />
         </receiver>
+        <receiver android:name=".ReReminderReceiver"
+            android:exported="true" />
         <receiver android:name="es.antonborri.home_widget.HomeWidgetBackgroundReceiver"
             android:exported="true">
             <intent-filter>
