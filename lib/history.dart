@@ -67,9 +67,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
         const Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            _LegendDot(color: Color(0xFF95E77E), label: 'Đủ'),
+            _LegendDot(color: Color(0xFF95E77E), label: 'Đủ đúng giờ'),
             SizedBox(width: 14),
-            _LegendDot(color: Color(0xFFFFB020), label: 'Thiếu'),
+            _LegendDot(color: Color(0xFFFFB020), label: 'Có trễ'),
+            SizedBox(width: 14),
+            _LegendDot(color: Color(0xFFFF9AA2), label: 'Thiếu'),
             SizedBox(width: 14),
             _LegendDot(color: Color(0xFFE0E0E0), label: 'Không có thuốc'),
           ],
@@ -130,11 +132,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
       } else {
         final completed = slots.where((s) => store.logs[s.key]?.status == 'taken' || store.logs[s.key]?.status == 'late').length;
         final onTime = slots.where((s) => store.logs[s.key]?.status == 'taken').length;
+        // Trễ ≠ Thiếu: uống đủ nhưng có lần trễ = cam (Có trễ);
+        // thiếu 1 lần trở lên (dù có lần trễ) = hồng (Thiếu).
         if (completed == slots.length && onTime == slots.length) {
           bg = const Color(0xFF95E77E);
         } else if (completed == slots.length) {
-          bg = const Color(0xFFFFB020);
-        } else if (completed > 0) {
           bg = const Color(0xFFFFB020);
         } else {
           bg = const Color(0xFFFF9AA2);
