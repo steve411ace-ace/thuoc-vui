@@ -629,7 +629,7 @@ class _HomeScreenState extends State<HomeScreen> {
         const Padding(
           padding: EdgeInsets.symmetric(vertical: 8),
           child: Text(
-            'Báo lại là nhắc tự động sau lần nhắc chính, chỉ khi chưa bấm đã uống. Bấm đã uống trong app sẽ hủy các lần báo lại còn lại trong ngày đó.',
+            'Báo lại là nhắc tự động sau lần nhắc chính, chỉ khi chưa bấm đã uống. Bấm đã uống ở app, widget hay thông báo đều dừng báo lại cho lần đó.',
             style: TextStyle(color: Colors.black54),
           ),
         ),
@@ -713,7 +713,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: const Text('Xóa toàn bộ dữ liệu'),
         ),
         const SizedBox(height: 16),
-        const Center(child: Text('Thuốc Vui • Phiên bản 1.2.4', style: TextStyle(color: Colors.black54))),
+        const Center(child: Text('Thuốc Vui • Phiên bản 1.2.5', style: TextStyle(color: Colors.black54))),
       ],
     );
   }
