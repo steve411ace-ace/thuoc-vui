@@ -33,6 +33,7 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
       val views = RemoteViews(context.packageName, R.layout.thuoc_vui_widget).apply {
         val openIntent = HomeWidgetLaunchIntent.getActivity(context, MainActivity::class.java)
         setOnClickPendingIntent(R.id.widget_container, openIntent)
+        setTextViewText(R.id.widget_pip, widgetData.getString("pip_message", null) ?: "😊 Pip đang nhắc bạn uống thuốc đúng giờ nhé!")
         setTextViewText(R.id.widget_progress, widgetData.getString("progress", null) ?: "Thuốc Vui")
         setTextViewText(R.id.widget_next, widgetData.getString("next_text", null) ?: "Mở app để xem lịch hôm nay")
         setTextViewText(R.id.widget_next_time, widgetData.getString("next_time", null) ?: "")
@@ -193,6 +194,25 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
       if (following == null && st != "taken" && st != "late") following = s
     }
     val widgetPrefs = context.getSharedPreferences("HomeWidgetPreferences", Context.MODE_PRIVATE).edit()
+    // Trạng thái Pip lên widget (giống trong app, trừ chuỗi đúng giờ dài ngày:
+    // tính chuỗi cần lịch sử nhiều ngày nên Kotlin chỉ làm trường hợp cơ bản,
+    // mở app sẽ được Dart updateHomeWidget() làm đầy đủ lại).
+    var skipped = 0
+    var overdue = false
+    for (s in slots) {
+      val st = logs.optJSONObject(s.key)?.optString("status")
+      if (st == "skipped") skipped++
+      if (st != "taken" && st != "late" && st != "skipped" && s.dateTime.before(now)) overdue = true
+    }
+    val pipMessage = when {
+      slots.isEmpty() -> "😊 Thêm thuốc để Pip nhắc bạn nhé!"
+      onTime == slots.size -> "🥳 Hôm nay uống đủ và đúng giờ hết rồi, tuyệt vời!"
+      completed == slots.size -> "😊 Hôm nay uống đủ hết rồi, có ${completed - onTime} lần trễ, lần sau cố đúng giờ nhé!"
+      overdue -> "😟 Ơ, có lần uống quá giờ chưa thấy bạn bấm, uống bù nhé?"
+      skipped > 0 -> "😟 Hôm nay bạn bỏ qua $skipped lần, mai cố nhé?"
+      else -> "😊 Hôm nay còn ${slots.size - completed} lần nữa là xong, cố lên nhé!"
+    }
+    widgetPrefs.putString("pip_message", pipMessage)
     widgetPrefs.putString(
         "progress",
         if (slots.isEmpty()) "Chưa có thuốc hôm nay"
