@@ -539,27 +539,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         const Padding(
           padding: EdgeInsets.symmetric(vertical: 8),
           child: Text(
-            'Nếu chưa từng thấy thông báo, bấm "Gửi thông báo thử" trước: thông báo thử sẽ tạo kênh nhắc để app xuất hiện trong Cài đặt > Thông báo của máy. Nếu máy đã từ chối quyền vĩnh viễn thì hộp xin quyền sẽ không hiện nữa, anh bật tay theo đường dẫn: Cài đặt máy > Ứng dụng > Thuốc Vui > Thông báo.',
+            'Lịch nhắc chính dùng báo thức native, không dùng lịch plugin nữa. Nếu chưa từng thấy thông báo, bấm "Nhắc thử native sau 1 phút" để kiểm tra. Nếu máy đã từ chối quyền vĩnh viễn thì hộp xin quyền sẽ không hiện nữa, anh bật tay theo đường dẫn: Cài đặt máy > Ứng dụng > Thuốc Vui > Thông báo.',
             style: TextStyle(color: Colors.black54),
           ),
         ),
         // Nút thông báo xếp dọc full-width, không chia đôi nữa: chia đôi
         // làm chữ dài bị wrap 2 dòng, trông xấu và khó bấm.
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton.icon(
-            icon: const Icon(Icons.notifications_active_outlined),
-            label: const Text('Gửi thông báo thử'),
-            onPressed: () async {
-              await store.sendTestNotification();
-              if (!mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Đã gửi thông báo thử. Kiểm tra thanh thông báo nhé!')),
-              );
-            },
-          ),
-        ),
-        const SizedBox(height: 8),
         SizedBox(
           width: double.infinity,
           child: OutlinedButton.icon(
@@ -642,28 +627,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         SizedBox(
           width: double.infinity,
           child: OutlinedButton.icon(
-            icon: const Icon(Icons.schedule_outlined),
-            label: const Text('Nhắc thử theo lịch sau 1 phút'),
-            onPressed: () async {
-              await store.sendScheduledTestNotification();
-              if (!mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Đã lên lịch thử sau 1 phút. Nếu sau 1 phút không thấy thì lịch nhắc đang bị chặn, không phải kênh thông báo.')),
-              );
-            },
-          ),
-        ),
-        const SizedBox(height: 8),
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton.icon(
             icon: const Icon(Icons.alarm_add_outlined),
             label: const Text('Nhắc thử native sau 1 phút'),
             onPressed: () async {
               await store.sendNativeScheduledTestNotification();
               if (!mounted) return;
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Đã lên lịch thử native sau 1 phút. Đừng mở lại app trong 1 phút này. Nếu native hiện mà nhắc thử plugin không hiện, thì plugin là thủ phạm; nếu cả hai đều không hiện, thì máy đang chặn báo thức.')),
+                const SnackBar(content: Text('Đã lên lịch thử native sau 1 phút. Đừng mở lại app trong 1 phút này. Nếu sau 1 phút không thấy thì máy đang chặn báo thức (pin / báo thức chính xác).')),
               );
             },
           ),
@@ -691,27 +661,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           ),
         ),
         const SizedBox(height: 8),
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton.icon(
-            icon: const Icon(Icons.list_alt_outlined),
-            label: const Text('Xem lịch nhắc đang chờ'),
-            onPressed: () async {
-              final pending = await store.pendingNotificationsSummary();
-              if (!mounted) return;
-              await showDialog<void>(
-                context: context,
-                builder: (ctx) => AlertDialog(
-                  title: const Text('Lịch nhắc đang chờ'),
-                  content: SingleChildScrollView(child: Text(pending)),
-                  actions: [
-                    TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Đóng')),
-                  ],
-                ),
-              );
-            },
-          ),
-        ),
         ListTile(
           title: const Text('Báo lại sau mỗi'),
           trailing: Text('${settings.remindIntervalMinutes} phút',
@@ -851,7 +800,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           child: const Text('Xóa toàn bộ dữ liệu'),
         ),
         const SizedBox(height: 16),
-        const Center(child: Text('Thuốc Vui • Phiên bản 1.2.9', style: TextStyle(color: Colors.black54))),
+        const Center(child: Text('Thuốc Vui • Phiên bản 1.2.10', style: TextStyle(color: Colors.black54))),
       ],
     );
   }
