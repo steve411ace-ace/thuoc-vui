@@ -109,17 +109,11 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
 
   fun checkinNextDose(context: Context): String? {
     val flutterPrefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
-    var raw: String? = flutterPrefs.getString("thuoc_vui_v1", null)
-    if (raw == null) {
-      // Một số bản shared_preferences cũ lưu key có tiền tố flutter.
-      for ((key, value) in flutterPrefs.all) {
-        if (key.endsWith("thuoc_vui_v1") && value is String) {
-          raw = value
-          break
-        }
-      }
-    }
-    if (raw.isNullOrEmpty()) return null
+    // Dùng ThuocVuiPrefs để luôn đọc/ghi đúng key "flutter.thuoc_vui_v1"
+    // (xem giải thích trong ThuocVuiPrefs.kt về lỗi 2 bản dữ liệu lệch).
+    val readResult = ThuocVuiPrefs.read(flutterPrefs) ?: return null
+    val dataKey = readResult.first
+    val raw = readResult.second
     val data = JSONObject(raw)
     val medicines = data.optJSONArray("medicines") ?: JSONArray()
     val logs = data.optJSONObject("logs") ?: JSONObject()
@@ -197,7 +191,7 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
     }
     logs.put(next.key, logObj)
     data.put("logs", logs)
-    flutterPrefs.edit().putString("thuoc_vui_v1", data.toString()).apply()
+    ThuocVuiPrefs.write(flutterPrefs, dataKey, data.toString())
 
     // Cập nhật dữ liệu widget giống hệt Dart updateHomeWidget().
     var completed = 0
