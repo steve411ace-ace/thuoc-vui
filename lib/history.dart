@@ -35,6 +35,14 @@ class _HistoryScreenState extends State<HistoryScreen> {
           ],
         ),
         const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(child: _statCard('Chuỗi đúng giờ\nliên tục', '${store.onTimeStreak()} ngày')),
+            const SizedBox(width: 12),
+            Expanded(child: _statCard('Tổng lần uống\nđúng giờ', '${store.totalOnTime()} lần')),
+          ],
+        ),
+        const SizedBox(height: 12),
         _statCard(
           'Thuốc hay bị bỏ qua nhất',
           mostMissed ?? 'Chưa có lần bỏ qua nào. Tuyệt vời!',
@@ -120,10 +128,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
       } else if (date.isAfter(DateTime(today.year, today.month, today.day))) {
         bg = Colors.white;
       } else {
-        final taken = slots.where((s) => store.logs[s.key]?.status == 'taken').length;
-        if (taken == slots.length) {
+        final completed = slots.where((s) => store.logs[s.key]?.status == 'taken' || store.logs[s.key]?.status == 'late').length;
+        final onTime = slots.where((s) => store.logs[s.key]?.status == 'taken').length;
+        if (completed == slots.length && onTime == slots.length) {
           bg = const Color(0xFF95E77E);
-        } else if (taken > 0) {
+        } else if (completed == slots.length) {
+          bg = const Color(0xFFFFB020);
+        } else if (completed > 0) {
           bg = const Color(0xFFFFB020);
         } else {
           bg = const Color(0xFFFF9AA2);
@@ -165,10 +176,12 @@ class _HistoryScreenState extends State<HistoryScreen> {
     return slots.map((slot) {
       final status = store.logs[slot.key]?.status;
       final label = status == 'taken'
-          ? 'Đã uống'
-          : status == 'skipped'
-              ? 'Đã bỏ qua'
-              : 'Chưa uống';
+          ? 'Đã uống đúng giờ'
+          : status == 'late'
+              ? 'Đã uống trễ'
+              : status == 'skipped'
+                  ? 'Đã bỏ qua'
+                  : 'Chưa uống';
       return Card(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         child: ListTile(
