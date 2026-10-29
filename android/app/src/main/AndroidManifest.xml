@@ -34,6 +34,11 @@
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <!-- Nút check-in trên widget gửi broadcast ACTION_CHECKIN về
+                     chính receiver này. Trước đây receiver chỉ khai báo
+                     APPWIDGET_UPDATE nên một số máy (Samsung/One UI) có thể
+                     không chuyển broadcast check-in tới, bấm mà không thấy gì. -->
+                <action android:name="com.thuocvui.thuoc_vui.ACTION_CHECKIN" />
             </intent-filter>
             <meta-data android:name="android.appwidget.provider"
                 android:resource="@xml/thuoc_vui_widget_info" />
