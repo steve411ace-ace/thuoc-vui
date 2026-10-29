@@ -30,7 +30,13 @@ class WidgetCheckinReceiver : BroadcastReceiver() {
       val provider = ThuocVuiWidgetProvider()
       val result = provider.checkinNextDose(context)
       val tapInfo = if (result == null) {
-        "$timeStr - đã bấm nhưng không có lần nào để uống / không đọc được dữ liệu"
+        val flutterPrefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+        val hasData = ThuocVuiPrefs.read(flutterPrefs) != null
+        if (hasData) {
+          "$timeStr - đã bấm nhưng không có lần nào để uống (đã xong hết hoặc thuốc không active hôm nay)"
+        } else {
+          "$timeStr - đã bấm nhưng không đọc được dữ liệu"
+        }
       } else {
         "$timeStr - đã uống $result"
       }
