@@ -26,6 +26,8 @@ class MainActivity : FlutterActivity() {
                   val medId = alarm["medId"] as? String ?: ""
                   val slotTime = alarm["slotTime"] as? String ?: ""
                   val interval = (alarm["intervalMinutes"] as? Number)?.toInt() ?: 10
+                  val sound = alarm["sound"] as? Boolean ?: true
+                  val vibration = alarm["vibration"] as? Boolean ?: true
                   ReReminderReceiver.scheduleAlarm(
                       this,
                       id,
@@ -37,6 +39,8 @@ class MainActivity : FlutterActivity() {
                       slotTime,
                       interval,
                       false,
+                      sound,
+                      vibration,
                   )
                 }
                 result.success(null)
