@@ -253,23 +253,109 @@ class ThuocStore extends ChangeNotifier {
 
   /// Gửi 1 thông báo thử ngay lập tức. Mục đích: tạo kênh thông báo để app
   /// xuất hiện trong Cài đặt > Thông báo của máy, và chứng minh nhắc hoạt động.
+  /// Trước đây test này không truyền âm thanh/rung nên luôn kêu/rung bất kể
+  /// cấu hình, trông như cấu hình trên đầu Cài đặt không có tác dụng.
   Future<void> sendTestNotification() async {
     try {
       await notifications.show(
         999999,
         'Thông báo thử từ Thuốc Vui',
         'Nếu bạn thấy thông báo này thì nhắc uống thuốc sẽ hoạt động bình thường.',
-        const NotificationDetails(
+        NotificationDetails(
           android: AndroidNotificationDetails(
             _channelId,
             'Nhắc uống thuốc',
             channelDescription: 'Nhắc uống thuốc đúng giờ mỗi ngày',
             importance: Importance.max,
             priority: Priority.high,
+            playSound: settings.sound,
+            enableVibration: settings.vibration,
           ),
         ),
       );
     } catch (_) {}
+  }
+
+  /// Nhắc thử theo lịch sau 1 phút (khác với gửi ngay): để phân biệt
+  /// "kênh thông báo hỏng" với "lịch nhắc bị chặn". Nếu sau 1 phút không
+  /// thấy thì lịch (báo thức chính xác / tối ưu pin) đang bị chặn, dù
+  /// gửi ngay vẫn hiện.
+  Future<void> sendScheduledTestNotification() async {
+    if (!notificationsReady) return;
+    try {
+      final at = tz.TZDateTime.now(tz.local).add(const Duration(minutes: 1));
+      final details = NotificationDetails(
+        android: AndroidNotificationDetails(
+          _channelId,
+          'Nhắc uống thuốc',
+          channelDescription: 'Nhắc uống thuốc đúng giờ mỗi ngày',
+          importance: Importance.max,
+          priority: Priority.high,
+          playSound: settings.sound,
+          enableVibration: settings.vibration,
+        ),
+      );
+      try {
+        await notifications.zonedSchedule(
+          999998,
+          'Nhắc thử theo lịch',
+          'Lịch nhắc hoạt động bình thường. Nếu lần nhắc chính không tới giờ, hãy kiểm tra giờ yên lặng và quyền báo thức chính xác.',
+          at,
+          details,
+          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+          uiLocalNotificationDateInterpretation:
+              UILocalNotificationDateInterpretation.absoluteTime,
+        );
+      } catch (_) {
+        await notifications.zonedSchedule(
+          999998,
+          'Nhắc thử theo lịch',
+          'Lịch nhắc hoạt động bình thường.',
+          at,
+          details,
+          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+          uiLocalNotificationDateInterpretation:
+              UILocalNotificationDateInterpretation.absoluteTime,
+        );
+      }
+    } catch (_) {}
+  }
+
+  /// Tóm tắt lịch nhắc đang chờ của plugin, để chẩn đoán "đến giờ không
+  /// thông báo": nếu danh sách rỗng thì lịch chưa được lên (quyền / giờ
+  /// yên lặng / thuốc chưa tới ngày), nếu có mà vẫn không hiện thì
+  /// báo thức chính xác / pin của máy đang chặn.
+  Future<String> pendingNotificationsSummary() async {
+    try {
+      final pending = await notifications.pendingNotificationRequests();
+      if (pending.isEmpty) {
+        return 'Không có lịch nhắc nào đang chờ.\n\nNguyên nhân thường gặp:\n- Thuốc chưa tới ngày/giờ (giờ uống đã qua hôm nay thì lịch sẽ là tuần sau / ngày sau).\n- Giờ uống nằm trong giờ yên lặng nên app không lên lịch.\n- Chưa có quyền thông báo hoặc báo thức chính xác.\n\nThử: mở app 1 lần, bấm "Nhắc thử theo lịch sau 1 phút" để kiểm tra lịch có chạy không.';
+      }
+      final lines = <String>['Đang chờ ${pending.length} lịch nhắc (plugin, chưa tính báo lại native):'];
+      for (final p in pending.take(20)) {
+        lines.add('- ${p.title ?? ''} | ${p.body ?? ''} | ${p.payload ?? ''}');
+      }
+      if (pending.length > 20) lines.add('... và ${pending.length - 20} lịch khác.');
+      lines.add('');
+      lines.add('Nếu lịch có mà đến giờ vẫn không hiện, khả năng cao là máy chặn báo thức chính xác hoặc tối ưu pin. Bấm "Cho phép báo thức chính xác" và tắt tối ưu pin cho Thuốc Vui trong Cài đặt máy.');
+      return lines.join('\n');
+    } catch (_) {
+      return 'Không đọc được lịch đang chờ.';
+    }
+  }
+
+  /// Lần bấm widget cuối, do receiver native ghi lại, để chẩn đoán
+  /// "bấm nút widget không có gì": nếu bấm rồi mà giá trị này không đổi
+  /// thì lệnh bấm không tới receiver; nếu đổi mà không check-in thì
+  /// lỗi nằm ở phần ghi log.
+  Future<String> lastWidgetTapSummary() async {
+    try {
+      final value = await HomeWidget.getWidgetData<String>('last_widget_tap', defaultValue: '');
+      if (value == null || value.isEmpty) return 'Chưa ghi nhận lần bấm widget nào.';
+      return value;
+    } catch (_) {
+      return 'Không đọc được lần bấm widget.';
+    }
   }
 
   /// Giờ hẹn của một slot, suy từ key dạng medId|yyyy-MM-dd|HH:mm.
@@ -462,6 +548,8 @@ class ThuocStore extends ChangeNotifier {
                   'medId': med.id,
                   'slotTime': time,
                   'intervalMinutes': settings.remindIntervalMinutes,
+                  'sound': settings.sound,
+                  'vibration': settings.vibration,
                 });
               }
             }
@@ -592,9 +680,22 @@ class ThuocStore extends ChangeNotifier {
   }
 
   Future<void> updateSettings(AppSettings next) async {
+    // Android: kênh thông báo đã tạo rồi thì đổi âm thanh/rung trong
+    // NotificationDetails sẽ không có tác dụng (hệ thống giữ kênh cũ).
+    // Vì vậy khi âm thanh/rung đổi thì xóa kênh cũ trước, lần nhắc sau
+    // sẽ tạo lại kênh với cấu hình mới. Đây là lý do cấu hình trên đầu
+    // Cài đặt trước đây trông như không có tác dụng.
+    final soundChanged = next.sound != settings.sound || next.vibration != settings.vibration;
     settings = next;
     await _save();
     notifyListeners();
+    if (soundChanged) {
+      try {
+        final android = notifications.resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>();
+        await android?.deleteNotificationChannel(_channelId);
+      } catch (_) {}
+    }
     await rescheduleAll();
   }
 
