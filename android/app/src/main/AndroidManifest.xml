@@ -45,6 +45,12 @@
         </receiver>
         <receiver android:name=".ReReminderReceiver"
             android:exported="true" />
+        <receiver android:name=".WidgetCheckinReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.thuocvui.thuoc_vui.ACTION_WIDGET_CHECKIN" />
+            </intent-filter>
+        </receiver>
         <receiver android:name="es.antonborri.home_widget.HomeWidgetBackgroundReceiver"
             android:exported="true">
             <intent-filter>
