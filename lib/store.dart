@@ -479,7 +479,17 @@ class ThuocStore extends ChangeNotifier {
   Future<void> rescheduleAll() async {
     if (!notificationsReady) return;
     try {
-      await notifications.cancelAll();
+      // QUAN TRỌNG (1.2.9): cancelAll của plugin PHẢI tách riêng.
+      // Kho lưu lịch plugin trên máy anh đã hỏng (loadScheduledNotifications
+      // ném "Missing type parameter", xem ảnh chẩn đoán 00:19), nên
+      // cancelAll cũng ném theo. Nếu để nó chung try với phần dưới thì
+      // ngoại lệ sẽ chặn luôn scheduleNativeAlarms(), tức là lần nhắc
+      // chính native sẽ KHÔNG BAO GIỜ được lên lịch, dù code native
+      // đã đúng. Hủy plugin thất bại thì cứ bỏ qua, lịch native vẫn
+      // phải được lên.
+      try {
+        await notifications.cancelAll();
+      } catch (_) {}
       // Lần nhắc chính KHÔNG dùng lịch plugin nữa (1.2.8): lịch plugin
       // zonedSchedule không bao giờ tới giờ trên máy anh, kể cả nhắc thử
       // sau 1 phút, dù gửi ngay vẫn hiện. Thay vào đó, lần nhắc chính
