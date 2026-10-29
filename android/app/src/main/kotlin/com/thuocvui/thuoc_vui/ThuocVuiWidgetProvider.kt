@@ -51,14 +51,18 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
           setViewVisibility(R.id.widget_done, View.GONE)
           setViewVisibility(R.id.widget_next, View.VISIBLE)
           setViewVisibility(R.id.widget_next_time, View.VISIBLE)
-          // Bấm trực tiếp trên widget: gửi broadcast về chính provider này,
-          // provider tự ghi check-in bằng Kotlin (không qua Dart background
-          // engine / JobIntentService của plugin, vốn hay bị Samsung và
-          // Android 12+ trì hoãn hoặc chặn, nên bấm mà không thấy gì).
-          val checkinIntent = Intent(context, ThuocVuiWidgetProvider::class.java).apply {
-            action = ACTION_CHECKIN
+          // Bấm trực tiếp trên widget: gửi broadcast về receiver riêng
+          // WidgetCheckinReceiver, receiver tự ghi check-in bằng Kotlin
+          // (không qua Dart background engine / JobIntentService của plugin,
+          // vốn hay bị Samsung và Android 12+ trì hoãn hoặc chặn).
+          // Dùng FLAG_CANCEL_CURRENT thay vì UPDATE_CURRENT: sau lần bấm
+          // đầu, PendingIntent cũ có thể bị launcher giữ lại làm lần bấm
+          // sau không tới nữa, hủy và tạo mới mỗi lần cập nhật widget sẽ
+          // tránh tình trạng "bấm được 1 lần rồi chết".
+          val checkinIntent = Intent(context, WidgetCheckinReceiver::class.java).apply {
+            action = WidgetCheckinReceiver.ACTION_CHECKIN
           }
-          val flags = PendingIntent.FLAG_UPDATE_CURRENT or
+          val flags = PendingIntent.FLAG_CANCEL_CURRENT or
               if (Build.VERSION.SDK_INT >= 23) PendingIntent.FLAG_IMMUTABLE else 0
           val pending = PendingIntent.getBroadcast(context, widgetId, checkinIntent, flags)
           setOnClickPendingIntent(R.id.widget_checkin, pending)
@@ -68,18 +72,23 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
     }
   }
 
+  fun refreshWidget(context: Context) {
+    val manager = AppWidgetManager.getInstance(context)
+    val ids = manager.getAppWidgetIds(ComponentName(context, ThuocVuiWidgetProvider::class.java))
+    if (ids.isNotEmpty()) {
+      onUpdate(context, manager, ids, context.getSharedPreferences("HomeWidgetPreferences", Context.MODE_PRIVATE))
+    }
+  }
+
   override fun onReceive(context: Context, intent: Intent) {
     if (intent.action == ACTION_CHECKIN) {
+      // Giữ lại cho widget cũ (trước 1.2.6) vẫn bấm được cho tới khi
+      // người dùng xóa và thêm lại widget mới.
       try {
         checkinNextDose(context)
       } catch (_: Exception) {
-        // Không làm gì thêm: widget vẫn hiện, người dùng bấm lại hoặc mở app.
       }
-      val manager = AppWidgetManager.getInstance(context)
-      val ids = manager.getAppWidgetIds(ComponentName(context, ThuocVuiWidgetProvider::class.java))
-      if (ids.isNotEmpty()) {
-        onUpdate(context, manager, ids, context.getSharedPreferences("HomeWidgetPreferences", Context.MODE_PRIVATE))
-      }
+      refreshWidget(context)
       return
     }
     super.onReceive(context, intent)
@@ -98,7 +107,7 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
     else -> "Không dặn trước/sau ăn"
   }
 
-  private fun checkinNextDose(context: Context) {
+  fun checkinNextDose(context: Context): String? {
     val flutterPrefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
     var raw: String? = flutterPrefs.getString("thuoc_vui_v1", null)
     if (raw == null) {
@@ -110,7 +119,7 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
         }
       }
     }
-    if (raw.isNullOrEmpty()) return
+    if (raw.isNullOrEmpty()) return null
     val data = JSONObject(raw)
     val medicines = data.optJSONArray("medicines") ?: JSONArray()
     val logs = data.optJSONObject("logs") ?: JSONObject()
@@ -176,7 +185,7 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
       val st = logs.optJSONObject(s.key)?.optString("status")
       if (st != "taken" && st != "late") { next = s; break }
     }
-    if (next == null) return
+    if (next == null) return null
 
     val lateThreshold = (next.dateTime.clone() as Calendar).apply { add(Calendar.MINUTE, 30) }
     val status = if (now.after(lateThreshold)) "late" else "taken"
@@ -233,5 +242,6 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
     }
     widgetPrefs.putString("all_done", if (following == null && slots.isNotEmpty()) "1" else "0")
     widgetPrefs.apply()
+    return "${next.key}|$status"
   }
 }
