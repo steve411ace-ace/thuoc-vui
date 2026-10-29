@@ -532,6 +532,29 @@ class ThuocStore extends ChangeNotifier {
       for (final s in slots) {
         if (!_isCompleted(s)) { next = s; break; }
       }
+      // Trạng thái Pip lên widget: cùng logic mặt + thông tin như trong app.
+      final skipped = slots.where((s) => logs[s.key]?.status == 'skipped').length;
+      final overdue = slots.any((s) => logs[s.key]?.status == null && s.dateTime.isBefore(DateTime.now()));
+      final streak = onTimeStreak();
+      final String pipMessage;
+      if (slots.isEmpty) {
+        pipMessage = '😊 Thêm thuốc để Pip nhắc bạn nhé!';
+      } else if (onTime == slots.length) {
+        pipMessage = streak >= 2
+            ? '🥳 Hôm nay uống đủ và đúng giờ hết rồi! Chuỗi: $streak ngày 🔥'
+            : '🥳 Hôm nay uống đủ và đúng giờ hết rồi, tuyệt vời!';
+      } else if (completed == slots.length) {
+        pipMessage = '😊 Hôm nay uống đủ hết rồi, có ${completed - onTime} lần trễ, lần sau cố đúng giờ nhé!';
+      } else if (overdue) {
+        pipMessage = '😟 Ơ, có lần uống quá giờ chưa thấy bạn bấm, uống bù nhé?';
+      } else if (skipped > 0) {
+        pipMessage = '😟 Hôm nay bạn bỏ qua $skipped lần, mai cố nhé?';
+      } else {
+        pipMessage = streak >= 2
+            ? '😊 Hôm nay còn ${slots.length - completed} lần nữa là xong! Chuỗi: $streak ngày 🔥'
+            : '😊 Hôm nay còn ${slots.length - completed} lần nữa là xong, cố lên nhé!';
+      }
+      await HomeWidget.saveWidgetData<String>('pip_message', pipMessage);
       await HomeWidget.saveWidgetData<String>('progress', slots.isEmpty ? 'Chưa có thuốc hôm nay' : 'Hôm nay: $completed/${slots.length} lần • đúng giờ $onTime lần');
       await HomeWidget.saveWidgetData<String>('next_text', next == null ? (slots.isEmpty ? 'Thêm thuốc để Pip nhắc bạn nhé!' : '🎉 Đã xong hôm nay!') : '${next.medicine.formEmoji} ${next.medicine.name} — ${next.medicine.dose}');
       await HomeWidget.saveWidgetData<String>('next_time', next == null ? '' : 'Lúc ${next.time} • ${next.medicine.mealLabel}');
