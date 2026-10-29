@@ -13,6 +13,14 @@ class Medicine {
   final String? endDate; // yyyy-MM-dd hoặc null = dài hạn
   final String mealNote; // truoc_an, sau_an, khong
   final String note;
+  // Đếm viên (v1.3, tùy chọn): totalPills = 0 nghĩa là không theo dõi.
+  // startPill = ngày bắt đầu là viên thứ mấy trong hộp (mặc định 1).
+  // stockFrom = ngày bắt đầu tính hộp hiện tại (mặc định = startDate;
+  // khi bấm "Đã mua hộp mới" thì đặt thành hôm nay, startPill = 1).
+  int totalPills;
+  int startPill;
+  int pillsPerDose;
+  String stockFrom;
 
   Medicine({
     required this.id,
@@ -26,6 +34,10 @@ class Medicine {
     this.endDate,
     required this.mealNote,
     required this.note,
+    this.totalPills = 0,
+    this.startPill = 1,
+    this.pillsPerDose = 1,
+    this.stockFrom = '',
   });
 
   String get formEmoji {
@@ -94,6 +106,10 @@ class Medicine {
         'endDate': endDate,
         'mealNote': mealNote,
         'note': note,
+        'totalPills': totalPills,
+        'startPill': startPill,
+        'pillsPerDose': pillsPerDose,
+        'stockFrom': stockFrom,
       };
 
   factory Medicine.fromJson(Map<String, dynamic> j) => Medicine(
@@ -108,6 +124,10 @@ class Medicine {
         endDate: j['endDate'] as String?,
         mealNote: j['mealNote'] as String? ?? 'khong',
         note: j['note'] as String? ?? '',
+        totalPills: (j['totalPills'] as num?)?.toInt() ?? 0,
+        startPill: (j['startPill'] as num?)?.toInt() ?? 1,
+        pillsPerDose: (j['pillsPerDose'] as num?)?.toInt() ?? 1,
+        stockFrom: j['stockFrom'] as String? ?? '',
       );
 }
 
