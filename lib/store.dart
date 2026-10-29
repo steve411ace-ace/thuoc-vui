@@ -263,103 +263,6 @@ class ThuocStore extends ChangeNotifier {
     }
   }
 
-  /// Gửi 1 thông báo thử ngay lập tức. Mục đích: tạo kênh thông báo để app
-  /// xuất hiện trong Cài đặt > Thông báo của máy, và chứng minh nhắc hoạt động.
-  /// Trước đây test này không truyền âm thanh/rung nên luôn kêu/rung bất kể
-  /// cấu hình, trông như cấu hình trên đầu Cài đặt không có tác dụng.
-  Future<void> sendTestNotification() async {
-    try {
-      await notifications.show(
-        999999,
-        'Thông báo thử từ Thuốc Vui',
-        'Nếu bạn thấy thông báo này thì nhắc uống thuốc sẽ hoạt động bình thường.',
-        NotificationDetails(
-          android: AndroidNotificationDetails(
-            _channelId,
-            'Nhắc uống thuốc',
-          icon: 'ic_stat_pip',
-            channelDescription: 'Nhắc uống thuốc đúng giờ mỗi ngày',
-            importance: Importance.max,
-            priority: Priority.high,
-            playSound: settings.sound,
-            enableVibration: settings.vibration,
-          ),
-        ),
-      );
-    } catch (_) {}
-  }
-
-  /// Nhắc thử theo lịch sau 1 phút (khác với gửi ngay): để phân biệt
-  /// "kênh thông báo hỏng" với "lịch nhắc bị chặn". Nếu sau 1 phút không
-  /// thấy thì lịch (báo thức chính xác / tối ưu pin) đang bị chặn, dù
-  /// gửi ngay vẫn hiện.
-  Future<void> sendScheduledTestNotification() async {
-    if (!notificationsReady) return;
-    try {
-      final at = tz.TZDateTime.now(tz.local).add(const Duration(minutes: 1));
-      final details = NotificationDetails(
-        android: AndroidNotificationDetails(
-          _channelId,
-          'Nhắc uống thuốc',
-          icon: 'ic_stat_pip',
-          channelDescription: 'Nhắc uống thuốc đúng giờ mỗi ngày',
-          importance: Importance.max,
-          priority: Priority.high,
-          playSound: settings.sound,
-          enableVibration: settings.vibration,
-        ),
-      );
-      try {
-        await notifications.zonedSchedule(
-          999998,
-          'Nhắc thử theo lịch',
-          'Lịch nhắc hoạt động bình thường. Nếu lần nhắc chính không tới giờ, hãy kiểm tra giờ yên lặng và quyền báo thức chính xác.',
-          at,
-          details,
-          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-          uiLocalNotificationDateInterpretation:
-              UILocalNotificationDateInterpretation.absoluteTime,
-        );
-      } catch (_) {
-        await notifications.zonedSchedule(
-          999998,
-          'Nhắc thử theo lịch',
-          'Lịch nhắc hoạt động bình thường.',
-          at,
-          details,
-          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-          uiLocalNotificationDateInterpretation:
-              UILocalNotificationDateInterpretation.absoluteTime,
-        );
-      }
-    } catch (_) {}
-  }
-
-  /// Tóm tắt lịch nhắc đang chờ của plugin, để chẩn đoán "đến giờ không
-  /// thông báo": nếu danh sách rỗng thì lịch chưa được lên (quyền / giờ
-  /// yên lặng / thuốc chưa tới ngày), nếu có mà vẫn không hiện thì
-  /// báo thức chính xác / pin của máy đang chặn.
-  Future<String> pendingNotificationsSummary() async {
-    try {
-      final pending = await notifications.pendingNotificationRequests();
-      if (pending.isEmpty) {
-        return 'Không có lịch nhắc nào đang chờ.\n\nNguyên nhân thường gặp:\n- Thuốc chưa tới ngày/giờ (giờ uống đã qua hôm nay thì lịch sẽ là tuần sau / ngày sau).\n- Giờ uống nằm trong giờ yên lặng nên app không lên lịch.\n- Chưa có quyền thông báo hoặc báo thức chính xác.\n\nThử: mở app 1 lần, bấm "Nhắc thử theo lịch sau 1 phút" để kiểm tra lịch có chạy không.';
-      }
-      final lines = <String>['Đang chờ ${pending.length} lịch nhắc (plugin, chưa tính báo lại native):'];
-      for (final p in pending.take(20)) {
-        lines.add('- ${p.title ?? ''} | ${p.body ?? ''} | ${p.payload ?? ''}');
-      }
-      if (pending.length > 20) lines.add('... và ${pending.length - 20} lịch khác.');
-      lines.add('');
-      lines.add('Nếu lịch có mà đến giờ vẫn không hiện, khả năng cao là máy chặn báo thức chính xác hoặc tối ưu pin. Bấm "Cho phép báo thức chính xác" và tắt tối ưu pin cho Thuốc Vui trong Cài đặt máy.');
-      return lines.join('\n');
-    } catch (e) {
-      // Đừng giấu lỗi thành "không đọc được": lỗi thật mới cho biết
-      // vì sao lịch không lên / không đọc được (ví dụ plugin chưa sẵn).
-      return 'Không đọc được lịch đang chờ.\nLỗi: $e\n\nNếu vừa bấm "Nhắc thử theo lịch sau 1 phút" mà sau 1 phút không thấy, thì lịch theo giờ đang bị máy chặn (báo thức chính xác / tối ưu pin), chứ không phải do thuốc hay giờ uống.';
-    }
-  }
-
   /// Trạng thái quyền báo thức chính xác + miễn tối ưu pin, để chẩn đoán
   /// "gửi ngay thì hiện, đến giờ thì không": lịch theo giờ cần cả hai.
   Future<String> alarmPermissionStatus() async {
@@ -376,11 +279,9 @@ class ThuocStore extends ChangeNotifier {
         'Nếu miễn tối ưu pin CHƯA BẬT, bấm "Tắt tối ưu pin cho Thuốc Vui".';
   }
 
-  /// Nhắc thử bằng báo thức native sau 1 phút (không qua plugin):
-  /// nếu native này hiện mà nhắc thử plugin không hiện, thì plugin mới
-  /// là thủ phạm; nếu native này cũng không hiện, thì máy đang chặn
-  /// báo thức (pin / báo thức chính xác) và không code nào cứu được
-  /// cho tới khi bật 2 quyền đó.
+  /// Nhắc thử bằng báo thức native sau 1 phút (không qua plugin).
+  /// Nếu sau 1 phút không thấy thì máy đang chặn báo thức
+  /// (pin / báo thức chính xác).
   Future<void> sendNativeScheduledTestNotification() async {
     try {
       const channel = MethodChannel('thuoc_vui/reminders');
