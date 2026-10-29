@@ -191,6 +191,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       pipMood = PipMood.happy;
       pipMessage = _greeting;
     }
+    // Nhắc mua thuốc (nếu có): thêm vào cuối câu Pip để người dùng thấy
+    // ngay trên trang Hôm nay, kể cả khi hôm nay đã uống đủ.
+    final buyPrompt = store.todayBuyPrompt();
+    final String finalPipMessage =
+        buyPrompt == null ? pipMessage : '$pipMessage\n🛒 $buyPrompt';
 
     return Stack(
       children: [
@@ -215,7 +220,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       ],
                     ),
                     child: Text(
-                      pipMessage,
+                      finalPipMessage,
                       style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                     ),
                   ),
@@ -370,11 +375,38 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     // tên thuốc còn rộng ~1 ký tự nên chữ xếp dọc từng ký tự.
                     const SizedBox(height: 4),
                     Text(statusText, style: const TextStyle(fontWeight: FontWeight.bold)),
+                    if (store.remainingPills(slot.medicine) != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        'Còn ${store.remainingPills(slot.medicine)} viên'
+                        '${store.daysSupply(slot.medicine) != null ? ' (đủ khoảng ${store.daysSupply(slot.medicine)} ngày)' : ''}',
+                        style: const TextStyle(color: Colors.black54),
+                      ),
+                    ],
                   ],
                 ),
               ),
             ],
           ),
+          if (store.remainingPills(slot.medicine) != null &&
+              (store.remainingPills(slot.medicine)! <= 0 ||
+                  (store.daysSupply(slot.medicine) ?? 999) <= 3)) ...[
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.shopping_bag_outlined, size: 18),
+                label: const Text('Đã mua hộp mới'),
+                onPressed: () async {
+                  await store.buyNewBox(slot.medicine);
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Đã tính lại từ hôm nay, viên bắt đầu = 1.')),
+                  );
+                },
+              ),
+            ),
+          ],
           if (status == null) ...[
             const SizedBox(height: 12),
             Row(
@@ -822,7 +854,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           child: const Text('Xóa toàn bộ dữ liệu'),
         ),
         const SizedBox(height: 16),
-        const Center(child: Text('Thuốc Vui • Phiên bản 1.2.11', style: TextStyle(color: Colors.black54))),
+        const Center(child: Text('Thuốc Vui • Phiên bản 1.2.12', style: TextStyle(color: Colors.black54))),
       ],
     );
   }
