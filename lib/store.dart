@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:home_widget/home_widget.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
@@ -412,13 +413,36 @@ class ThuocStore extends ChangeNotifier {
               details,
               'taken2|${med.id}|$time',
             );
-            // Báo lại tự động: nhắc lại hàng tuần vào giờ uống + khoảng cách.
-            // Nếu giờ nhắc lại rơi vào giờ yên lặng thì bỏ qua lần đó.
-            // Lưu ý: nhắc lại cũng là lịch đặt trước, nên khi người dùng
-            // bấm đã uống trong app thì markTaken() sẽ lên lịch lại để hủy
-            // các lần nhắc lại còn lại trong ngày đó; nếu bấm trên widget
-            // mà chưa mở app thì lần nhắc lại vẫn có thể hiện 1 lần.
-            if (settings.remindTimes > 0 && settings.remindIntervalMinutes > 0) {
+            // Báo lại KHÔNG dùng lịch plugin ở đây nữa. Lý do: lịch plugin
+            // hiện thông báo vô điều kiện khi tới giờ, nên bấm đã uống trên
+            // widget (ghi log trực tiếp bằng Kotlin, không qua Dart) sẽ
+            // không hủy được lần báo lại đó. Thay vào đó, Dart gửi danh
+            // sách báo lại sang native (MethodChannel) để ReReminderReceiver
+            // đặt báo thức riêng: lúc báo thức tới, receiver đọc log hôm
+            // nay trước, đã uống/trễ/bỏ qua rồi thì không hiện thông báo
+            // nữa, bất kể lần uống đó được bấm ở app, widget hay thông báo.
+            // Xem scheduleNativeReReminders() ở cuối rescheduleAll.
+          }
+        }
+      }
+      await scheduleNativeReReminders();
+    } catch (_) {}
+  }
+
+  /// Gửi danh sách báo lại sang native để ReReminderReceiver đặt báo thức.
+  /// Mỗi lần uống có remindTimes lần báo lại, mỗi lần cách nhau
+  /// remindIntervalMinutes phút. Nếu giờ báo lại rơi vào giờ yên lặng thì
+  /// bỏ qua lần đó. Native sẽ tự đặt lại cho tuần sau mỗi khi báo thức tới,
+  /// nên báo lại chạy hàng tuần mà không cần mở app.
+  Future<void> scheduleNativeReReminders() async {
+    try {
+      const channel = MethodChannel('thuoc_vui/reminders');
+      final alarms = <Map<String, dynamic>>[];
+      if (settings.remindTimes > 0 && settings.remindIntervalMinutes > 0) {
+        for (final med in medicines) {
+          for (final weekday in med.weekdays) {
+            for (final time in med.times) {
+              if (settings.inQuietHours(time)) continue;
               final baseParts = time.split(':');
               final baseMinutes = int.parse(baseParts[0]) * 60 + int.parse(baseParts[1]);
               for (var i = 1; i <= settings.remindTimes; i++) {
@@ -429,20 +453,26 @@ class ThuocStore extends ChangeNotifier {
                 final remindHhmm =
                     '${(remindMinutes ~/ 60).toString().padLeft(2, '0')}:${(remindMinutes % 60).toString().padLeft(2, '0')}';
                 if (settings.inQuietHours(remindHhmm)) continue;
-                await _scheduleWeekly(
-                  stableHash('remind|${med.id}|$weekday|$time|$i') % 2000000000,
-                  'Nhắc lại lần $i: đến giờ uống thuốc!',
-                  '${med.formEmoji} ${med.name} — ${med.dose}\nChưa thấy bạn bấm đã uống, nhắc lại lần $i.',
-                  _nextWeekdayTime(remindWeekday, remindHhmm),
-                  details,
-                  'taken2|${med.id}|$time',
-                );
+                final trigger = _nextWeekdayTime(remindWeekday, remindHhmm);
+                alarms.add({
+                  'id': stableHash('remind|${med.id}|$weekday|$time|$i') % 2000000000,
+                  'triggerMillis': trigger.millisecondsSinceEpoch,
+                  'title': 'Nhắc lại lần $i: đến giờ uống thuốc!',
+                  'body': '${med.formEmoji} ${med.name} — ${med.dose}\nChưa thấy bạn bấm đã uống, nhắc lại lần $i.',
+                  'medId': med.id,
+                  'slotTime': time,
+                  'intervalMinutes': settings.remindIntervalMinutes,
+                });
               }
             }
           }
         }
       }
-    } catch (_) {}
+      await channel.invokeMethod('scheduleReReminders', {'alarms': alarms});
+    } catch (_) {
+      // Native chưa sẵn sàng thì lần nhắc chính (plugin) vẫn chạy,
+      // chỉ thiếu báo lại; lần reschedule sau sẽ thử lại.
+    }
   }
 
   tz.TZDateTime _nextWeekdayTime(int weekday, String hhmm) {
