@@ -1,0 +1,24 @@
+name: thuoc_vui
+description: "Thuốc Vui - Nhắc nhở lịch uống thuốc hàng ngày, phong cách hoạt hình vui nhộn."
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.4.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  shared_preferences: ^2.3.2
+  flutter_local_notifications: ^18.0.1
+  timezone: ^0.10.1
+  flutter_timezone: ^4.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
