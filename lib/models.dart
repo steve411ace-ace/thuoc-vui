@@ -131,7 +131,7 @@ class DoseSlot {
   }
 }
 
-/// Trạng thái check-in của một lần uống.
+/// Trạng thái check-in của một lần uống: taken = đúng giờ, late = uống trễ, skipped = bỏ qua.
 class DoseLog {
   final String status; // taken, skipped
   final String at; // ISO thời điểm check-in
@@ -167,3 +167,23 @@ int stableHash(String s) {
 Map<String, dynamic> decodeJson(String raw) {
   return jsonDecode(raw) as Map<String, dynamic>;
 }
+
+
+/// Một danh hiệu (badge) khi uống thuốc đúng giờ.
+class BadgeInfo {
+  final String id;
+  final String emoji;
+  final String title;
+  final String desc;
+  const BadgeInfo({required this.id, required this.emoji, required this.title, required this.desc});
+}
+
+const List<BadgeInfo> allBadges = [
+  BadgeInfo(id: 'first_ontime', emoji: '🌱', title: 'Bước đầu tiên', desc: 'Uống đúng giờ lần đầu tiên'),
+  BadgeInfo(id: 'perfect_day', emoji: '⭐', title: 'Ngày hoàn hảo', desc: '1 ngày uống đủ và đúng giờ hết'),
+  BadgeInfo(id: 'streak_3', emoji: '🔥', title: '3 ngày vàng', desc: '3 ngày liên tiếp đúng giờ'),
+  BadgeInfo(id: 'streak_7', emoji: '👑', title: 'Tuần vàng', desc: '7 ngày liên tiếp đúng giờ'),
+  BadgeInfo(id: 'streak_30', emoji: '💎', title: 'Tháng vàng', desc: '30 ngày liên tiếp đúng giờ'),
+  BadgeInfo(id: 'ontime_50', emoji: '💪', title: 'Bền bỉ', desc: '50 lần uống đúng giờ'),
+  BadgeInfo(id: 'ontime_100', emoji: '🏆', title: 'Bậc thầy đúng giờ', desc: '100 lần uống đúng giờ'),
+];
