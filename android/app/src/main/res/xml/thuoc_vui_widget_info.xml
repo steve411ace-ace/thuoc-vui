@@ -5,4 +5,6 @@
     android:updatePeriodMillis="1800000"
     android:initialLayout="@layout/thuoc_vui_widget"
     android:resizeMode="horizontal|vertical"
-    android:widgetCategory="home_screen" />
+    android:widgetCategory="home_screen"
+    android:targetCellWidth="4"
+    android:targetCellHeight="2" />
