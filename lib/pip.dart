@@ -78,7 +78,7 @@ class _PipPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final s = size.width;
     final cx = size.width / 2;
-    final capW = s * 0.78;
+    final capW = s * 0.88;
     final capH = s * 0.88;
     final capLeft = cx - capW / 2;
     final capTop = s * 0.06;
