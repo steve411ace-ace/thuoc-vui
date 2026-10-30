@@ -869,6 +869,27 @@ class ThuocStore extends ChangeNotifier {
               ? ''
               : 'Lúc ${next.time} • ${next.medicine.mealLabel}'
                   '${remainingPills(next.medicine) != null ? ' • Còn ${remainingPills(next.medicine)} viên' : ''}');
+      // Chi tiết lịch hôm nay sau khi đã xong (1.2.15): mỗi lần đã uống
+      // một khối 2 dòng, giống thẻ Lịch uống hôm nay trong app:
+      // dòng 1 thuốc + giờ dự kiến + trước/sau ăn, dòng 2 đã uống lúc
+      // mấy giờ + còn bao nhiêu viên. Giới hạn 3 lần đầu để widget
+      // không tràn khi một ngày có nhiều lần uống.
+      final doneSlots = slots.where(_isCompleted).toList();
+      final doneLines = <String>[];
+      for (final s in doneSlots.take(3)) {
+        final log = logs[s.key];
+        final at = log != null && log.at.isNotEmpty ? DateTime.tryParse(log.at) : null;
+        final atStr = at != null
+            ? '${at.hour.toString().padLeft(2, '0')}:${at.minute.toString().padLeft(2, '0')}'
+            : '';
+        final takenStr = log?.status == 'late' ? 'Đã uống trễ lúc $atStr' : 'Đã uống đúng giờ lúc $atStr';
+        final rem = remainingPills(s.medicine);
+        final days = daysSupply(s.medicine);
+        final remStr = rem != null ? ' • Còn $rem viên${days != null ? ' (đủ khoảng $days ngày)' : ''}' : '';
+        doneLines.add('${s.medicine.formEmoji} ${s.medicine.name} — ${s.medicine.dose} • Lúc ${s.time} • ${s.medicine.mealLabel}\n$takenStr$remStr');
+      }
+      if (doneSlots.length > 3) doneLines.add('… và ${doneSlots.length - 3} lần nữa');
+      await HomeWidget.saveWidgetData<String>('done_detail', doneLines.join('\n'));
       await HomeWidget.saveWidgetData<String>('all_done', next == null && slots.isNotEmpty ? '1' : '0');
       // Widget native không tự theo theme Flutter: lưu lựa chọn thô
       // ('system'/'light'/'dark') để Kotlin tự quyết sáng/tối lúc cập nhật.

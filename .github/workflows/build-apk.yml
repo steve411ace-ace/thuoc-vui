@@ -32,6 +32,11 @@ jobs:
           cp /tmp/tpl/android/gradle/wrapper/gradle-wrapper.jar android/gradle/wrapper/gradle-wrapper.jar
           cp -r /tmp/tpl/android/app/src/main/res/mipmap-* android/app/src/main/res/
           chmod +x android/gradlew
+      - name: Restore custom Thuoc Vui launcher icon
+        run: |
+          for d in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
+            base64 -d android/app/icon_base64/ic_launcher_$d.base64 > android/app/src/main/res/mipmap-$d/ic_launcher.png
+          done
       - run: flutter build apk --release
       - uses: actions/upload-artifact@v4
         with:

@@ -60,4 +60,12 @@
         android:textSize="15sp"
         android:textStyle="bold"
         android:visibility="gone" />
+    <TextView
+        android:id="@+id/widget_done_detail"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:textSize="13sp"
+        android:textColor="#333333"
+        android:visibility="gone" />
 </LinearLayout>

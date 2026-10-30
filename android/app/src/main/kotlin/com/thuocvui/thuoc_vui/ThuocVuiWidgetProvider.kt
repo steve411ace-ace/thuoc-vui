@@ -57,6 +57,8 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
         setTextColor(R.id.widget_next, mainText)
         setTextColor(R.id.widget_next_time, subText)
         setTextColor(R.id.widget_done, mainText)
+        setTextColor(R.id.widget_done_detail, subText)
+        setTextViewText(R.id.widget_done_detail, widgetData.getString("done_detail", null) ?: "")
         // Nút teal + chữ trắng giữ nguyên cả sáng lẫn tối.
         val openIntent = HomeWidgetLaunchIntent.getActivity(context, MainActivity::class.java)
         setOnClickPendingIntent(R.id.widget_container, openIntent)
@@ -68,6 +70,7 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
         if (allDone) {
           setViewVisibility(R.id.widget_checkin, View.GONE)
           setViewVisibility(R.id.widget_done, View.VISIBLE)
+          setViewVisibility(R.id.widget_done_detail, View.VISIBLE)
           // Trước đây cả widget_next ("🎉 Đã xong hôm nay!" từ dữ liệu
           // next_text) và widget_done đều hiện cùng lúc nên bị trùng 2 dòng.
           // Khi đã xong thì chỉ hiện widget_done, ẩn 2 dòng next đi.
@@ -76,6 +79,7 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
         } else {
           setViewVisibility(R.id.widget_checkin, View.VISIBLE)
           setViewVisibility(R.id.widget_done, View.GONE)
+          setViewVisibility(R.id.widget_done_detail, View.GONE)
           setViewVisibility(R.id.widget_next, View.VISIBLE)
           setViewVisibility(R.id.widget_next_time, View.VISIBLE)
           // Bấm trực tiếp trên widget: gửi broadcast về receiver riêng
@@ -249,6 +253,44 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
       skipped > 0 -> "😟 Hôm nay bạn bỏ qua $skipped lần, mai cố nhé?"
       else -> "😊 Hôm nay còn ${slots.size - completed} lần nữa là xong, cố lên nhé!"
     }
+    // Chi tiết lịch hôm nay sau khi đã xong (1.2.15), giống Dart
+    // updateHomeWidget(): mỗi lần đã uống một khối 2 dòng, tối đa 3.
+    val completedSlots = slots.filter { val st = logs.optJSONObject(it.key)?.optString("status"); st == "taken" || st == "late" }
+    val doneLines = mutableListOf<String>()
+    for (s in completedSlots.take(3)) {
+      val logObj = logs.optJSONObject(s.key) ?: continue
+      val st = logObj.optString("status")
+      val atRaw = logObj.optString("at")
+      val atStr = if (atRaw.length >= 16) atRaw.substring(11, 16) else ""
+      val takenStr = if (st == "late") "Đã uống trễ lúc $atStr" else "Đã uống đúng giờ lúc $atStr"
+      val med = s.med
+      var remStr = ""
+      val total = med.optInt("totalPills", 0)
+      if (total > 0) {
+        val perDose = med.optInt("pillsPerDose", 1).let { if (it > 0) it else 1 }
+        val startPill = med.optInt("startPill", 1).let { if (it > 0) it else 1 }
+        val stockFrom = med.optString("stockFrom", "").let { if (it.isNotEmpty()) it else med.optString("startDate", "") }
+        var takenCount = 0
+        val keys = logs.keys()
+        while (keys.hasNext()) {
+          val k = keys.next()
+          if (!k.startsWith("${med.optString("id")}|")) continue
+          val parts = k.split("|")
+          if (parts.size != 3) continue
+          if (parts[1] < stockFrom) continue
+          val ls = logs.optJSONObject(k)?.optString("status")
+          if (ls == "taken" || ls == "late") takenCount++
+        }
+        var rem = total - (startPill - 1) - takenCount * perDose
+        if (rem < 0) rem = 0
+        val perDay = (med.optJSONArray("times")?.length() ?: 0) * perDose
+        val daysStr = if (perDay > 0) " (đủ khoảng ${rem / perDay} ngày)" else ""
+        remStr = " • Còn $rem viên$daysStr"
+      }
+      doneLines.add("${formEmoji(med.optString("form"))} ${med.optString("name")} — ${med.optString("dose")} • Lúc ${s.time} • ${mealLabel(med.optString("mealNote"))}\n$takenStr$remStr")
+    }
+    if (completedSlots.size > 3) doneLines.add("… và ${completedSlots.size - 3} lần nữa")
+    widgetPrefs.putString("done_detail", doneLines.joinToString("\n"))
     widgetPrefs.putString("pip_message", pipMessage)
     widgetPrefs.putString(
         "progress",
@@ -359,6 +401,44 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
       else -> "😊 Hôm nay còn ${slots.size - completed} lần nữa là xong, cố lên nhé!"
     }
     val widgetPrefs = context.getSharedPreferences("HomeWidgetPreferences", Context.MODE_PRIVATE).edit()
+    // Chi tiết lịch hôm nay sau khi đã xong (1.2.15), giống Dart
+    // updateHomeWidget(): mỗi lần đã uống một khối 2 dòng, tối đa 3.
+    val completedSlots = slots.filter { val st = logs.optJSONObject(it.key)?.optString("status"); st == "taken" || st == "late" }
+    val doneLines = mutableListOf<String>()
+    for (s in completedSlots.take(3)) {
+      val logObj = logs.optJSONObject(s.key) ?: continue
+      val st = logObj.optString("status")
+      val atRaw = logObj.optString("at")
+      val atStr = if (atRaw.length >= 16) atRaw.substring(11, 16) else ""
+      val takenStr = if (st == "late") "Đã uống trễ lúc $atStr" else "Đã uống đúng giờ lúc $atStr"
+      val med = s.med
+      var remStr = ""
+      val total = med.optInt("totalPills", 0)
+      if (total > 0) {
+        val perDose = med.optInt("pillsPerDose", 1).let { if (it > 0) it else 1 }
+        val startPill = med.optInt("startPill", 1).let { if (it > 0) it else 1 }
+        val stockFrom = med.optString("stockFrom", "").let { if (it.isNotEmpty()) it else med.optString("startDate", "") }
+        var takenCount = 0
+        val keys = logs.keys()
+        while (keys.hasNext()) {
+          val k = keys.next()
+          if (!k.startsWith("${med.optString("id")}|")) continue
+          val parts = k.split("|")
+          if (parts.size != 3) continue
+          if (parts[1] < stockFrom) continue
+          val ls = logs.optJSONObject(k)?.optString("status")
+          if (ls == "taken" || ls == "late") takenCount++
+        }
+        var rem = total - (startPill - 1) - takenCount * perDose
+        if (rem < 0) rem = 0
+        val perDay = (med.optJSONArray("times")?.length() ?: 0) * perDose
+        val daysStr = if (perDay > 0) " (đủ khoảng ${rem / perDay} ngày)" else ""
+        remStr = " • Còn $rem viên$daysStr"
+      }
+      doneLines.add("${formEmoji(med.optString("form"))} ${med.optString("name")} — ${med.optString("dose")} • Lúc ${s.time} • ${mealLabel(med.optString("mealNote"))}\n$takenStr$remStr")
+    }
+    if (completedSlots.size > 3) doneLines.add("… và ${completedSlots.size - 3} lần nữa")
+    widgetPrefs.putString("done_detail", doneLines.joinToString("\n"))
     widgetPrefs.putString("pip_message", pipMessage)
     widgetPrefs.putString(
         "progress",
