@@ -933,7 +933,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           child: const Text('Xóa toàn bộ dữ liệu'),
         ),
         const SizedBox(height: 16),
-        Center(child: Text('Thuốc Vui • Phiên bản 1.2.13', style: TextStyle(color: muted))),
+        Center(child: Text('Thuốc Vui • Phiên bản 1.2.14', style: TextStyle(color: muted))),
       ],
     );
   }
@@ -967,7 +967,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               : null,
           bottomNavigationBar: BottomNavigationBar(
             currentIndex: _tab,
-            onTap: (i) => setState(() => _tab = i),
+            onTap: (i) {
+              setState(() => _tab = i);
+              // Chuyển về tab Hôm nay sau khi bấm nút thông báo / widget:
+              // app đang mở sẵn không có sự kiện resumed, nên phải nạp lại
+              // ở đây thì tiến độ mới hiện, kể cả khi Kotlin vừa ghi log.
+              if (i == 0) widget.store.reload();
+            },
             items: const [
               BottomNavigationBarItem(icon: Icon(Icons.today), label: 'Hôm nay'),
               BottomNavigationBarItem(icon: Icon(Icons.calendar_month), label: 'Lịch sử'),
