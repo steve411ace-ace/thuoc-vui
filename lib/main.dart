@@ -16,25 +16,66 @@ void main() async {
   runApp(ThuocVuiApp(store: store));
 }
 
+// Sáng: giữ nguyên màu hiện tại (nền kem, AppBar vàng, teal).
+final ThemeData _lightTheme = ThemeData(
+  useMaterial3: true,
+  colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF2BB3A3)),
+  scaffoldBackgroundColor: const Color(0xFFFFF8E6),
+  cardColor: Colors.white,
+  appBarTheme: const AppBarTheme(
+    backgroundColor: Color(0xFFFFD93D),
+    foregroundColor: Color(0xFF333333),
+  ),
+  bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+    backgroundColor: Color(0xFFFFF8E6),
+    selectedItemColor: Color(0xFF2BB3A3),
+  ),
+);
+
+// Tối: nền xanh đen, thẻ tối, chữ sáng; Pip vẫn vàng, nút teal/vàng giữ nguyên
+// để nhận diện thương hiệu không đổi.
+final ThemeData _darkTheme = ThemeData(
+  useMaterial3: true,
+  colorScheme: ColorScheme.fromSeed(
+    seedColor: const Color(0xFF2BB3A3),
+    brightness: Brightness.dark,
+  ),
+  scaffoldBackgroundColor: const Color(0xFF121F1E),
+  cardColor: const Color(0xFF1E2E2C),
+  appBarTheme: const AppBarTheme(
+    backgroundColor: Color(0xFF1E3A37),
+    foregroundColor: Colors.white,
+  ),
+  bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+    backgroundColor: Color(0xFF16211F),
+    selectedItemColor: Color(0xFF5AD1C2),
+    unselectedItemColor: Color(0xFFB8C4C2),
+  ),
+);
+
 class ThuocVuiApp extends StatelessWidget {
   final ThuocStore store;
   const ThuocVuiApp({super.key, required this.store});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Thuốc Vui',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF2BB3A3)),
-        scaffoldBackgroundColor: const Color(0xFFFFF8E6),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFFFFD93D),
-          foregroundColor: Color(0xFF333333),
-        ),
-      ),
-      home: HomeScreen(store: store),
+    return ListenableBuilder(
+      listenable: store,
+      builder: (context, _) {
+        final mode = store.settings.themeMode;
+        return MaterialApp(
+          title: 'Thuốc Vui',
+          debugShowCheckedModeBanner: false,
+          theme: _lightTheme,
+          darkTheme: _darkTheme,
+          themeMode: mode == 'light'
+              ? ThemeMode.light
+              : mode == 'dark'
+                  ? ThemeMode.dark
+                  : ThemeMode.system,
+          home: HomeScreen(store: store),
+        );
+      },
     );
   }
 }
@@ -148,6 +189,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   Widget _homeTab() {
     final store = widget.store;
+    // Các thẻ trong app trước đây ghi chết Colors.white / black54 nên
+    // chế độ tối sẽ vẫn trắng và chữ mờ khó đọc. Dùng màu theo theme.
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final card = isDark ? const Color(0xFF1E2E2C) : Colors.white;
     final today = DateTime.now();
     final slots = store.slotsForDay(today);
     final taken = slots.where((s) => store.statusOf(s) == 'taken' || store.statusOf(s) == 'late').length;
@@ -213,7 +258,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   child: Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: card,
                       borderRadius: BorderRadius.circular(20),
                       boxShadow: [
                         BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 10, offset: const Offset(0, 4))
@@ -232,7 +277,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: card,
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: const Column(
@@ -250,7 +295,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: card,
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Column(
@@ -266,7 +311,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       child: LinearProgressIndicator(
                         value: slots.isEmpty ? 0 : taken / slots.length,
                         minHeight: 12,
-                        backgroundColor: const Color(0xFFFFE9A8),
+                        backgroundColor: isDark ? const Color(0xFF3D3A2A) : const Color(0xFFFFE9A8),
                         valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF2BB3A3)),
                       ),
                     ),
@@ -310,31 +355,33 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   Widget _slotCard(DoseSlot slot) {
     final store = widget.store;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final muted = isDark ? const Color(0xFFB8C4C2) : Colors.black54;
     final status = store.statusOf(slot);
     final now = DateTime.now();
     final isOverdue = status == null && slot.dateTime.isBefore(now);
     final log = store.logs[slot.key];
 
-    Color cardColor = Colors.white;
+    Color cardColor = isDark ? const Color(0xFF1E2E2C) : Colors.white;
     String statusText;
     if (status == 'taken') {
-      cardColor = const Color(0xFFE3F7E8);
+      cardColor = isDark ? const Color(0xFF1E3A2E) : const Color(0xFFE3F7E8);
       final at = log != null && log.at.isNotEmpty ? DateTime.tryParse(log.at) : null;
       statusText = at == null
           ? 'Đã uống đúng giờ'
           : 'Đã uống đúng giờ lúc ${at.hour.toString().padLeft(2, '0')}:${at.minute.toString().padLeft(2, '0')}';
     } else if (status == 'late') {
-      cardColor = const Color(0xFFFFF0D6);
+      cardColor = isDark ? const Color(0xFF3A2E1A) : const Color(0xFFFFF0D6);
       final at = log != null && log.at.isNotEmpty ? DateTime.tryParse(log.at) : null;
       final lateMin = at?.difference(slot.dateTime).inMinutes ?? 0;
       statusText = at == null
           ? 'Đã uống trễ'
           : 'Đã uống trễ lúc ${at.hour.toString().padLeft(2, '0')}:${at.minute.toString().padLeft(2, '0')}${lateMin > 0 ? ' (trễ $lateMin phút)' : ''}';
     } else if (status == 'skipped') {
-      cardColor = const Color(0xFFF1F1F1);
+      cardColor = isDark ? const Color(0xFF2A2E2E) : const Color(0xFFF1F1F1);
       statusText = 'Đã bỏ qua${log != null && log.reason.isNotEmpty ? ' (${log.reason})' : ''}';
     } else if (isOverdue) {
-      cardColor = const Color(0xFFFFF0D6);
+      cardColor = isDark ? const Color(0xFF3A2E1A) : const Color(0xFFFFF0D6);
       statusText = 'Quá giờ';
     } else {
       statusText = 'Sắp tới lúc ${slot.time}';
@@ -367,7 +414,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     Text(
                       'Lúc ${slot.time} • ${slot.medicine.mealLabel}'
                       '${slot.medicine.note.isNotEmpty ? ' • ${slot.medicine.note}' : ''}',
-                      style: const TextStyle(color: Colors.black54),
+                      style: TextStyle(color: muted),
                     ),
                     // Trạng thái nằm trong cột Expanded, không nằm ngoài Row:
                     // trước đây Text trạng thái dài (ví dụ "Đã uống trễ lúc
@@ -380,7 +427,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       Text(
                         'Còn ${store.remainingPills(slot.medicine)} viên'
                         '${store.daysSupply(slot.medicine) != null ? ' (đủ khoảng ${store.daysSupply(slot.medicine)} ngày)' : ''}',
-                        style: const TextStyle(color: Colors.black54),
+                        style: TextStyle(color: muted),
                       ),
                     ],
                   ],
@@ -460,7 +507,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 Expanded(
                   child: OutlinedButton(
                     onPressed: () => _askSkip(slot),
-                    style: OutlinedButton.styleFrom(foregroundColor: Colors.black54),
+                    style: OutlinedButton.styleFrom(foregroundColor: muted),
                     child: const Text('Bỏ qua'),
                   ),
                 ),
@@ -473,11 +520,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Widget _badgesSection(ThuocStore store) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final card = isDark ? const Color(0xFF1E2E2C) : Colors.white;
     final earned = store.earnedBadgeIds();
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: card,
         borderRadius: BorderRadius.circular(20),
       ),
       child: Column(
@@ -486,7 +535,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           const Text('Danh hiệu đúng giờ', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
           const SizedBox(height: 4),
           Text('Chuỗi đúng giờ: ${store.onTimeStreak()} ngày • Tổng lần đúng giờ: ${store.totalOnTime()}',
-              style: const TextStyle(color: Colors.black54)),
+              style: TextStyle(color: isDark ? const Color(0xFFB8C4C2) : Colors.black54)),
           const SizedBox(height: 10),
           Wrap(
             spacing: 8,
@@ -496,7 +545,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               return Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 decoration: BoxDecoration(
-                  color: got ? const Color(0xFFFFF0D6) : const Color(0xFFF1F1F1),
+                  color: got ? (isDark ? const Color(0xFF3A2E1A) : const Color(0xFFFFF0D6)) : (isDark ? const Color(0xFF2A2E2E) : const Color(0xFFF1F1F1)),
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Text(
@@ -514,6 +563,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Widget _settingsTab() {
     final store = widget.store;
     final settings = store.settings;
+    final muted = Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFFB8C4C2)
+        : Colors.black54;
 
     Future<void> pickQuiet(bool isStart) async {
       final parts = (isStart ? settings.quietStart : settings.quietEnd).split(':');
@@ -535,6 +587,33 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       children: [
         const Text('Cài đặt', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
         const SizedBox(height: 16),
+        const Text('Giao diện', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+        RadioListTile<String>(
+          title: const Text('Sáng'),
+          value: 'light',
+          groupValue: settings.themeMode,
+          onChanged: (v) async {
+            if (v != null) await store.updateSettings(settings.copyWith(themeMode: v));
+          },
+        ),
+        RadioListTile<String>(
+          title: const Text('Tối'),
+          value: 'dark',
+          groupValue: settings.themeMode,
+          onChanged: (v) async {
+            if (v != null) await store.updateSettings(settings.copyWith(themeMode: v));
+          },
+        ),
+        RadioListTile<String>(
+          title: const Text('Theo điện thoại'),
+          subtitle: const Text('Máy đang tối thì app và widget tối theo, máy sáng thì sáng theo.'),
+          value: 'system',
+          groupValue: settings.themeMode,
+          onChanged: (v) async {
+            if (v != null) await store.updateSettings(settings.copyWith(themeMode: v));
+          },
+        ),
+        const Divider(height: 32),
         SwitchListTile(
           title: const Text('Âm thanh nhắc'),
           value: settings.sound,
@@ -559,20 +638,20 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           trailing: Text(settings.quietEnd, style: const TextStyle(fontWeight: FontWeight.bold)),
           onTap: () => pickQuiet(false),
         ),
-        const Padding(
+        Padding(
           padding: EdgeInsets.symmetric(vertical: 8),
           child: Text(
             'Trong giờ yên lặng, app không lên lịch nhắc mới. Các lần uống trong khoảng này vẫn hiện trên lịch hôm nay.',
-            style: TextStyle(color: Colors.black54),
+            style: TextStyle(color: muted),
           ),
         ),
         const Divider(height: 32),
         const Text('Thông báo', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
-        const Padding(
+        Padding(
           padding: EdgeInsets.symmetric(vertical: 8),
           child: Text(
             'Lịch nhắc chính dùng báo thức native, không dùng lịch plugin nữa. Nếu chưa từng thấy thông báo, bấm "Nhắc thử native sau 1 phút" để kiểm tra. Nếu máy đã từ chối quyền vĩnh viễn thì hộp xin quyền sẽ không hiện nữa, anh bật tay theo đường dẫn: Cài đặt máy > Ứng dụng > Thuốc Vui > Thông báo.',
-            style: TextStyle(color: Colors.black54),
+            style: TextStyle(color: muted),
           ),
         ),
         // Nút thông báo xếp dọc full-width, không chia đôi nữa: chia đôi
@@ -767,20 +846,20 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             }
           },
         ),
-        const Padding(
+        Padding(
           padding: EdgeInsets.symmetric(vertical: 8),
           child: Text(
             'Báo lại là nhắc tự động sau lần nhắc chính, chỉ khi chưa bấm đã uống. Bấm đã uống ở app, widget hay thông báo đều dừng báo lại cho lần đó.',
-            style: TextStyle(color: Colors.black54),
+            style: TextStyle(color: muted),
           ),
         ),
         const Divider(height: 32),
         const Text('Sao lưu dữ liệu', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
-        const Padding(
+        Padding(
           padding: EdgeInsets.symmetric(vertical: 8),
           child: Text(
             'Gỡ app sẽ xóa dữ liệu trong máy. Trước khi gỡ để cài bản mới, bấm Sao lưu rồi dán chuỗi sao lưu vào Ghi chú hoặc email để giữ. Sau khi cài lại, bấm Khôi phục rồi dán chuỗi đó vào.',
-            style: TextStyle(color: Colors.black54),
+            style: TextStyle(color: muted),
           ),
         ),
         Row(
@@ -830,9 +909,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           ],
         ),
         const Divider(height: 32),
-        const Text(
+        Text(
           'Lưu ý: app chỉ nhắc giờ uống và ghi lại việc đã uống, không thay thế chỉ định của bác sĩ. Sau khi khởi động lại điện thoại, mở app một lần để lịch nhắc hoạt động lại.',
-          style: TextStyle(color: Colors.black54),
+          style: TextStyle(color: muted),
         ),
         const SizedBox(height: 24),
         OutlinedButton(
@@ -854,7 +933,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           child: const Text('Xóa toàn bộ dữ liệu'),
         ),
         const SizedBox(height: 16),
-        const Center(child: Text('Thuốc Vui • Phiên bản 1.2.12', style: TextStyle(color: Colors.black54))),
+        Center(child: Text('Thuốc Vui • Phiên bản 1.2.13', style: TextStyle(color: muted))),
       ],
     );
   }
