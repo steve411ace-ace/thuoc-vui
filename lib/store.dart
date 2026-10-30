@@ -107,6 +107,13 @@ class ThuocStore extends ChangeNotifier {
 
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
+    // QUAN TRỌNG (1.2.14): SharedPreferences của Dart giữ cache trong bộ nhớ.
+    // Kotlin (widget / nút thông báo) ghi trực tiếp vào file trên máy, Dart
+    // không tự thấy. Trước đây reload() chỉ đọc lại từ cache nên vẫn là dữ
+    // liệu cũ, và lần _save() sau đó còn ghi đè mất check-in từ Kotlin.
+    // prefs.reload() bắt Dart đọc lại từ file, nên check-in từ nút thông
+    // báo / widget mới hiện trong app khi mở lại hoặc chuyển tab.
+    try { await prefs.reload(); } catch (_) {}
     final raw = prefs.getString(_storageKey);
     if (raw == null || raw.isEmpty) {
       medicines = [];
