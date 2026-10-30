@@ -265,4 +265,114 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
     widgetPrefs.apply()
     return "${next.key}|$status"
   }
+
+  /**
+   * Cập nhật dữ liệu widget từ log hiện tại trên máy, KHÔNG ghi check-in mới.
+   * Dùng cho nút "Đã uống" trên thông báo (1.2.14): trước đây
+   * ReReminderReceiver chỉ ghi log rồi hủy thông báo, không cập nhật
+   * HomeWidgetPreferences, nên widget vẫn hiện "chưa uống" cho tới khi
+   * mở app và Dart chạy updateHomeWidget(). Gọi hàm này ngay sau
+   * markTaken() thì widget đổi ngay, kể cả khi không mở app.
+   * Logic liệt kê slot hôm nay và câu Pip sao chép từ checkinNextDose
+   * (cố ý không refactor hàm đó để không phá đường bấm widget đã
+   * kiểm chứng OK ở 1.2.7).
+   */
+  fun updateWidgetFromCurrentLogs(context: Context) {
+    val flutterPrefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+    val raw = ThuocVuiPrefs.read(flutterPrefs)?.second ?: return
+    val data = JSONObject(raw)
+    val medicines = data.optJSONArray("medicines") ?: JSONArray()
+    val logs = data.optJSONObject("logs") ?: JSONObject()
+    val now = Calendar.getInstance()
+    val todayStr = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(now.time)
+    val dartWeekday = if (now.get(Calendar.DAY_OF_WEEK) == Calendar.SUNDAY) 7
+        else now.get(Calendar.DAY_OF_WEEK) - 1
+    val dateFmt = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+    data class Slot(val med: JSONObject, val time: String, val key: String, val dateTime: Calendar)
+    val slots = mutableListOf<Slot>()
+    for (i in 0 until medicines.length()) {
+      val med = medicines.getJSONObject(i)
+      val start = try { dateFmt.parse(med.optString("startDate")) } catch (_: Exception) { null }
+      if (start != null) {
+        val startCal = Calendar.getInstance().apply { time = start }
+        if (now.get(Calendar.YEAR) < startCal.get(Calendar.YEAR) ||
+            (now.get(Calendar.YEAR) == startCal.get(Calendar.YEAR) && now.get(Calendar.DAY_OF_YEAR) < startCal.get(Calendar.DAY_OF_YEAR))) {
+          continue
+        }
+      }
+      val endStr = med.optString("endDate", "")
+      if (endStr.isNotEmpty()) {
+        val end = try { dateFmt.parse(endStr) } catch (_: Exception) { null }
+        if (end != null) {
+          val endCal = Calendar.getInstance().apply { time = end }
+          if (now.get(Calendar.YEAR) > endCal.get(Calendar.YEAR) ||
+              (now.get(Calendar.YEAR) == endCal.get(Calendar.YEAR) && now.get(Calendar.DAY_OF_YEAR) > endCal.get(Calendar.DAY_OF_YEAR))) {
+            continue
+          }
+        }
+      }
+      val weekdays = med.optJSONArray("weekdays") ?: JSONArray()
+      var active = false
+      for (j in 0 until weekdays.length()) {
+        if (weekdays.optInt(j) == dartWeekday) { active = true; break }
+      }
+      if (!active) continue
+      val times = med.optJSONArray("times") ?: JSONArray()
+      for (j in 0 until times.length()) {
+        val time = times.optString(j)
+        val parts = time.split(":")
+        if (parts.size != 2) continue
+        val hour = parts[0].toIntOrNull() ?: continue
+        val minute = parts[1].toIntOrNull() ?: continue
+        val slotCal = Calendar.getInstance().apply {
+          set(Calendar.HOUR_OF_DAY, hour)
+          set(Calendar.MINUTE, minute)
+          set(Calendar.SECOND, 0)
+          set(Calendar.MILLISECOND, 0)
+        }
+        slots.add(Slot(med, time, "${med.optString("id")}|$todayStr|$time", slotCal))
+      }
+    }
+    slots.sortBy { it.time }
+    var completed = 0
+    var onTime = 0
+    var following: Slot? = null
+    for (slot in slots) {
+      val st = logs.optJSONObject(slot.key)?.optString("status")
+      if (st == "taken" || st == "late") completed++
+      if (st == "taken") onTime++
+      if (following == null && st != "taken" && st != "late") following = slot
+    }
+    var skipped = 0
+    var overdue = false
+    for (slot in slots) {
+      val st = logs.optJSONObject(slot.key)?.optString("status")
+      if (st == "skipped") skipped++
+      if (st != "taken" && st != "late" && st != "skipped" && slot.dateTime.before(now)) overdue = true
+    }
+    val pipMessage = when {
+      slots.isEmpty() -> "😊 Thêm thuốc để Pip nhắc bạn nhé!"
+      onTime == slots.size -> "🥳 Hôm nay uống đủ và đúng giờ hết rồi, tuyệt vời!"
+      completed == slots.size -> "😊 Hôm nay uống đủ hết rồi, có ${completed - onTime} lần trễ, lần sau cố đúng giờ nhé!"
+      overdue -> "😟 Ơ, có lần uống quá giờ chưa thấy bạn bấm, uống bù nhé?"
+      skipped > 0 -> "😟 Hôm nay bạn bỏ qua $skipped lần, mai cố nhé?"
+      else -> "😊 Hôm nay còn ${slots.size - completed} lần nữa là xong, cố lên nhé!"
+    }
+    val widgetPrefs = context.getSharedPreferences("HomeWidgetPreferences", Context.MODE_PRIVATE).edit()
+    widgetPrefs.putString("pip_message", pipMessage)
+    widgetPrefs.putString(
+        "progress",
+        if (slots.isEmpty()) "Chưa có thuốc hôm nay"
+        else "Hôm nay: $completed/${slots.size} lần • đúng giờ $onTime lần")
+    if (following == null) {
+      widgetPrefs.putString("next_text", if (slots.isEmpty()) "Thêm thuốc để Pip nhắc bạn nhé!" else "🎉 Đã xong hôm nay!")
+      widgetPrefs.putString("next_time", "")
+    } else {
+      widgetPrefs.putString("next_text", "${formEmoji(following.med.optString("form"))} ${following.med.optString("name")} — ${following.med.optString("dose")}")
+      widgetPrefs.putString("next_time", "Lúc ${following.time} • ${mealLabel(following.med.optString("mealNote"))}")
+    }
+    widgetPrefs.putString("all_done", if (following == null && slots.isNotEmpty()) "1" else "0")
+    widgetPrefs.apply()
+    refreshWidget(context)
+  }
 }
