@@ -22,6 +22,8 @@ class AppSettings {
   // tối đa remindTimes lần sau lần nhắc chính (0 = tắt báo lại).
   int remindIntervalMinutes;
   int remindTimes;
+  // Giao diện: 'system' = theo điện thoại, 'light' = sáng, 'dark' = tối.
+  String themeMode;
 
   AppSettings({
     this.sound = true,
@@ -30,6 +32,7 @@ class AppSettings {
     this.quietEnd = '07:00',
     this.remindIntervalMinutes = 10,
     this.remindTimes = 3,
+    this.themeMode = 'system',
   });
 
   AppSettings copyWith({
@@ -39,6 +42,7 @@ class AppSettings {
     String? quietEnd,
     int? remindIntervalMinutes,
     int? remindTimes,
+    String? themeMode,
   }) =>
       AppSettings(
         sound: sound ?? this.sound,
@@ -47,6 +51,7 @@ class AppSettings {
         quietEnd: quietEnd ?? this.quietEnd,
         remindIntervalMinutes: remindIntervalMinutes ?? this.remindIntervalMinutes,
         remindTimes: remindTimes ?? this.remindTimes,
+        themeMode: themeMode ?? this.themeMode,
       );
 
   Map<String, dynamic> toJson() => {
@@ -56,6 +61,7 @@ class AppSettings {
         'quietEnd': quietEnd,
         'remindIntervalMinutes': remindIntervalMinutes,
         'remindTimes': remindTimes,
+        'themeMode': themeMode,
       };
 
   factory AppSettings.fromJson(Map<String, dynamic>? j) {
@@ -67,6 +73,7 @@ class AppSettings {
       quietEnd: j['quietEnd'] as String? ?? '07:00',
       remindIntervalMinutes: (j['remindIntervalMinutes'] as num?)?.toInt() ?? 10,
       remindTimes: (j['remindTimes'] as num?)?.toInt() ?? 3,
+      themeMode: (j['themeMode'] as String?) ?? 'system',
     );
   }
 
@@ -856,6 +863,9 @@ class ThuocStore extends ChangeNotifier {
               : 'Lúc ${next.time} • ${next.medicine.mealLabel}'
                   '${remainingPills(next.medicine) != null ? ' • Còn ${remainingPills(next.medicine)} viên' : ''}');
       await HomeWidget.saveWidgetData<String>('all_done', next == null && slots.isNotEmpty ? '1' : '0');
+      // Widget native không tự theo theme Flutter: lưu lựa chọn thô
+      // ('system'/'light'/'dark') để Kotlin tự quyết sáng/tối lúc cập nhật.
+      await HomeWidget.saveWidgetData<String>('widget_theme', settings.themeMode);
       await HomeWidget.updateWidget(name: 'ThuocVuiWidgetProvider', androidName: 'ThuocVuiWidgetProvider');
     } catch (_) {}
   }
