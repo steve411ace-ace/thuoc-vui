@@ -426,7 +426,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       const SizedBox(height: 2),
                       Text(
                         'Còn ${store.remainingPills(slot.medicine)} viên'
-                        '${store.daysSupply(slot.medicine) != null ? ' (đủ khoảng ${store.daysSupply(slot.medicine)} ngày)' : ''}',
+                        '${store.daysSupply(slot.medicine) != null ? ' (đủ ${store.daysSupply(slot.medicine)} ngày)' : ''}',
                         style: TextStyle(color: muted),
                       ),
                     ],
@@ -933,7 +933,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           child: const Text('Xóa toàn bộ dữ liệu'),
         ),
         const SizedBox(height: 16),
-        Center(child: Text('Thuốc Vui • Phiên bản 1.2.16', style: TextStyle(color: muted))),
+        Center(child: Text('Thuốc Vui • Phiên bản 1.2.17', style: TextStyle(color: muted))),
       ],
     );
   }

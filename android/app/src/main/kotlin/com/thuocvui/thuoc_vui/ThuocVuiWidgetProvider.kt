@@ -284,7 +284,7 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
         var rem = total - (startPill - 1) - takenCount * perDose
         if (rem < 0) rem = 0
         val perDay = (med.optJSONArray("times")?.length() ?: 0) * perDose
-        val daysStr = if (perDay > 0) " (đủ khoảng ${rem / perDay} ngày)" else ""
+        val daysStr = if (perDay > 0) " (đủ ${rem / perDay} ngày)" else ""
         remStr = " • Còn $rem viên$daysStr"
       }
       doneLines.add("${formEmoji(med.optString("form"))} ${med.optString("name")} — ${med.optString("dose")} • Lúc ${s.time} • ${mealLabel(med.optString("mealNote"))}\n$takenStr$remStr")
@@ -432,7 +432,7 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
         var rem = total - (startPill - 1) - takenCount * perDose
         if (rem < 0) rem = 0
         val perDay = (med.optJSONArray("times")?.length() ?: 0) * perDose
-        val daysStr = if (perDay > 0) " (đủ khoảng ${rem / perDay} ngày)" else ""
+        val daysStr = if (perDay > 0) " (đủ ${rem / perDay} ngày)" else ""
         remStr = " • Còn $rem viên$daysStr"
       }
       doneLines.add("${formEmoji(med.optString("form"))} ${med.optString("name")} — ${med.optString("dose")} • Lúc ${s.time} • ${mealLabel(med.optString("mealNote"))}\n$takenStr$remStr")

@@ -357,7 +357,7 @@ class ThuocStore extends ChangeNotifier {
     if (remaining <= 0) return 'Hết thuốc ${med.name} rồi! Mua hộp mới ngay nhé!';
     final days = daysSupply(med);
     if (days != null && days <= 3) {
-      return 'Sắp hết thuốc ${med.name}, còn $remaining viên (đủ khoảng $days ngày), nhớ mua trước nhé!';
+      return 'Sắp hết thuốc ${med.name}, còn $remaining viên (đủ $days ngày), nhớ mua trước nhé!';
     }
     if (days != null && days > 7) return null; // Còn nhiều, khỏi nhắc mua.
     return null; // 4–7 ngày: chỉ hiện số viên, không nhắc mua.
@@ -885,7 +885,7 @@ class ThuocStore extends ChangeNotifier {
         final takenStr = log?.status == 'late' ? 'Đã uống trễ lúc $atStr' : 'Đã uống đúng giờ lúc $atStr';
         final rem = remainingPills(s.medicine);
         final days = daysSupply(s.medicine);
-        final remStr = rem != null ? ' • Còn $rem viên${days != null ? ' (đủ khoảng $days ngày)' : ''}' : '';
+        final remStr = rem != null ? ' • Còn $rem viên${days != null ? ' (đủ $days ngày)' : ''}' : '';
         doneLines.add('${s.medicine.formEmoji} ${s.medicine.name} — ${s.medicine.dose} • Lúc ${s.time} • ${s.medicine.mealLabel}\n$takenStr$remStr');
       }
       if (doneSlots.length > 3) doneLines.add('… và ${doneSlots.length - 3} lần nữa');
