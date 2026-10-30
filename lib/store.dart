@@ -80,6 +80,7 @@ class AppSettings {
       remindIntervalMinutes: (j['remindIntervalMinutes'] as num?)?.toInt() ?? 10,
       remindTimes: (j['remindTimes'] as num?)?.toInt() ?? 3,
       themeMode: (j['themeMode'] as String?) ?? 'system',
+      widgetOpacity: (j['widgetOpacity'] as num?)?.toInt() ?? 100,
     );
   }
 
