@@ -174,8 +174,6 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(isEdit ? 'Sửa thuốc' : 'Thêm thuốc mới'),
-        backgroundColor: const Color(0xFFFFD93D),
-        foregroundColor: const Color(0xFF333333),
       ),
       body: ListView(
         padding: const EdgeInsets.all(20),
@@ -246,7 +244,7 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
                   decoration: BoxDecoration(
                     color: Color(c),
                     shape: BoxShape.circle,
-                    border: selected ? Border.all(color: Colors.black, width: 3) : null,
+                    border: selected ? Border.all(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black, width: 3) : null,
                   ),
                   child: selected ? const Icon(Icons.check, color: Colors.white) : null,
                 ),
