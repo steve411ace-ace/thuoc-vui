@@ -119,17 +119,19 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       return [
         'Chào buổi sáng! Uống thuốc rồi mới khỏe cả ngày nè!',
         'Sáng rồi! Pip nhắc bạn uống thuốc buổi sáng nhé!',
+        'Buổi sáng tràn đầy năng lượng, uống thuốc đúng giờ nhé! ☀️',
       ];
     }
     if (hour < 14) {
-      return ['Giờ uống thuốc trưa rồi, đừng quên nhé!', 'Trưa rồi, uống thuốc xong nghỉ ngơi nhé!'];
+      return ['Giờ uống thuốc trưa rồi, đừng quên nhé!', 'Trưa rồi, uống thuốc xong nghỉ ngơi nhé!', 'Trưa nay Pip nhắc nhẹ: uống thuốc rồi nghỉ trưa thôi!'];
     }
     if (hour < 18) {
-      return ['Chiều rồi! Còn mấy lần uống nữa là xong hôm nay!', 'Pip đây! Nhớ uống thuốc chiều nhé!'];
+      return ['Chiều rồi! Còn mấy lần uống nữa là xong hôm nay!', 'Pip đây! Nhớ uống thuốc chiều nhé!', 'Chiều rồi, Pip cổ vũ bạn nốt mấy lần nữa là xong!'];
     }
     return [
       'Uống thuốc tối xong là yên tâm đi ngủ ngon!',
       'Tối rồi, uống thuốc xong là hoàn thành ngày hôm nay!',
+      'Tối nay uống thuốc xong là ngủ ngon nhé! 🌙',
     ];
   }
 
@@ -229,6 +231,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     } else if (skippedCount > 0) {
       pipMood = PipMood.worried;
       pipMessage = 'Hôm nay bạn bỏ qua $skippedCount lần, mai cố nhé?';
+    } else if (nextSlot != null && slots.length - taken == 1) {
+      // Còn đúng 1 lần: Pip cổ vũ nốt lần cuối, thay vì chỉ chào theo giờ.
+      pipMood = PipMood.happy;
+      pipMessage = 'Sắp xong rồi, cố nốt lần này nhé! 💪\nTiếp theo: ${nextSlot.medicine.formEmoji} ${nextSlot.medicine.name} lúc ${nextSlot.time}';
     } else if (nextSlot != null) {
       pipMood = PipMood.happy;
       pipMessage = '$_greeting\nTiếp theo: ${nextSlot.medicine.formEmoji} ${nextSlot.medicine.name} lúc ${nextSlot.time}';
@@ -258,15 +264,42 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   child: Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: card,
+                      // Bong bóng Pip: nền teal nhạt (tối: teal đậm) thay vì trắng trơn.
+                      color: isDark ? const Color(0xFF1E3A37) : const Color(0xFFE0F2EF),
                       borderRadius: BorderRadius.circular(20),
                       boxShadow: [
                         BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 10, offset: const Offset(0, 4))
                       ],
                     ),
-                    child: Text(
-                      finalPipMessage,
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 400),
+                      transitionBuilder: (child, anim) => FadeTransition(
+                        opacity: anim,
+                        child: SlideTransition(
+                          position: Tween<Offset>(begin: const Offset(0, 0.1), end: Offset.zero).animate(anim),
+                          child: child,
+                        ),
+                      ),
+                      child: RichText(
+                        key: ValueKey(finalPipMessage),
+                        text: TextSpan(
+                          style: DefaultTextStyle.of(context).style.copyWith(fontSize: 16, fontWeight: FontWeight.w600),
+                          children: [
+                            for (int i = 0; i < finalPipMessage.split('\n').length; i++) ...[
+                              if (i > 0) const TextSpan(text: '\n'),
+                              TextSpan(
+                                text: finalPipMessage.split('\n')[i],
+                                style: finalPipMessage.split('\n')[i].startsWith('Tiếp theo:')
+                                    ? TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: isDark ? const Color(0xFF5AD1C2) : const Color(0xFF0F766E),
+                                      )
+                                    : null,
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -954,7 +987,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           child: const Text('Xóa toàn bộ dữ liệu'),
         ),
         const SizedBox(height: 16),
-        Center(child: Text('Thuốc Vui • Phiên bản 1.2.20', style: TextStyle(color: muted))),
+        Center(child: Text('Thuốc Vui • Phiên bản 1.2.21', style: TextStyle(color: muted))),
       ],
     );
   }
