@@ -4,6 +4,8 @@ import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
+import android.content.res.Configuration
+import android.graphics.Color
 import android.content.Intent
 import android.content.SharedPreferences
 import android.os.Build
@@ -31,6 +33,31 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
   ) {
     appWidgetIds.forEach { widgetId ->
       val views = RemoteViews(context.packageName, R.layout.thuoc_vui_widget).apply {
+        // Giao diện widget (1.2.13): app lưu lựa chọn thô vào
+        // HomeWidgetPreferences key "widget_theme" ('system'/'light'/'dark').
+        // 'system' = theo chế độ tối của máy, trên Samsung chính là
+        // chế độ Tối của One UI (uiMode night): One UI bật tối thì
+        // widget tối theo, không cần cài riêng cho widget. Chọn Sáng/Tối
+        // trong app thì widget theo app, ghi đè One UI.
+        val themeMode = widgetData.getString("widget_theme", null) ?: "system"
+        val isDark = when (themeMode) {
+          "dark" -> true
+          "light" -> false
+          else -> (context.resources.configuration.uiMode and
+              Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        }
+        val bgRes = if (isDark) R.drawable.widget_background_dark
+            else R.drawable.widget_background
+        setInt(R.id.widget_container, "setBackgroundResource", bgRes)
+        val mainText = if (isDark) Color.parseColor("#EDEDED") else Color.parseColor("#333333")
+        val subText = if (isDark) Color.parseColor("#B8C4C2") else Color.parseColor("#666666")
+        setTextColor(R.id.widget_title, mainText)
+        setTextColor(R.id.widget_pip, mainText)
+        setTextColor(R.id.widget_progress, mainText)
+        setTextColor(R.id.widget_next, mainText)
+        setTextColor(R.id.widget_next_time, subText)
+        setTextColor(R.id.widget_done, mainText)
+        // Nút teal + chữ trắng giữ nguyên cả sáng lẫn tối.
         val openIntent = HomeWidgetLaunchIntent.getActivity(context, MainActivity::class.java)
         setOnClickPendingIntent(R.id.widget_container, openIntent)
         setTextViewText(R.id.widget_pip, widgetData.getString("pip_message", null) ?: "😊 Pip đang nhắc bạn uống thuốc đúng giờ nhé!")
