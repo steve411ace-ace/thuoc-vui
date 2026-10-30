@@ -91,17 +91,18 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   Widget _statCard(String label, String value) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF1E2E2C) : Colors.white,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(color: Colors.black54, fontSize: 13)),
+          Text(label, style: TextStyle(color: isDark ? const Color(0xFFB8C4C2) : Colors.black54, fontSize: 13)),
           const SizedBox(height: 6),
           Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         ],
@@ -110,12 +111,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   Widget _monthGrid(ThuocStore store) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final firstDay = _month;
     final daysInMonth = DateTime(_month.year, _month.month + 1, 0).day;
     final startWeekday = firstDay.weekday; // 1 = Thứ 2
     final cells = <Widget>[];
     for (final label in ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN']) {
-      cells.add(Center(child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black54))));
+      cells.add(Center(child: Text(label, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? const Color(0xFFB8C4C2) : Colors.black54))));
     }
     for (var i = 1; i < startWeekday; i++) {
       cells.add(const SizedBox());
@@ -126,9 +128,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
       final slots = store.slotsForDay(date);
       Color bg;
       if (slots.isEmpty) {
-        bg = const Color(0xFFE0E0E0);
+        bg = isDark ? const Color(0xFF2E3A38) : const Color(0xFFE0E0E0);
       } else if (date.isAfter(DateTime(today.year, today.month, today.day))) {
-        bg = Colors.white;
+        bg = isDark ? const Color(0xFF1E2E2C) : Colors.white;
       } else {
         final completed = slots.where((s) => store.logs[s.key]?.status == 'taken' || store.logs[s.key]?.status == 'late').length;
         final onTime = slots.where((s) => store.logs[s.key]?.status == 'taken').length;
@@ -154,7 +156,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
             decoration: BoxDecoration(
               color: bg,
               shape: BoxShape.circle,
-              border: isSelected ? Border.all(color: Colors.black, width: 2) : null,
+              border: isSelected ? Border.all(color: isDark ? Colors.white : Colors.black, width: 2) : null,
             ),
             alignment: Alignment.center,
             child: Text('$day', style: const TextStyle(fontWeight: FontWeight.w600)),
