@@ -65,9 +65,9 @@ class _PipWidgetState extends State<PipWidget> with TickerProviderStateMixin {
   }
 }
 
-// Mẫu B đã duyệt (18:15 30/10): Pip viên nang chibi đang nhảy — thân
-// nang dọc trắng/vàng, tay trái giơ cao cầm viên thuốc teal, tay phải
-// vẫy, chân nhảy, mắt nháy định kỳ (chỉ ở tâm trạng vui).
+// Pip sau 18:56 30/10 (An chốt): bỏ tay chân, chỉ còn thân viên nang
+// dọc trắng/vàng với khuôn mặt lớn, cân đối giữa khung; vẫn nảy,
+// nghiêng nhẹ và nháy mắt định kỳ (chỉ ở tâm trạng vui).
 class _PipPainter extends CustomPainter {
   final PipMood mood;
   final bool blink;
@@ -78,8 +78,8 @@ class _PipPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final s = size.width;
     final cx = size.width / 2;
-    final capW = s * 0.66;
-    final capH = s * 0.70;
+    final capW = s * 0.78;
+    final capH = s * 0.88;
     final capLeft = cx - capW / 2;
     final capTop = s * 0.06;
     final capRect = RRect.fromRectAndRadius(
@@ -92,48 +92,6 @@ class _PipPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3
       ..strokeCap = StrokeCap.round;
-
-    // Bóng đổ dưới chân
-    final shadowPaint = Paint()..color = Colors.black.withOpacity(0.12);
-    canvas.drawOval(
-      Rect.fromCenter(center: Offset(cx, s * 0.96), width: capW * 0.9, height: s * 0.05),
-      shadowPaint,
-    );
-
-    // Chân nhảy: chân trái duỗi ra, chân phải co lên, giày vàng.
-    final legPaint = Paint()
-      ..strokeWidth = 9
-      ..strokeCap = StrokeCap.round;
-    legPaint.color = Colors.white;
-    canvas.drawLine(Offset(cx - capW * 0.22, capTop + capH * 0.92),
-        Offset(cx - capW * 0.55, s * 0.90), legPaint);
-    legPaint.color = const Color(0xFFFFD93D);
-    canvas.drawLine(Offset(cx + capW * 0.22, capTop + capH * 0.92),
-        Offset(cx + capW * 0.50, s * 0.88), legPaint);
-    final shoe = Paint()..color = const Color(0xFFFFD93D);
-    canvas.drawOval(Rect.fromCenter(center: Offset(cx - capW * 0.58, s * 0.91), width: s * 0.16, height: s * 0.10), shoe);
-    canvas.drawOval(Rect.fromCenter(center: Offset(cx + capW * 0.53, s * 0.89), width: s * 0.16, height: s * 0.10), shoe);
-
-    // Tay: tay trái giơ cao cầm viên thuốc teal, tay phải vẫy sang ngang.
-    final armPaint = Paint()
-      ..strokeWidth = 11
-      ..strokeCap = StrokeCap.round;
-    armPaint.color = Colors.white;
-    final leftHand = Offset(capLeft - s * 0.16, capTop + capH * 0.18 + wave);
-    canvas.drawLine(Offset(capLeft + capW * 0.08, capTop + capH * 0.42), leftHand, armPaint);
-    // Viên thuốc teal trên tay trái: to hơn, vẽ trước rồi vẽ bàn tay
-    // đè lên mép dưới viên thuốc để nhìn như Pip đang cầm, không lơ lửng.
-    final pillRect = RRect.fromRectAndRadius(
-      Rect.fromCenter(center: Offset(leftHand.dx, leftHand.dy - s * 0.07), width: s * 0.13, height: s * 0.20),
-      Radius.circular(s * 0.065),
-    );
-    canvas.drawRRect(pillRect, Paint()..color = const Color(0xFF2BB3A3));
-    canvas.drawRRect(pillRect, outline);
-    canvas.drawCircle(leftHand, s * 0.065, Paint()..color = Colors.white);
-    armPaint.color = const Color(0xFFFFD93D);
-    final rightHand = Offset(capLeft + capW + s * 0.18, capTop + capH * 0.52 - wave);
-    canvas.drawLine(Offset(capLeft + capW * 0.92, capTop + capH * 0.52), rightHand, armPaint);
-    canvas.drawCircle(rightHand, s * 0.065, Paint()..color = const Color(0xFFFFD93D));
 
     // Thân viên nang: vàng toàn bộ, trắng nửa trái.
     canvas.save();
@@ -149,9 +107,9 @@ class _PipPainter extends CustomPainter {
     canvas.drawRRect(capRect, outline);
 
     // Mắt
-    final eyeY = capTop + capH * 0.35;
-    final eyeDx = capW * 0.20;
-    final eyeR = s * 0.075;
+    final eyeY = capTop + capH * 0.38;
+    final eyeDx = capW * 0.22;
+    final eyeR = s * 0.085;
     final eyePaint = Paint()..color = const Color(0xFF333333);
     final eyeRectL = Rect.fromCenter(center: Offset(cx - eyeDx, eyeY), width: eyeR * 2, height: eyeR * 2);
     final eyeRectR = Rect.fromCenter(center: Offset(cx + eyeDx, eyeY), width: eyeR * 2, height: eyeR * 2);
@@ -189,8 +147,8 @@ class _PipPainter extends CustomPainter {
       ..strokeWidth = 4
       ..strokeCap = StrokeCap.round;
     final mouthRect = Rect.fromCenter(
-      center: Offset(cx, capTop + capH * 0.55),
-      width: capW * 0.38,
+      center: Offset(cx, capTop + capH * 0.58),
+      width: capW * 0.42,
       height: capH * 0.22,
     );
     if (mood == PipMood.worried) {
@@ -203,8 +161,8 @@ class _PipPainter extends CustomPainter {
 
     // Má hồng
     final cheek = Paint()..color = const Color(0xFFFF9AA2).withOpacity(0.7);
-    canvas.drawCircle(Offset(cx - capW * 0.32, capTop + capH * 0.48), s * 0.055, cheek);
-    canvas.drawCircle(Offset(cx + capW * 0.32, capTop + capH * 0.48), s * 0.055, cheek);
+    canvas.drawCircle(Offset(cx - capW * 0.33, capTop + capH * 0.50), s * 0.065, cheek);
+    canvas.drawCircle(Offset(cx + capW * 0.33, capTop + capH * 0.50), s * 0.065, cheek);
   }
 
   @override
