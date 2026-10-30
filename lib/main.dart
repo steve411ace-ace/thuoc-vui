@@ -283,7 +283,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       child: RichText(
                         key: ValueKey(finalPipMessage),
                         text: TextSpan(
-                          style: DefaultTextStyle.of(context).style.copyWith(fontSize: 16, fontWeight: FontWeight.w600),
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: isDark ? Colors.white : const Color(0xFF333333)),
                           children: [
                             for (int i = 0; i < finalPipMessage.split('\n').length; i++) ...[
                               if (i > 0) const TextSpan(text: '\n'),
@@ -987,7 +987,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           child: const Text('Xóa toàn bộ dữ liệu'),
         ),
         const SizedBox(height: 16),
-        Center(child: Text('Thuốc Vui • Phiên bản 1.2.21', style: TextStyle(color: muted))),
+        Center(child: Text('Thuốc Vui • Phiên bản 1.2.22', style: TextStyle(color: muted))),
       ],
     );
   }
