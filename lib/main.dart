@@ -487,6 +487,25 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               ),
             ),
           ],
+          if (status == 'taken' || status == 'late') ...[
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.undo, size: 18),
+                label: const Text('Hoàn tác'),
+                style: OutlinedButton.styleFrom(foregroundColor: muted),
+                onPressed: () async {
+                  await store.undoTaken(slot);
+                  if (!mounted) return;
+                  setState(() {});
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Đã hoàn tác, lần này quay lại chưa uống.')),
+                  );
+                },
+              ),
+            ),
+          ],
           if (status == null) ...[
             const SizedBox(height: 12),
             Row(

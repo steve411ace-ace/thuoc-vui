@@ -29,8 +29,8 @@
             android:layout_marginLeft="8dp"
             android:textSize="12sp"
             android:textColor="#666666"
-            android:format24Hour="dd/MM/yyyy • HH:mm"
-            android:format12Hour="dd/MM/yyyy • HH:mm" />
+            android:format24Hour="dd/MM/yyyy • HH:mm:ss"
+            android:format12Hour="dd/MM/yyyy • HH:mm:ss" />
     </LinearLayout>
     <TextView
         android:id="@+id/widget_pip"

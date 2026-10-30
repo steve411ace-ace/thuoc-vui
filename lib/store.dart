@@ -666,6 +666,16 @@ class ThuocStore extends ChangeNotifier {
     return status;
   }
 
+  /// Hoàn tác một lần đã uống / uống trễ (1.2.28): xóa luôn lần ghi đó
+  /// để thẻ quay lại chưa uống, số viên và tiến độ tính lại từ log.
+  /// Lịch nhắc được đặt lại để lần uống còn ở phía trước vẫn nhắc lại.
+  Future<void> undoTaken(DoseSlot slot) async {
+    logs.remove(slot.key);
+    await _save();
+    notifyListeners();
+    await rescheduleAll();
+  }
+
   Future<void> markSkipped(DoseSlot slot, String reason) async {
     logs[slot.key] = DoseLog(
       status: 'skipped',
