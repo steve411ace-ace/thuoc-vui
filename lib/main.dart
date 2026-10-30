@@ -613,6 +613,27 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             if (v != null) await store.updateSettings(settings.copyWith(themeMode: v));
           },
         ),
+        const Text('Độ mờ widget', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+        Text('Nền widget trong suốt dần khi kéo xuống, chữ và nút vẫn giữ nguyên. 100% là đặc như hiện tại.',
+            style: TextStyle(color: muted)),
+        Row(
+          children: [
+            const Text('Mờ hơn'),
+            Expanded(
+              child: Slider(
+                value: (settings.widgetOpacity / 100).clamp(0.5, 1.0),
+                min: 0.5,
+                max: 1.0,
+                divisions: 10,
+                label: '${settings.widgetOpacity}%',
+                onChanged: (v) async {
+                  await store.updateSettings(settings.copyWith(widgetOpacity: (v * 100).round()));
+                },
+              ),
+            ),
+            Text('${settings.widgetOpacity}%', style: const TextStyle(fontWeight: FontWeight.bold)),
+          ],
+        ),
         const Divider(height: 32),
         SwitchListTile(
           title: const Text('Âm thanh nhắc'),
@@ -933,7 +954,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           child: const Text('Xóa toàn bộ dữ liệu'),
         ),
         const SizedBox(height: 16),
-        Center(child: Text('Thuốc Vui • Phiên bản 1.2.17', style: TextStyle(color: muted))),
+        Center(child: Text('Thuốc Vui • Phiên bản 1.2.18', style: TextStyle(color: muted))),
       ],
     );
   }

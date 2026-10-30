@@ -46,9 +46,29 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
           else -> (context.resources.configuration.uiMode and
               Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
         }
-        val bgRes = if (isDark) R.drawable.widget_background_dark
-            else R.drawable.widget_background
+        // Độ mờ widget (1.2.18): Dart lưu widget_opacity (%) vào
+        // HomeWidgetPreferences, mặc định 100. Drawable chỉ có các mức
+        // 50/60/70/80/90/100 nên làm tròn về mức 10% gần nhất; nền khối
+        // lần uống tiếp theo giữ đặc để chữ còn đọc được khi nền mờ.
+        val opacityRaw = widgetData.getString("widget_opacity", null)?.toIntOrNull() ?: 100
+        val opacity = when {
+          opacityRaw < 50 -> 50
+          opacityRaw > 100 -> 100
+          else -> ((opacityRaw + 5) / 10 * 10)
+        }
+        val bgRes = when {
+          opacity >= 100 -> if (isDark) R.drawable.widget_background_dark else R.drawable.widget_background
+          opacity >= 90 -> if (isDark) R.drawable.widget_background_dark_90 else R.drawable.widget_background_90
+          opacity >= 80 -> if (isDark) R.drawable.widget_background_dark_80 else R.drawable.widget_background_80
+          opacity >= 70 -> if (isDark) R.drawable.widget_background_dark_70 else R.drawable.widget_background_70
+          opacity >= 60 -> if (isDark) R.drawable.widget_background_dark_60 else R.drawable.widget_background_60
+          else -> if (isDark) R.drawable.widget_background_dark_50 else R.drawable.widget_background_50
+        }
         setInt(R.id.widget_container, "setBackgroundResource", bgRes)
+        setInt(R.id.widget_next_card, "setBackgroundResource", if (isDark) R.drawable.next_card_dark else R.drawable.next_card_light)
+        // Thanh tiến độ hôm nay (1.2.18): Dart/Kotlin đều lưu progress_pct.
+        val pct = widgetData.getString("progress_pct", null)?.toIntOrNull() ?: 0
+        setProgressBar(R.id.widget_progress_bar, 100, pct.coerceIn(0, 100), false)
         val mainText = if (isDark) Color.parseColor("#EDEDED") else Color.parseColor("#333333")
         val subText = if (isDark) Color.parseColor("#B8C4C2") else Color.parseColor("#666666")
         setTextColor(R.id.widget_title, mainText)
@@ -74,12 +94,14 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
           // Trước đây cả widget_next ("🎉 Đã xong hôm nay!" từ dữ liệu
           // next_text) và widget_done đều hiện cùng lúc nên bị trùng 2 dòng.
           // Khi đã xong thì chỉ hiện widget_done, ẩn 2 dòng next đi.
+          setViewVisibility(R.id.widget_next_card, View.GONE)
           setViewVisibility(R.id.widget_next, View.GONE)
           setViewVisibility(R.id.widget_next_time, View.GONE)
         } else {
           setViewVisibility(R.id.widget_checkin, View.VISIBLE)
           setViewVisibility(R.id.widget_done, View.GONE)
           setViewVisibility(R.id.widget_done_detail, View.GONE)
+          setViewVisibility(R.id.widget_next_card, View.VISIBLE)
           setViewVisibility(R.id.widget_next, View.VISIBLE)
           setViewVisibility(R.id.widget_next_time, View.VISIBLE)
           // Bấm trực tiếp trên widget: gửi broadcast về receiver riêng
@@ -303,6 +325,7 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
       widgetPrefs.putString("next_text", "${formEmoji(following.med.optString("form"))} ${following.med.optString("name")} — ${following.med.optString("dose")}")
       widgetPrefs.putString("next_time", "Lúc ${following.time} • ${mealLabel(following.med.optString("mealNote"))}")
     }
+    widgetPrefs.putString("progress_pct", if (slots.isEmpty()) "0" else ((completed * 100) / slots.size).toString())
     widgetPrefs.putString("all_done", if (following == null && slots.isNotEmpty()) "1" else "0")
     widgetPrefs.apply()
     return "${next.key}|$status"
@@ -451,6 +474,7 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
       widgetPrefs.putString("next_text", "${formEmoji(following.med.optString("form"))} ${following.med.optString("name")} — ${following.med.optString("dose")}")
       widgetPrefs.putString("next_time", "Lúc ${following.time} • ${mealLabel(following.med.optString("mealNote"))}")
     }
+    widgetPrefs.putString("progress_pct", if (slots.isEmpty()) "0" else ((completed * 100) / slots.size).toString())
     widgetPrefs.putString("all_done", if (following == null && slots.isNotEmpty()) "1" else "0")
     widgetPrefs.apply()
     refreshWidget(context)

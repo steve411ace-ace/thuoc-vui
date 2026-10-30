@@ -24,6 +24,8 @@ class AppSettings {
   int remindTimes;
   // Giao diện: 'system' = theo điện thoại, 'light' = sáng, 'dark' = tối.
   String themeMode;
+  // Độ mờ nền widget (%), 100 = đặc như cũ, 50 = trong suốt nhất cho phép.
+  int widgetOpacity;
 
   AppSettings({
     this.sound = true,
@@ -33,6 +35,7 @@ class AppSettings {
     this.remindIntervalMinutes = 10,
     this.remindTimes = 3,
     this.themeMode = 'system',
+    this.widgetOpacity = 100,
   });
 
   AppSettings copyWith({
@@ -43,6 +46,7 @@ class AppSettings {
     int? remindIntervalMinutes,
     int? remindTimes,
     String? themeMode,
+    int? widgetOpacity,
   }) =>
       AppSettings(
         sound: sound ?? this.sound,
@@ -52,6 +56,7 @@ class AppSettings {
         remindIntervalMinutes: remindIntervalMinutes ?? this.remindIntervalMinutes,
         remindTimes: remindTimes ?? this.remindTimes,
         themeMode: themeMode ?? this.themeMode,
+        widgetOpacity: widgetOpacity ?? this.widgetOpacity,
       );
 
   Map<String, dynamic> toJson() => {
@@ -62,6 +67,7 @@ class AppSettings {
         'remindIntervalMinutes': remindIntervalMinutes,
         'remindTimes': remindTimes,
         'themeMode': themeMode,
+        'widgetOpacity': widgetOpacity,
       };
 
   factory AppSettings.fromJson(Map<String, dynamic>? j) {
@@ -894,6 +900,8 @@ class ThuocStore extends ChangeNotifier {
       // Widget native không tự theo theme Flutter: lưu lựa chọn thô
       // ('system'/'light'/'dark') để Kotlin tự quyết sáng/tối lúc cập nhật.
       await HomeWidget.saveWidgetData<String>('widget_theme', settings.themeMode);
+      await HomeWidget.saveWidgetData<String>('widget_opacity', settings.widgetOpacity.toString());
+      await HomeWidget.saveWidgetData<String>('progress_pct', slots.isEmpty ? '0' : ((completed * 100) ~/ slots.length).toString());
       await HomeWidget.updateWidget(name: 'ThuocVuiWidgetProvider', androidName: 'ThuocVuiWidgetProvider');
     } catch (_) {}
   }

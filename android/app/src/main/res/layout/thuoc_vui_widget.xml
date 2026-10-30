@@ -29,20 +29,39 @@
         android:layout_marginTop="6dp"
         android:textSize="15sp"
         android:textColor="#333333" />
-    <TextView
-        android:id="@+id/widget_next"
+    <ProgressBar
+        android:id="@+id/widget_progress_bar"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent"
+        android:layout_height="6dp"
+        android:layout_marginTop="6dp"
+        android:max="100"
+        android:progress="0"
+        android:progressTint="#2BB3A3"
+        android:progressBackgroundTint="#D9E8E5" />
+    <LinearLayout
+        android:id="@+id/widget_next_card"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:textSize="16sp"
-        android:textStyle="bold"
-        android:textColor="#333333" />
-    <TextView
-        android:id="@+id/widget_next_time"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:textSize="14sp"
-        android:textColor="#666666" />
+        android:layout_marginTop="8dp"
+        android:orientation="vertical"
+        android:background="@drawable/next_card_light"
+        android:padding="10dp">
+        <TextView
+            android:id="@+id/widget_next"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="#333333" />
+        <TextView
+            android:id="@+id/widget_next_time"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:textSize="14sp"
+            android:textColor="#666666" />
+    </LinearLayout>
     <Button
         android:id="@+id/widget_checkin"
         android:layout_width="match_parent"
