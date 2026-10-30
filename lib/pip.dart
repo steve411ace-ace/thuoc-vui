@@ -78,10 +78,10 @@ class _PipPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final s = size.width;
     final cx = size.width / 2;
-    final capW = s * 0.56;
-    final capH = s * 0.78;
+    final capW = s * 0.66;
+    final capH = s * 0.70;
     final capLeft = cx - capW / 2;
-    final capTop = s * 0.04;
+    final capTop = s * 0.06;
     final capRect = RRect.fromRectAndRadius(
       Rect.fromLTWH(capLeft, capTop, capW, capH),
       Radius.circular(capW / 2),
