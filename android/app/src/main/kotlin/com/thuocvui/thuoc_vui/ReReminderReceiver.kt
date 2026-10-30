@@ -129,6 +129,10 @@ class ReReminderReceiver : BroadcastReceiver() {
         val notificationId = intent.getIntExtra("notificationId", 0)
         writeNotificationActionDiagnostic(context, "Đã uống $slotKey")
         markTaken(context, slotKey)
+        // 1.2.14: cập nhật luôn widget, không chờ mở app. Trước đây chỉ
+        // ghi log + hủy thông báo, nên widget vẫn hiện "chưa uống" dù
+        // log đã ghi, và app mở sẵn cũng không tự nạp lại.
+        try { ThuocVuiWidgetProvider().updateWidgetFromCurrentLogs(context) } catch (_: Exception) {}
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         try { manager.cancel(notificationId) } catch (_: Exception) {}
         return
