@@ -7,15 +7,31 @@
     android:orientation="vertical"
     android:background="@drawable/widget_background"
     android:padding="10dp">
-    <TextView
-        android:id="@+id/widget_title"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginLeft="4dp"
-        android:text="Thuốc Vui 💊"
-        android:textSize="19sp"
-        android:textStyle="bold"
-        android:textColor="#333333" />
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+        <TextView
+            android:id="@+id/widget_title"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:layout_marginLeft="4dp"
+            android:text="Thuốc Vui 💊"
+            android:textSize="19sp"
+            android:textStyle="bold"
+            android:textColor="#333333" />
+        <TextClock
+            android:id="@+id/widget_datetime"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginLeft="8dp"
+            android:textSize="12sp"
+            android:textColor="#666666"
+            android:format24Hour="dd/MM/yyyy • HH:mm"
+            android:format12Hour="dd/MM/yyyy • HH:mm" />
+    </LinearLayout>
     <TextView
         android:id="@+id/widget_pip"
         android:layout_width="match_parent"

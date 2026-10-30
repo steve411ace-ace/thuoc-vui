@@ -78,6 +78,7 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
         val mainText = if (isDark) Color.parseColor("#EDEDED") else Color.parseColor("#333333")
         val subText = if (isDark) Color.parseColor("#B8C4C2") else Color.parseColor("#666666")
         setTextColor(R.id.widget_title, mainText)
+        setTextColor(R.id.widget_datetime, subText)
         setTextColor(R.id.widget_pip, mainText)
         setTextColor(R.id.widget_progress, mainText)
         setTextColor(R.id.widget_next, mainText)
