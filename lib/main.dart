@@ -954,7 +954,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           child: const Text('Xóa toàn bộ dữ liệu'),
         ),
         const SizedBox(height: 16),
-        Center(child: Text('Thuốc Vui • Phiên bản 1.2.18', style: TextStyle(color: muted))),
+        Center(child: Text('Thuốc Vui • Phiên bản 1.2.19', style: TextStyle(color: muted))),
       ],
     );
   }
