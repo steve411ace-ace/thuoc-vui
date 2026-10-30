@@ -647,15 +647,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           },
         ),
         const Text('Độ mờ widget', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
-        Text('Nền widget trong suốt dần khi kéo xuống, chữ và nút vẫn giữ nguyên. 100% là đặc như hiện tại.',
+        Text('Nền widget trong suốt dần khi kéo xuống, chữ và nút vẫn giữ nguyên. 100% là đặc như hiện tại, 0% là nền biến mất hoàn toàn.',
             style: TextStyle(color: muted)),
         Row(
           children: [
             const Text('Mờ hơn'),
             Expanded(
               child: Slider(
-                value: (settings.widgetOpacity / 100).clamp(0.5, 1.0),
-                min: 0.5,
+                value: (settings.widgetOpacity / 100).clamp(0.0, 1.0),
+                min: 0.0,
                 max: 1.0,
                 divisions: 10,
                 label: '${settings.widgetOpacity}%',
