@@ -538,8 +538,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       backgroundColor: const Color(0xFF2BB3A3),
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
                     ),
-                    child: const Text('Đã uống'),
+                    child: const FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text('Đã uống', softWrap: false),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -552,15 +556,27 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                         const SnackBar(content: Text('Pip sẽ nhắc lại sau 10 phút nhé!')),
                       );
                     },
-                    child: const Text('Nhắc lại sau'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                    ),
+                    child: const FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text('Nhắc lại sau', softWrap: false),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: OutlinedButton(
                     onPressed: () => _askSkip(slot),
-                    style: OutlinedButton.styleFrom(foregroundColor: muted),
-                    child: const Text('Bỏ qua'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: muted,
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                    ),
+                    child: const FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text('Bỏ qua', softWrap: false),
+                    ),
                   ),
                 ),
               ],
