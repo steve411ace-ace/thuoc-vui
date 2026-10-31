@@ -31,6 +31,17 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
       appWidgetIds: IntArray,
       widgetData: SharedPreferences,
   ) {
+    // 1.2.30: dữ liệu widget được đóng dấu ngày (widget_date) ở
+    // Dart updateHomeWidget() và ở các hàm Kotlin ghi widget. Qua
+    // nửa đêm mà dấu ngày cũ thì tính lại từ log rồi mới vẽ, vì
+    // chu kỳ vẽ 30 phút trước đây chỉ vẽ lại chuỗi cũ nên widget
+    // giữ nguyên trạng thái hôm qua cho tới khi mở app. Hàm cập
+    // nhật đã tự gọi refreshWidget nên vẽ lại ở lần onUpdate sau.
+    val todayStr = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+    if (widgetData.getString("widget_date", null) != todayStr) {
+      val refreshed = try { updateWidgetFromCurrentLogs(context) } catch (_: Exception) { false }
+      if (refreshed) return
+    }
     appWidgetIds.forEach { widgetId ->
       val views = RemoteViews(context.packageName, R.layout.thuoc_vui_widget).apply {
         // Giao diện widget (1.2.13): app lưu lựa chọn thô vào
@@ -167,6 +178,11 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
     else -> "Không dặn trước/sau ăn"
   }
 
+  /** So sánh thời điểm tới giây: cắt phần lẻ giây của chuỗi ISO vì
+   * Dart ghi 6 chữ số lẻ, Kotlin ghi 3 chữ số lẻ, so chuỗi thô sẽ
+   * lệch ở phần lẻ giây. Dùng cho mốc mua hộp mới (1.2.30). */
+  private fun atSecond(s: String): String = if (s.length >= 19) s.substring(0, 19) else s
+
   fun checkinNextDose(context: Context): String? {
     val flutterPrefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
     // Dùng ThuocVuiPrefs để luôn đọc/ghi đúng key "flutter.thuoc_vui_v1"
@@ -299,6 +315,7 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
         val perDose = med.optInt("pillsPerDose", 1).let { if (it > 0) it else 1 }
         val startPill = med.optInt("startPill", 1).let { if (it > 0) it else 1 }
         val stockFrom = med.optString("stockFrom", "").let { if (it.isNotEmpty()) it else med.optString("startDate", "") }
+        val stockFromAt = med.optString("stockFromAt", "")
         var takenCount = 0
         val keys = logs.keys()
         while (keys.hasNext()) {
@@ -306,8 +323,14 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
           if (!k.startsWith("${med.optString("id")}|")) continue
           val parts = k.split("|")
           if (parts.size != 3) continue
-          if (parts[1] < stockFrom) continue
-          val ls = logs.optJSONObject(k)?.optString("status")
+          val logObj2 = logs.optJSONObject(k)
+          if (stockFromAt.isNotEmpty()) {
+            // 1.2.30: chỉ tính lần uống từ sau thời điểm mua hộp mới.
+            if (atSecond(logObj2?.optString("at", "") ?: "") < atSecond(stockFromAt)) continue
+          } else {
+            if (parts[1] < stockFrom) continue
+          }
+          val ls = logObj2?.optString("status")
           if (ls == "taken" || ls == "late") takenCount++
         }
         var rem = total - (startPill - 1) - takenCount * perDose
@@ -334,6 +357,7 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
     }
     widgetPrefs.putString("progress_pct", if (slots.isEmpty()) "0" else ((completed * 100) / slots.size).toString())
     widgetPrefs.putString("all_done", if (following == null && slots.isNotEmpty()) "1" else "0")
+    widgetPrefs.putString("widget_date", todayStr)
     widgetPrefs.apply()
     return "${next.key}|$status"
   }
@@ -349,9 +373,11 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
    * (cố ý không refactor hàm đó để không phá đường bấm widget đã
    * kiểm chứng OK ở 1.2.7).
    */
-  fun updateWidgetFromCurrentLogs(context: Context) {
+  /** Trả về true nếu đã ghi dữ liệu mới và gọi refreshWidget (để
+   * onUpdate biết mà không vẽ lại dữ liệu cũ trong cùng lượt). */
+  fun updateWidgetFromCurrentLogs(context: Context): Boolean {
     val flutterPrefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
-    val raw = ThuocVuiPrefs.read(flutterPrefs)?.second ?: return
+    val raw = ThuocVuiPrefs.read(flutterPrefs)?.second ?: return false
     val data = JSONObject(raw)
     val medicines = data.optJSONArray("medicines") ?: JSONArray()
     val logs = data.optJSONObject("logs") ?: JSONObject()
@@ -448,6 +474,7 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
         val perDose = med.optInt("pillsPerDose", 1).let { if (it > 0) it else 1 }
         val startPill = med.optInt("startPill", 1).let { if (it > 0) it else 1 }
         val stockFrom = med.optString("stockFrom", "").let { if (it.isNotEmpty()) it else med.optString("startDate", "") }
+        val stockFromAt = med.optString("stockFromAt", "")
         var takenCount = 0
         val keys = logs.keys()
         while (keys.hasNext()) {
@@ -455,8 +482,14 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
           if (!k.startsWith("${med.optString("id")}|")) continue
           val parts = k.split("|")
           if (parts.size != 3) continue
-          if (parts[1] < stockFrom) continue
-          val ls = logs.optJSONObject(k)?.optString("status")
+          val logObj2 = logs.optJSONObject(k)
+          if (stockFromAt.isNotEmpty()) {
+            // 1.2.30: chỉ tính lần uống từ sau thời điểm mua hộp mới.
+            if (atSecond(logObj2?.optString("at", "") ?: "") < atSecond(stockFromAt)) continue
+          } else {
+            if (parts[1] < stockFrom) continue
+          }
+          val ls = logObj2?.optString("status")
           if (ls == "taken" || ls == "late") takenCount++
         }
         var rem = total - (startPill - 1) - takenCount * perDose
@@ -483,7 +516,9 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
     }
     widgetPrefs.putString("progress_pct", if (slots.isEmpty()) "0" else ((completed * 100) / slots.size).toString())
     widgetPrefs.putString("all_done", if (following == null && slots.isNotEmpty()) "1" else "0")
+    widgetPrefs.putString("widget_date", todayStr)
     widgetPrefs.apply()
     refreshWidget(context)
+    return true
   }
 }

@@ -33,6 +33,35 @@ class ReReminderReceiver : BroadcastReceiver() {
     const val ACTION_SNOOZE_REMIND = "com.thuocvui.thuoc_vui.ACTION_SNOOZE_REMIND"
     const val ACTION_CHECKIN = "com.thuocvui.thuoc_vui.ACTION_REMIND_CHECKIN"
     const val ACTION_SCHEDULE_SNOOZE = "com.thuocvui.thuoc_vui.ACTION_SCHEDULE_SNOOZE"
+    const val ACTION_MIDNIGHT = "com.thuocvui.thuoc_vui.ACTION_MIDNIGHT"
+    private const val MIDNIGHT_ALARM_ID = 999998
+
+    /** Đặt báo thức nửa đêm kế tiếp (00:00:10) để widget tự reset
+     * ngày mới (1.2.30). Tới giờ thì onReceive tự đặt lại cho đêm
+     * sau, nên chỉ cần Dart gọi 1 lần trong rescheduleAll. */
+    fun scheduleMidnight(context: Context) {
+      val next = Calendar.getInstance().apply {
+        add(Calendar.DAY_OF_YEAR, 1)
+        set(Calendar.HOUR_OF_DAY, 0)
+        set(Calendar.MINUTE, 0)
+        set(Calendar.SECOND, 10)
+        set(Calendar.MILLISECOND, 0)
+      }
+      scheduleAlarm(
+          context,
+          MIDNIGHT_ALARM_ID,
+          ACTION_MIDNIGHT,
+          next.timeInMillis,
+          "",
+          "",
+          "",
+          "",
+          0,
+          true,
+          false,
+          false,
+      )
+    }
     const val CHANNEL_ID = "thuoc_vui_reminder"
     private const val PREFS_NAME = "ThuocVuiReminders"
     private const val KEY_IDS = "ids"
@@ -124,6 +153,13 @@ class ReReminderReceiver : BroadcastReceiver() {
 
   override fun onReceive(context: Context, intent: Intent) {
     when (intent.action) {
+      ACTION_MIDNIGHT -> {
+        // 1.2.30: qua nửa đêm thì tính lại widget cho ngày mới rồi
+        // đặt lại báo thức cho đêm sau, không cần mở app.
+        try { ThuocVuiWidgetProvider().updateWidgetFromCurrentLogs(context) } catch (_: Exception) {}
+        try { scheduleMidnight(context) } catch (_: Exception) {}
+        return
+      }
       ACTION_CHECKIN -> {
         val slotKey = intent.getStringExtra("slotKey") ?: return
         val notificationId = intent.getIntExtra("notificationId", 0)

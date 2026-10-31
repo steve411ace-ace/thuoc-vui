@@ -6,7 +6,7 @@
     android:layout_margin="4dp"
     android:orientation="vertical"
     android:background="@drawable/widget_background"
-    android:padding="10dp">
+    android:padding="8dp">
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -36,14 +36,16 @@
         android:id="@+id/widget_pip"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
+        android:layout_marginTop="2dp"
+        android:maxLines="2"
+        android:ellipsize="end"
         android:textSize="14sp"
         android:textColor="#333333" />
     <TextView
         android:id="@+id/widget_progress"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
+        android:layout_marginTop="2dp"
         android:textSize="15sp"
         android:textColor="#333333" />
     <ProgressBar
@@ -51,7 +53,7 @@
         style="?android:attr/progressBarStyleHorizontal"
         android:layout_width="match_parent"
         android:layout_height="6dp"
-        android:layout_marginTop="4dp"
+        android:layout_marginTop="2dp"
         android:max="100"
         android:progress="0"
         android:progressTint="#2BB3A3"
@@ -60,10 +62,10 @@
         android:id="@+id/widget_next_card"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
+        android:layout_marginTop="4dp"
         android:orientation="vertical"
         android:background="@drawable/next_card_light"
-        android:padding="8dp">
+        android:padding="6dp">
         <TextView
             android:id="@+id/widget_next"
             android:layout_width="match_parent"
@@ -83,7 +85,7 @@
         android:id="@+id/widget_checkin"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
+        android:layout_marginTop="4dp"
         android:minHeight="42dp"
         android:text="Đã uống lần này"
         android:textColor="#FFFFFF"
@@ -92,7 +94,7 @@
         android:id="@+id/widget_done"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
+        android:layout_marginTop="4dp"
         android:text="🎉 Đã xong hôm nay!"
         android:textSize="16sp"
         android:textStyle="bold"
@@ -101,7 +103,7 @@
         android:id="@+id/widget_done_detail"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
+        android:layout_marginTop="2dp"
         android:textSize="14sp"
         android:textColor="#333333"
         android:visibility="gone" />

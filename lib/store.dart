@@ -330,13 +330,24 @@ class ThuocStore extends ChangeNotifier {
   int? remainingPills(Medicine med) {
     if (med.totalPills <= 0) return null;
     final from = med.stockFrom.isNotEmpty ? med.stockFrom : med.startDate;
+    // 1.2.30: nếu có mốc thời điểm mua hộp mới thì chỉ tính các lần
+    // uống từ sau mốc đó (so tới giây, để khỏi lệch do phần lẻ giây
+    // khác nhau giữa các định dạng ISO); không có mốc thì tính theo
+    // ngày như cũ để tương thích hộp cũ.
+    final cutoff =
+        med.stockFromAt.isNotEmpty ? DateTime.tryParse(med.stockFromAt) : null;
     var taken = 0;
     for (final entry in logs.entries) {
       if (!entry.key.startsWith('${med.id}|')) continue;
       if (entry.value.status != 'taken' && entry.value.status != 'late') continue;
       final parts = entry.key.split('|');
       if (parts.length != 3) continue;
-      if (parts[1].compareTo(from) < 0) continue;
+      if (cutoff != null) {
+        final at = DateTime.tryParse(entry.value.at);
+        if (at == null || at.isBefore(cutoff)) continue;
+      } else {
+        if (parts[1].compareTo(from) < 0) continue;
+      }
       taken++;
     }
     final perDose = med.pillsPerDose > 0 ? med.pillsPerDose : 1;
@@ -385,6 +396,7 @@ class ThuocStore extends ChangeNotifier {
   /// Đã mua hộp mới: tính lại từ hôm nay, viên bắt đầu = 1.
   Future<void> buyNewBox(Medicine med) async {
     med.stockFrom = todayKey(DateTime.now());
+    med.stockFromAt = DateTime.now().toIso8601String();
     med.startPill = 1;
     await _save();
     notifyListeners();
@@ -532,6 +544,20 @@ class ThuocStore extends ChangeNotifier {
         }
       }
       await scheduleNativeAlarms(mainAlarms);
+      // 1.2.30: đặt lại báo thức nửa đêm để widget tự reset ngày mới
+      // mà không cần mở app (báo thức tự đặt lại đêm sau khi tới,
+      // xem ReReminderReceiver.ACTION_MIDNIGHT).
+      await scheduleMidnightRefresh();
+    } catch (_) {}
+  }
+
+  /// Đặt báo thức nửa đêm qua native (1.2.30). Lỗi thì bỏ qua: chu
+  /// kỳ vẽ widget 30 phút + kiểm tra dấu ngày ở Kotlin vẫn tự chữa
+  /// trong vòng 30 phút sau nửa đêm.
+  Future<void> scheduleMidnightRefresh() async {
+    try {
+      const channel = MethodChannel('thuoc_vui/reminders');
+      await channel.invokeMethod('scheduleMidnightRefresh');
     } catch (_) {}
   }
 
@@ -913,6 +939,9 @@ class ThuocStore extends ChangeNotifier {
       await HomeWidget.saveWidgetData<String>('widget_theme', settings.themeMode);
       await HomeWidget.saveWidgetData<String>('widget_opacity', settings.widgetOpacity.toString());
       await HomeWidget.saveWidgetData<String>('progress_pct', slots.isEmpty ? '0' : ((completed * 100) ~/ slots.length).toString());
+      // 1.2.30: đóng dấu ngày của dữ liệu widget để Kotlin tự phát
+      // hiện dữ liệu qua ngày và tính lại, thay vì vẽ lại chuỗi cũ.
+      await HomeWidget.saveWidgetData<String>('widget_date', todayKey(today));
       await HomeWidget.updateWidget(name: 'ThuocVuiWidgetProvider', androidName: 'ThuocVuiWidgetProvider');
     } catch (_) {}
   }

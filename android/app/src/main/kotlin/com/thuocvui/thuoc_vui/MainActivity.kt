@@ -54,6 +54,12 @@ class MainActivity : FlutterActivity() {
                 ReReminderReceiver.cancelAllStored(this)
                 result.success(null)
               }
+              "scheduleMidnightRefresh" -> {
+                // 1.2.30: Dart gọi trong rescheduleAll để widget tự
+                // reset lúc nửa đêm mà không cần mở app.
+                ReReminderReceiver.scheduleMidnight(this)
+                result.success(null)
+              }
               "scheduleNativeTest" -> {
                 // Nhắc thử native sau 1 phút, 1 lần, không đặt lại tuần sau.
                 // medId/slotTime giả "test"/"00:00" để receiver không chặn
