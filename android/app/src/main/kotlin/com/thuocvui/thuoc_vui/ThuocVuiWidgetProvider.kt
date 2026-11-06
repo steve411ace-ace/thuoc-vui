@@ -141,6 +141,10 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
           // 1.2.33: hết thuốc thì mờ nút check-in đi (mở lại khi mua hộp
           // mới — luôn set cả 2 chiều vì RemoteViews giữ trạng thái cũ).
           setBoolean(R.id.widget_checkin, "setEnabled", widgetData.getString("next_out_of_stock", null) != "1")
+          // 1.2.34: nút dùng backgroundTint teal trơn nên setEnabled(false)
+          // không làm mờ màu — chỉnh thêm độ trong suốt (mờ khi hết thuốc,
+          // đậm lại khi có thuốc; luôn set cả 2 chiều).
+          setFloat(R.id.widget_checkin, "setAlpha", if (widgetData.getString("next_out_of_stock", null) == "1") 0.4f else 1.0f)
         }
       }
       appWidgetManager.updateAppWidget(widgetId, views)
