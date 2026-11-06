@@ -178,7 +178,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
       return [const Text('Ngày này không có thuốc nào cần uống.')];
     }
     return slots.map((slot) {
-      final status = store.logs[slot.key]?.status;
+      final log = store.logs[slot.key];
+      final status = log?.status;
       final label = status == 'taken'
           ? 'Đã uống đúng giờ'
           : status == 'late'
@@ -186,17 +187,39 @@ class _HistoryScreenState extends State<HistoryScreen> {
               : status == 'skipped'
                   ? 'Đã bỏ qua'
                   : 'Chưa uống';
+      // 1.2.36: hiện giờ uống thật + số giờ/phút trễ (nếu trễ).
+      var subtitle = 'Hẹn ${slot.time}';
+      if ((status == 'taken' || status == 'late') && log != null && log.at.isNotEmpty) {
+        final at = DateTime.tryParse(log.at);
+        if (at != null) {
+          final atStr = '${at.hour.toString().padLeft(2, '0')}:${at.minute.toString().padLeft(2, '0')}';
+          subtitle = 'Hẹn ${slot.time} • Uống lúc $atStr';
+          if (status == 'late') {
+            final lateMin = at.difference(slot.dateTime).inMinutes;
+            if (lateMin > 0) subtitle += '\nTrễ ${_formatLate(lateMin)}';
+          }
+        }
+      }
       return Card(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         child: ListTile(
+          isThreeLine: subtitle.contains('\n'),
           leading: Text(slot.medicine.formEmoji, style: const TextStyle(fontSize: 26)),
           title: Text('${slot.medicine.name} — ${slot.medicine.dose}'),
-          subtitle: Text('Lúc ${slot.time}'),
+          subtitle: Text(subtitle),
           trailing: Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
         ),
       );
     }).toList();
   }
+}
+
+/// 1.2.36: số phút trễ thành "35 phút" / "1 giờ 25 phút" / "2 giờ".
+String _formatLate(int minutes) {
+  if (minutes < 60) return '$minutes phút';
+  final h = minutes ~/ 60;
+  final m = minutes % 60;
+  return m == 0 ? '$h giờ' : '$h giờ $m phút';
 }
 
 class _LegendDot extends StatelessWidget {
