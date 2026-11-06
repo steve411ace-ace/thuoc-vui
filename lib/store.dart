@@ -393,14 +393,46 @@ class ThuocStore extends ChangeNotifier {
     return low;
   }
 
-  /// Đã mua hộp mới: tính lại từ hôm nay, viên bắt đầu = 1.
-  Future<void> buyNewBox(Medicine med) async {
+  /// Đã mua hộp mới: tính lại từ hôm nay. Trả về số viên "vượt" đã trừ
+  /// vào hộp mới (0 nếu không có).
+  /// Các lần uống vượt hộp cũ (uống khi hộp cũ đã hết thuốc — viên đó
+  /// thực chất lấy từ hộp mới) được trừ vào hộp mới qua viên bắt đầu:
+  /// startPill = 1 + số viên vượt, nên số viên còn lại tính ra đã trừ
+  /// đúng (công thức remainingPills dùng startPill nên app và widget
+  /// đều đúng theo, không cần sửa bên Kotlin).
+  /// Số viên vượt = số viên đã uống thuộc hộp cũ − số viên hộp cũ có
+  /// (totalPills − (startPill − 1)); hộp cũ tính từ mốc mua trước
+  /// (stockFromAt, hoặc theo ngày stockFrom nếu chưa có mốc).
+  Future<int> buyNewBox(Medicine med) async {
+    final perDose = med.pillsPerDose > 0 ? med.pillsPerDose : 1;
+    final start = med.startPill > 0 ? med.startPill : 1;
+    final capacity = med.totalPills - (start - 1);
+    final prevCutoff =
+        med.stockFromAt.isNotEmpty ? DateTime.tryParse(med.stockFromAt) : null;
+    final from = med.stockFrom.isNotEmpty ? med.stockFrom : med.startDate;
+    var oldTaken = 0;
+    for (final entry in logs.entries) {
+      if (!entry.key.startsWith('${med.id}|')) continue;
+      if (entry.value.status != 'taken' && entry.value.status != 'late') continue;
+      final parts = entry.key.split('|');
+      if (parts.length != 3) continue;
+      if (prevCutoff != null) {
+        final at = DateTime.tryParse(entry.value.at);
+        if (at == null || at.isBefore(prevCutoff)) continue;
+      } else {
+        if (parts[1].compareTo(from) < 0) continue;
+      }
+      oldTaken++;
+    }
+    final overdraft = oldTaken * perDose - capacity;
+    final carry = overdraft > 0 ? overdraft : 0;
     med.stockFrom = todayKey(DateTime.now());
     med.stockFromAt = DateTime.now().toIso8601String();
-    med.startPill = 1;
+    med.startPill = 1 + carry;
     await _save();
     notifyListeners();
     await updateHomeWidget();
+    return carry;
   }
 
   Future<bool> requestIgnoreBatteryOptimizations() async {

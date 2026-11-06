@@ -483,10 +483,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 icon: const Icon(Icons.shopping_bag_outlined, size: 18),
                 label: const Text('Đã mua hộp mới'),
                 onPressed: () async {
-                  await store.buyNewBox(slot.medicine);
+                  final over = await store.buyNewBox(slot.medicine);
                   if (!mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Đã tính lại từ hôm nay, viên bắt đầu = 1.')),
+                    SnackBar(
+                      content: Text(over > 0
+                          ? 'Đã tính lại từ hôm nay, đã trừ $over viên uống trước khi mua.'
+                          : 'Đã tính lại từ hôm nay, viên bắt đầu = 1.'),
+                    ),
                   );
                 },
               ),
