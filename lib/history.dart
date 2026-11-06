@@ -187,27 +187,46 @@ class _HistoryScreenState extends State<HistoryScreen> {
               : status == 'skipped'
                   ? 'Đã bỏ qua'
                   : 'Chưa uống';
-      // 1.2.36: hiện giờ uống thật + số giờ/phút trễ (nếu trễ).
-      var subtitle = 'Hẹn ${slot.time}';
+      // 1.2.37: mỗi ý một dòng riêng (ListTile 2 dòng làm "Uống lúc"
+      // bị rớt số giờ xuống dòng) — Hẹn / Uống lúc / Trễ.
+      String? takenAt;
+      String? lateText;
       if ((status == 'taken' || status == 'late') && log != null && log.at.isNotEmpty) {
         final at = DateTime.tryParse(log.at);
         if (at != null) {
-          final atStr = '${at.hour.toString().padLeft(2, '0')}:${at.minute.toString().padLeft(2, '0')}';
-          subtitle = 'Hẹn ${slot.time} • Uống lúc $atStr';
+          takenAt = '${at.hour.toString().padLeft(2, '0')}:${at.minute.toString().padLeft(2, '0')}';
           if (status == 'late') {
             final lateMin = at.difference(slot.dateTime).inMinutes;
-            if (lateMin > 0) subtitle += '\nTrễ ${_formatLate(lateMin)}';
+            if (lateMin > 0) lateText = 'Trễ ${_formatLate(lateMin)}';
           }
         }
       }
       return Card(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        child: ListTile(
-          isThreeLine: subtitle.contains('\n'),
-          leading: Text(slot.medicine.formEmoji, style: const TextStyle(fontSize: 26)),
-          title: Text('${slot.medicine.name} — ${slot.medicine.dose}'),
-          subtitle: Text(subtitle),
-          trailing: Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(slot.medicine.formEmoji, style: const TextStyle(fontSize: 26)),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('${slot.medicine.name} — ${slot.medicine.dose}',
+                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
+                    const SizedBox(height: 2),
+                    Text('Hẹn ${slot.time}'),
+                    if (takenAt != null) Text('Uống lúc $takenAt'),
+                    if (lateText != null) Text(lateText),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
+            ],
+          ),
         ),
       );
     }).toList();
