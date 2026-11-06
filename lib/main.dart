@@ -391,6 +391,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final muted = isDark ? const Color(0xFFB8C4C2) : Colors.black54;
     final status = store.statusOf(slot);
+    // 1.2.32: hết thuốc (còn 0 viên) thì không cho bấm Đã uống / Nhắc lại
+    // sau nữa — không còn viên nào để uống; chỉ còn Bỏ qua và Đã mua hộp mới.
+    // remainingPills == null nghĩa là thuốc không theo dõi số viên thì
+    // không khóa (?? 1).
+    final outOfStock = (store.remainingPills(slot.medicine) ?? 1) <= 0;
     final now = DateTime.now();
     final isOverdue = status == null && slot.dateTime.isBefore(now);
     final log = store.logs[slot.key];
@@ -508,11 +513,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           ],
           if (status == null) ...[
             const SizedBox(height: 12),
+            if (outOfStock) ...[
+              const Text('Hết thuốc rồi, mua hộp mới trước nhé!'),
+              const SizedBox(height: 8),
+            ],
             Row(
               children: [
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: () async {
+                    onPressed: outOfStock ? null : () async {
                       final beforeBadges = store.earnedBadgeIds();
                       final result = await store.markTaken(slot);
                       if (!mounted) return;
@@ -549,7 +558,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 const SizedBox(width: 8),
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: () async {
+                    onPressed: outOfStock ? null : () async {
                       await store.scheduleSnooze(slot.key);
                       if (!mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(
