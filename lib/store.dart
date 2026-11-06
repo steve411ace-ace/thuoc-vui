@@ -912,6 +912,10 @@ class ThuocStore extends ChangeNotifier {
               ? ''
               : 'Lúc ${next.time} • ${next.medicine.mealLabel}'
                   '${remainingPills(next.medicine) != null ? ' • Còn ${remainingPills(next.medicine)} viên' : ''}');
+      // 1.2.33: cờ hết thuốc cho nút widget — widget đọc cờ này để mờ
+      // nút "Đã uống lần này" khi lần tiếp theo đã hết thuốc.
+      await HomeWidget.saveWidgetData<String>('next_out_of_stock',
+          next != null && (remainingPills(next.medicine) ?? 1) <= 0 ? '1' : '0');
       // Chi tiết lịch hôm nay sau khi đã xong (1.2.15): mỗi lần đã uống
       // một khối 2 dòng, giống thẻ Lịch uống hôm nay trong app:
       // dòng 1 thuốc + giờ dự kiến + trước/sau ăn, dòng 2 đã uống lúc

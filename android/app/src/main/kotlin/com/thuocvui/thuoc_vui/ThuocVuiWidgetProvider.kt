@@ -11,6 +11,7 @@ import android.content.SharedPreferences
 import android.os.Build
 import android.view.View
 import android.widget.RemoteViews
+import android.widget.Toast
 import es.antonborri.home_widget.HomeWidgetLaunchIntent
 import es.antonborri.home_widget.HomeWidgetProvider
 import org.json.JSONArray
@@ -137,6 +138,9 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
               if (Build.VERSION.SDK_INT >= 23) PendingIntent.FLAG_IMMUTABLE else 0
           val pending = PendingIntent.getBroadcast(context, widgetId, checkinIntent, flags)
           setOnClickPendingIntent(R.id.widget_checkin, pending)
+          // 1.2.33: hết thuốc thì mờ nút check-in đi (mở lại khi mua hộp
+          // mới — luôn set cả 2 chiều vì RemoteViews giữ trạng thái cũ).
+          setBoolean(R.id.widget_checkin, "setEnabled", widgetData.getString("next_out_of_stock", null) != "1")
         }
       }
       appWidgetManager.updateAppWidget(widgetId, views)
@@ -182,6 +186,37 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
    * Dart ghi 6 chữ số lẻ, Kotlin ghi 3 chữ số lẻ, so chuỗi thô sẽ
    * lệch ở phần lẻ giây. Dùng cho mốc mua hộp mới (1.2.30). */
   private fun atSecond(s: String): String = if (s.length >= 19) s.substring(0, 19) else s
+
+  // Số viên còn lại của 1 thuốc (1.2.33, cùng công thức với Dart
+  // remainingPills và khối done_detail bên dưới): null nếu không theo
+  // dõi (totalPills <= 0); mốc mua hộp mới stockFromAt loại các lần
+  // uống trước lúc mua (so tới giây).
+  private fun remainingFor(med: JSONObject, logs: JSONObject): Int? {
+    val total = med.optInt("totalPills", 0)
+    if (total <= 0) return null
+    val perDose = med.optInt("pillsPerDose", 1).let { if (it > 0) it else 1 }
+    val startPill = med.optInt("startPill", 1).let { if (it > 0) it else 1 }
+    val stockFrom = med.optString("stockFrom", "").let { if (it.isNotEmpty()) it else med.optString("startDate", "") }
+    val stockFromAt = med.optString("stockFromAt", "")
+    var takenCount = 0
+    val keys = logs.keys()
+    while (keys.hasNext()) {
+      val k = keys.next()
+      if (!k.startsWith("${med.optString("id")}|")) continue
+      val parts = k.split("|")
+      if (parts.size != 3) continue
+      val logObj2 = logs.optJSONObject(k)
+      if (stockFromAt.isNotEmpty()) {
+        if (atSecond(logObj2?.optString("at", "") ?: "") < atSecond(stockFromAt)) continue
+      } else {
+        if (parts[1] < stockFrom) continue
+      }
+      val ls = logObj2?.optString("status")
+      if (ls == "taken" || ls == "late") takenCount++
+    }
+    val rem = total - (startPill - 1) - takenCount * perDose
+    return if (rem < 0) 0 else rem
+  }
 
   fun checkinNextDose(context: Context): String? {
     val flutterPrefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
@@ -256,6 +291,13 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
       if (st != "taken" && st != "late") { next = s; break }
     }
     if (next == null) return null
+    // 1.2.33: hết thuốc (còn 0 viên) thì không ghi lần uống nữa — chặn
+    // tận gốc cho mọi đường bấm nút widget, kể cả khi giao diện chưa
+    // kịp làm mờ nút.
+    if (remainingFor(next.med, logs) == 0) {
+      Toast.makeText(context, "Hết thuốc rồi, mua hộp mới nhé!", Toast.LENGTH_SHORT).show()
+      return null
+    }
 
     val lateThreshold = (next.dateTime.clone() as Calendar).apply { add(Calendar.MINUTE, 30) }
     val status = if (now.after(lateThreshold)) "late" else "taken"
@@ -357,6 +399,9 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
     }
     widgetPrefs.putString("progress_pct", if (slots.isEmpty()) "0" else ((completed * 100) / slots.size).toString())
     widgetPrefs.putString("all_done", if (following == null && slots.isNotEmpty()) "1" else "0")
+    // 1.2.33: cờ hết thuốc cho nút widget (xem onUpdate) — "1" khi lần
+    // tiếp theo đã hết thuốc, "0" trong các trường hợp còn lại.
+    widgetPrefs.putString("next_out_of_stock", if (following != null && remainingFor(following.med, logs) == 0) "1" else "0")
     widgetPrefs.putString("widget_date", todayStr)
     widgetPrefs.apply()
     return "${next.key}|$status"
@@ -516,6 +561,9 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
     }
     widgetPrefs.putString("progress_pct", if (slots.isEmpty()) "0" else ((completed * 100) / slots.size).toString())
     widgetPrefs.putString("all_done", if (following == null && slots.isNotEmpty()) "1" else "0")
+    // 1.2.33: cờ hết thuốc cho nút widget (xem onUpdate) — "1" khi lần
+    // tiếp theo đã hết thuốc, "0" trong các trường hợp còn lại.
+    widgetPrefs.putString("next_out_of_stock", if (following != null && remainingFor(following.med, logs) == 0) "1" else "0")
     widgetPrefs.putString("widget_date", todayStr)
     widgetPrefs.apply()
     refreshWidget(context)
