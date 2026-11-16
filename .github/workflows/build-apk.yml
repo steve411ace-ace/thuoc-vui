@@ -42,11 +42,29 @@ jobs:
         with:
           name: app-release
           path: build/app/outputs/flutter-apk/app-release.apk
+      - name: Read app version
+        id: app_version
+        run: |
+          VERSION=$(sed -nE 's/^version:[[:space:]]*([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' pubspec.yaml | head -1)
+          if [ -z "$VERSION" ]; then
+            echo "Could not parse version from pubspec.yaml" >&2
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          {
+            echo "Thuoc Vui v$VERSION"
+            echo
+            git log -1 --pretty=%B
+          } > /tmp/release-notes.md
       - uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.0
-          name: "Thuoc Vui v1.0.0"
+          tag_name: ${{ steps.app_version.outputs.tag }}
+          name: Thuoc Vui v${{ steps.app_version.outputs.version }}
+          body_path: /tmp/release-notes.md
           files: build/app/outputs/flutter-apk/app-release.apk
+          # Same version rebuild: update existing release/tag instead of failing
+          overwrite_files: true
       - name: Upload to Firebase App Distribution
         uses: wzieba/firebase-distribution-github-action@v1
         with:
