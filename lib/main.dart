@@ -18,6 +18,7 @@ void main() async {
 
 // Sáng: giữ nguyên màu hiện tại (nền kem, AppBar vàng, teal).
 final ThemeData _lightTheme = ThemeData(
+  fontFamily: 'Be Vietnam Pro',
   useMaterial3: true,
   colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF2BB3A3)),
   scaffoldBackgroundColor: const Color(0xFFFFF8E6),
@@ -35,6 +36,7 @@ final ThemeData _lightTheme = ThemeData(
 // Tối: nền xanh đen, thẻ tối, chữ sáng; Pip vẫn vàng, nút teal/vàng giữ nguyên
 // để nhận diện thương hiệu không đổi.
 final ThemeData _darkTheme = ThemeData(
+  fontFamily: 'Be Vietnam Pro',
   useMaterial3: true,
   colorScheme: ColorScheme.fromSeed(
     seedColor: const Color(0xFF2BB3A3),
