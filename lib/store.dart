@@ -266,13 +266,37 @@ class ThuocStore extends ChangeNotifier {
 
   Map<String, ({int boxes, int cost})> _purchasesByPeriod(int keyLength) {
     final totals = <String, ({int boxes, int cost})>{};
-    for (final purchase in purchases) {
-      final period = purchase.date.substring(0, keyLength);
+    final medicinesById = {
+      for (final medicine in medicines) medicine.id: medicine,
+    };
+
+    void addToPeriod(String date, int boxes, int cost) {
+      final period = date.substring(0, keyLength);
       final previous = totals[period];
       totals[period] = (
-        boxes: (previous?.boxes ?? 0) + purchase.boxes,
-        cost: (previous?.cost ?? 0) + purchase.total,
+        boxes: (previous?.boxes ?? 0) + boxes,
+        cost: (previous?.cost ?? 0) + cost,
       );
+    }
+
+    for (final purchase in purchases) {
+      final medicine = medicinesById[purchase.medicineId];
+      final pillsPerDose = medicine?.pillsPerDose ?? 1;
+      final pillsPerDay =
+          (medicine?.times.length ?? 0) * (pillsPerDose > 0 ? pillsPerDose : 1);
+      final start = DateTime.tryParse(purchase.date);
+      if (pillsPerDay <= 0 || purchase.boxes <= 1 || start == null) {
+        addToPeriod(purchase.date, purchase.boxes, purchase.total);
+        continue;
+      }
+
+      // Ngày của từng vỉ là ước tính theo lịch uống hiện tại của thuốc.
+      final startDay = DateTime.utc(start.year, start.month, start.day);
+      for (var i = 0; i < purchase.boxes; i++) {
+        final offset = i * purchase.pillsPerBox ~/ pillsPerDay;
+        final date = startDay.add(Duration(days: offset));
+        addToPeriod(todayKey(date).padLeft(10, '0'), 1, purchase.pricePerBox);
+      }
     }
     return totals;
   }

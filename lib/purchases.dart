@@ -49,6 +49,73 @@ class PurchaseHistoryScreen extends StatelessWidget {
     if (confirmed == true) await store.deletePurchase(purchase.id);
   }
 
+  static const _valueStyle = TextStyle(fontWeight: FontWeight.bold);
+
+  Widget _card(BuildContext context, Widget child) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      color: isDark ? const Color(0xFF1E2E2C) : Colors.white,
+      surfaceTintColor: Colors.transparent,
+      elevation: 2,
+      shadowColor: Colors.black12,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      clipBehavior: Clip.antiAlias,
+      child: child,
+    );
+  }
+
+  Widget _summaryValue(BuildContext context, String label, String value) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            color: isDark ? const Color(0xFFB8C4C2) : Colors.black54,
+            fontSize: 13,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(value, style: _valueStyle.copyWith(fontSize: 18)),
+      ],
+    );
+  }
+
+  String _cardMoney(int amount) =>
+      formatPurchaseMoney(amount).replaceFirst(' đ', '\u00A0đ');
+
+  Widget _periodCard(
+    BuildContext context,
+    String label,
+    ({int boxes, int cost}) stats,
+  ) {
+    return _card(
+      context,
+      Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Expanded(child: Text(label)),
+            const SizedBox(width: 12),
+            Expanded(
+              flex: 2,
+              child: Wrap(
+                alignment: WrapAlignment.end,
+                spacing: 4,
+                children: [
+                  Text('${stats.boxes} vỉ •'),
+                  Text(_cardMoney(stats.cost), style: _valueStyle),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
@@ -61,6 +128,7 @@ class PurchaseHistoryScreen extends StatelessWidget {
         final medicineNames = {
           for (final medicine in store.medicines) medicine.id: medicine.name,
         };
+        final firstPurchase = store.firstPurchaseDate;
         final months = store.purchasesByMonth();
         final years = store.purchasesByYear();
         final monthKeys = months.keys.toList()..sort((a, b) => b.compareTo(a));
@@ -76,43 +144,62 @@ class PurchaseHistoryScreen extends StatelessWidget {
           body: ListView(
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 88),
             children: [
-              Card(
-                child: Padding(
+              _card(
+                context,
+                Padding(
                   padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Wrap(
+                    spacing: 16,
+                    runSpacing: 12,
                     children: [
-                      Text(firstPurchaseLabel(store)),
-                      Text('Tổng số vỉ: ${store.totalPurchasedBoxes}'),
-                      Text(
-                          'Tổng tiền: ${formatPurchaseMoney(store.totalPurchaseCost)}'),
+                      _summaryValue(
+                        context,
+                        'Mua đầu tiên',
+                        firstPurchase == null
+                            ? 'Chưa có lần mua nào'
+                            : _formatPurchaseDate(firstPurchase),
+                      ),
+                      _summaryValue(
+                        context,
+                        'Tổng số vỉ',
+                        store.totalPurchasedBoxes.toString(),
+                      ),
+                      _summaryValue(
+                        context,
+                        'Tổng tiền',
+                        _cardMoney(store.totalPurchaseCost),
+                      ),
                     ],
                   ),
                 ),
               ),
               for (final month in monthKeys)
-                ListTile(
-                  title: Text(
-                    'Tháng ${month.split('-').reversed.join('/')}: '
-                    '${months[month]!.boxes} vỉ — ${formatPurchaseMoney(months[month]!.cost)}',
-                  ),
+                _periodCard(
+                  context,
+                  'Tháng ${month.split('-').reversed.join('/')}',
+                  months[month]!,
                 ),
               for (final year in yearKeys)
-                ListTile(
-                  title: Text(
-                    'Năm $year: ${years[year]!.boxes} vỉ — '
-                    '${formatPurchaseMoney(years[year]!.cost)}',
-                  ),
-                ),
+                _periodCard(context, 'Năm $year', years[year]!),
               for (final purchase in purchases)
-                Card(
-                  child: ListTile(
-                    title: Text(medicineNames[purchase.medicineId] ??
-                        _deletedMedicineLabel),
-                    subtitle: Text(
-                      '${_formatPurchaseDate(purchase.date)}\n'
-                      '${purchase.boxes} vỉ × ${formatPurchaseMoney(purchase.pricePerBox)}'
-                      ' = ${formatPurchaseMoney(purchase.total)}',
+                _card(
+                  context,
+                  ListTile(
+                    contentPadding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+                    title: Text(
+                      medicineNames[purchase.medicineId] ??
+                          _deletedMedicineLabel,
+                      style: _valueStyle,
+                    ),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(_formatPurchaseDate(purchase.date)),
+                        Text(
+                          '${purchase.boxes} vỉ × ${_cardMoney(purchase.pricePerBox)}',
+                        ),
+                        Text(_cardMoney(purchase.total), style: _valueStyle),
+                      ],
                     ),
                     onTap: () =>
                         showPurchaseForm(context, store, purchase: purchase),
