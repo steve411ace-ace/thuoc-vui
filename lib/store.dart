@@ -99,6 +99,7 @@ class ThuocStore extends ChangeNotifier {
   bool notificationsReady = false;
 
   List<Medicine> medicines = [];
+  List<PurchaseRecord> purchases = [];
   Map<String, DoseLog> logs = {};
   AppSettings settings = AppSettings();
   bool loaded = false;
@@ -124,6 +125,7 @@ class ThuocStore extends ChangeNotifier {
     final raw = prefs.getString(_storageKey);
     if (raw == null || raw.isEmpty) {
       medicines = [];
+      purchases = [];
       logs = {};
       settings = AppSettings();
       return;
@@ -133,6 +135,7 @@ class ThuocStore extends ChangeNotifier {
       medicines = (data['medicines'] as List<dynamic>)
           .map((e) => Medicine.fromJson(e as Map<String, dynamic>))
           .toList();
+      purchases = _readPurchases(data);
       final logMap = data['logs'] as Map<String, dynamic>? ?? {};
       logs = logMap.map((k, v) => MapEntry(k, DoseLog.fromJson(v as Map<String, dynamic>)));
       // Di chuyển dữ liệu cũ: log 'taken' nhưng check-in realtime trễ quá 30 phút
@@ -148,6 +151,7 @@ class ThuocStore extends ChangeNotifier {
       settings = AppSettings.fromJson(data['settings'] as Map<String, dynamic>?);
     } catch (_) {
       medicines = [];
+      purchases = [];
       logs = {};
       settings = AppSettings();
     }
@@ -169,6 +173,7 @@ class ThuocStore extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     final data = {
       'medicines': medicines.map((m) => m.toJson()).toList(),
+      'purchases': purchases.map((p) => p.toJson()).toList(),
       'logs': logs.map((k, v) => MapEntry(k, v.toJson())),
       'settings': settings.toJson(),
     };
@@ -182,6 +187,7 @@ class ThuocStore extends ChangeNotifier {
   String exportBackup() {
     final data = {
       'medicines': medicines.map((m) => m.toJson()).toList(),
+      'purchases': purchases.map((p) => p.toJson()).toList(),
       'logs': logs.map((k, v) => MapEntry(k, v.toJson())),
       'settings': settings.toJson(),
     };
@@ -197,7 +203,9 @@ class ThuocStore extends ChangeNotifier {
           .toList();
       final logMap = data['logs'] as Map<String, dynamic>? ?? {};
       final newLogs = logMap.map((k, v) => MapEntry(k, DoseLog.fromJson(v as Map<String, dynamic>)));
+      final restoredPurchases = _readPurchases(data);
       medicines = meds;
+      purchases = restoredPurchases;
       logs = newLogs;
       settings = AppSettings.fromJson(data['settings'] as Map<String, dynamic>?);
       await _save();
@@ -207,6 +215,66 @@ class ThuocStore extends ChangeNotifier {
     } catch (_) {
       return false;
     }
+  }
+
+  List<PurchaseRecord> _readPurchases(Map<String, dynamic> data) =>
+      (data['purchases'] as List<dynamic>? ?? [])
+          .map((entry) => PurchaseRecord.fromJson(entry as Map<String, dynamic>))
+          .toList();
+
+  Future<void> addPurchase(PurchaseRecord purchase) async {
+    purchases.add(purchase);
+    await _save();
+    notifyListeners();
+  }
+
+  Future<void> updatePurchase(PurchaseRecord purchase) async {
+    final index = purchases.indexWhere((entry) => entry.id == purchase.id);
+    if (index == -1) return;
+    purchases[index] = purchase;
+    await _save();
+    notifyListeners();
+  }
+
+  Future<void> deletePurchase(String id) async {
+    purchases.removeWhere((entry) => entry.id == id);
+    await _save();
+    notifyListeners();
+  }
+
+  int get totalPurchasedBoxes =>
+      purchases.fold(0, (sum, purchase) => sum + purchase.boxes);
+
+  int get totalPurchaseCost =>
+      purchases.fold(0, (sum, purchase) => sum + purchase.total);
+
+  String? get firstPurchaseDate {
+    String? first;
+    for (final purchase in purchases) {
+      if (first == null || purchase.date.compareTo(first) < 0) {
+        first = purchase.date;
+      }
+    }
+    return first;
+  }
+
+  Map<String, ({int boxes, int cost})> purchasesByMonth() =>
+      _purchasesByPeriod(7);
+
+  Map<String, ({int boxes, int cost})> purchasesByYear() =>
+      _purchasesByPeriod(4);
+
+  Map<String, ({int boxes, int cost})> _purchasesByPeriod(int keyLength) {
+    final totals = <String, ({int boxes, int cost})>{};
+    for (final purchase in purchases) {
+      final period = purchase.date.substring(0, keyLength);
+      final previous = totals[period];
+      totals[period] = (
+        boxes: (previous?.boxes ?? 0) + purchase.boxes,
+        cost: (previous?.cost ?? 0) + purchase.total,
+      );
+    }
+    return totals;
   }
 
   Future<void> _initNotifications() async {
@@ -791,6 +859,7 @@ class ThuocStore extends ChangeNotifier {
 
   Future<void> clearAll() async {
     medicines = [];
+    purchases = [];
     logs = {};
     await _save();
     notifyListeners();

@@ -216,3 +216,41 @@ const List<BadgeInfo> allBadges = [
   BadgeInfo(id: 'ontime_50', emoji: '💪', title: 'Bền bỉ', desc: '50 lần uống đúng giờ'),
   BadgeInfo(id: 'ontime_100', emoji: '🏆', title: 'Bậc thầy đúng giờ', desc: '100 lần uống đúng giờ'),
 ];
+
+class PurchaseRecord {
+  final String id;
+  final String medicineId;
+  final String date;
+  final int boxes;
+  final int pricePerBox;
+  final int pillsPerBox;
+
+  const PurchaseRecord({
+    required this.id,
+    required this.medicineId,
+    required this.date,
+    required this.boxes,
+    required this.pricePerBox,
+    this.pillsPerBox = 10,
+  });
+
+  int get total => boxes * pricePerBox;
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'medicineId': medicineId,
+        'date': date,
+        'boxes': boxes,
+        'pricePerBox': pricePerBox,
+        'pillsPerBox': pillsPerBox,
+      };
+
+  factory PurchaseRecord.fromJson(Map<String, dynamic> json) => PurchaseRecord(
+        id: json['id'] as String,
+        medicineId: json['medicineId'] as String,
+        date: json['date'] as String,
+        boxes: json['boxes'] as int,
+        pricePerBox: json['pricePerBox'] as int? ?? 0,
+        pillsPerBox: json['pillsPerBox'] as int? ?? 10,
+      );
+}

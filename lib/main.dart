@@ -5,6 +5,7 @@ import 'add_medicine.dart';
 import 'history.dart';
 import 'models.dart';
 import 'pip.dart';
+import 'purchases.dart';
 import 'store.dart';
 import 'widget_service.dart';
 
@@ -494,6 +495,26 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                           : 'Đã tính lại từ hôm nay, viên bắt đầu = 1.'),
                     ),
                   );
+                  final recordPurchase = await showDialog<bool>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('Ghi lần mua này không?'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, false),
+                          child: const Text('Để sau'),
+                        ),
+                        FilledButton(
+                          onPressed: () => Navigator.pop(context, true),
+                          child: const Text('Ghi lần mua'),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (recordPurchase == true && mounted) {
+                    await showPurchaseForm(context, store,
+                        medicineId: slot.medicine.id);
+                  }
                 },
               ),
             ),

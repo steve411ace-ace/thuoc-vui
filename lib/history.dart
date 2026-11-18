@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'models.dart';
+import 'purchases.dart';
 import 'store.dart';
 
 /// Màn hình Lịch sử: lưới tháng + thống kê 30 ngày.
@@ -85,6 +86,31 @@ class _HistoryScreenState extends State<HistoryScreen> {
           const SizedBox(height: 8),
           ..._dayDetails(store, _selectedDay!),
         ],
+        const SizedBox(height: 24),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Mua thuốc',
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 6),
+                Text('${firstPurchaseLabel(store)} • '
+                    'Tổng ${store.totalPurchasedBoxes} vỉ • '
+                    '${formatPurchaseMoney(store.totalPurchaseCost)}'),
+                TextButton(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => PurchaseHistoryScreen(store: store),
+                    ),
+                  ),
+                  child: const Text('Xem & ghi lần mua'),
+                ),
+              ],
+            ),
+          ),
+        ),
         const SizedBox(height: 24),
       ],
     );
@@ -178,6 +204,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
       return [const Text('Ngày này không có thuốc nào cần uống.')];
     }
     return slots.map((slot) {
+      final remaining = store.remainingPills(slot.medicine);
       final log = store.logs[slot.key];
       final status = log?.status;
       final label = status == 'taken'
@@ -220,6 +247,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     Text('Hẹn ${slot.time}'),
                     if (takenAt != null) Text('Uống lúc $takenAt'),
                     if (lateText != null) Text(lateText),
+                    if (remaining != null) Text('Còn lại: $remaining viên'),
                   ],
                 ),
               ),
