@@ -794,7 +794,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   for (final mode in WidgetThemeMode.values)
                     ChoiceChip(
                       label: Text(switch (mode) {
-                        WidgetThemeMode.system => 'Theo máy',
+                        WidgetThemeMode.system => 'Theo điện thoại',
                         WidgetThemeMode.light => 'Sáng',
                         WidgetThemeMode.dark => 'Tối',
                       }),
@@ -1186,7 +1186,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         ),
         const SizedBox(height: 16),
         Center(
-            child: Text('Thuốc Vui • Phiên bản 1.2.43+46',
+            child: Text('Thuốc Vui • Phiên bản 1.2.44+47',
                 style: TextStyle(color: muted))),
       ],
     );

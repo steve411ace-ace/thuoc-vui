@@ -51,7 +51,8 @@ void main() {
     await tester.tap(find.text('Cài đặt'));
     await tester.pumpAndSettle();
 
-    final systemChip = find.widgetWithText(ChoiceChip, 'Theo điện thoại');
+    final systemChip =
+        find.widgetWithText(ChoiceChip, 'Theo điện thoại').hitTestable();
     final appChips = find.ancestor(of: systemChip, matching: find.byType(Wrap));
     expect(tester.widget<ChoiceChip>(systemChip).selected, isTrue);
     expect(Theme.of(tester.element(systemChip)).brightness, Brightness.dark);
@@ -132,19 +133,24 @@ void main() {
     expect(restored.palette, HomePalette.custom);
     expect(restored.customColor, const Color(0xFF9A492B));
 
-    final systemChip = find.widgetWithText(ChoiceChip, 'Theo máy');
-    await tester.scrollUntilVisible(systemChip, 200);
+    final widgetHeading = find.text('Giao diện widget');
+    await tester.scrollUntilVisible(widgetHeading, 200);
+    final widgetCard =
+        find.ancestor(of: widgetHeading, matching: find.byType(Card));
+    final systemChip = find.descendant(
+      of: widgetCard,
+      matching: find.widgetWithText(ChoiceChip, 'Theo điện thoại'),
+    );
+    await tester.ensureVisible(systemChip);
     expect(tester.widget<ChoiceChip>(systemChip).selected, isTrue);
     expect(widgetData['widget_theme'], 'system');
-    final widgetChips =
-        find.ancestor(of: systemChip, matching: find.byType(Wrap));
     for (final (label, mode) in [
       ('Sáng', WidgetThemeMode.light),
       ('Tối', WidgetThemeMode.dark),
-      ('Theo máy', WidgetThemeMode.system),
+      ('Theo điện thoại', WidgetThemeMode.system),
     ]) {
       final chip = find.descendant(
-        of: widgetChips,
+        of: widgetCard,
         matching: find.widgetWithText(ChoiceChip, label),
       );
       await tester.ensureVisible(chip);
@@ -167,9 +173,9 @@ void main() {
           Brightness.light);
     }
 
-    await tester.scrollUntilVisible(find.textContaining('1.2.43+46'), 400);
-    await tester.ensureVisible(find.textContaining('1.2.43+46'));
-    expect(find.textContaining('1.2.43+46'), findsOneWidget);
+    await tester.scrollUntilVisible(find.textContaining('1.2.44+47'), 400);
+    await tester.ensureVisible(find.textContaining('1.2.44+47'));
+    expect(find.textContaining('1.2.44+47'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }
