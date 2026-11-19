@@ -33,6 +33,10 @@ class ThuocVuiApp extends StatelessWidget {
           title: 'Thuốc Vui',
           debugShowCheckedModeBanner: false,
           theme: settings.palette.themeWithCustomColor(settings.customColor),
+          darkTheme: settings.palette.darkThemeWithCustomColor(
+            settings.customColor,
+          ),
+          themeMode: settings.appThemeMode,
           home: HomeScreen(store: store),
         );
       },
@@ -254,11 +258,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                             child: RichText(
                               key: ValueKey(finalPipMessage),
                               text: TextSpan(
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontFamily: 'Be Vietnam Pro',
                                   fontSize: 16,
                                   fontWeight: FontWeight.w600,
-                                  color: Color(0xFF333333),
+                                  color: scheme.onSurface,
                                 ),
                                 children: [
                                   for (int i = 0;
@@ -270,9 +274,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                       style: finalPipMessage
                                               .split('\n')[i]
                                               .startsWith('Tiếp theo:')
-                                          ? const TextStyle(
+                                          ? TextStyle(
                                               fontWeight: FontWeight.bold,
-                                              color: Color(0xFF0F766E),
+                                              color: scheme.surfaceAccent,
                                             )
                                           : null,
                                     ),
@@ -648,7 +652,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 decoration: BoxDecoration(
                   color: got
                       ? scheme.surfaceAccent.withAlpha(26)
-                      : const Color(0xFFF1F1F1),
+                      : scheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Text(
@@ -692,6 +696,29 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       padding: const EdgeInsets.all(16),
       children: [
         const HomeSectionLabel('Giao diện'),
+        const Text('Chế độ'),
+        Wrap(
+          spacing: 8,
+          runSpacing: 4,
+          children: [
+            for (final mode in [
+              ThemeMode.light,
+              ThemeMode.dark,
+              ThemeMode.system,
+            ])
+              ChoiceChip(
+                label: Text(switch (mode) {
+                  ThemeMode.light => 'Sáng',
+                  ThemeMode.dark => 'Tối',
+                  ThemeMode.system => 'Theo điện thoại',
+                }),
+                selected: settings.appThemeMode == mode,
+                shape: const StadiumBorder(),
+                onSelected: (_) => store.updateAppTheme(mode),
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
         Card(
           child: Column(
             children: [
@@ -1144,21 +1171,22 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       child: const Text('Hủy')),
                   TextButton(
                       onPressed: () => Navigator.pop(ctx, true),
-                      child: const Text('Xóa hết',
-                          style: TextStyle(color: Colors.red))),
+                      child: Text('Xóa hết',
+                          style: TextStyle(
+                              color: Theme.of(ctx).colorScheme.error))),
                 ],
               ),
             );
             if (ok == true) await store.clearAll();
           },
           style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.red,
-              side: const BorderSide(color: Colors.red)),
+              foregroundColor: scheme.error,
+              side: BorderSide(color: scheme.error)),
           child: const Text('Xóa toàn bộ dữ liệu'),
         ),
         const SizedBox(height: 16),
         Center(
-            child: Text('Thuốc Vui • Phiên bản 1.2.42+45',
+            child: Text('Thuốc Vui • Phiên bản 1.2.43+46',
                 style: TextStyle(color: muted))),
       ],
     );

@@ -19,6 +19,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final store = widget.store;
     final adherence = store.adherence30Days();
     final streak = store.currentStreak();
@@ -80,15 +81,17 @@ class _HistoryScreenState extends State<HistoryScreen> {
             ),
             _monthGrid(store),
             const SizedBox(height: 8),
-            const Wrap(
+            Wrap(
               alignment: WrapAlignment.center,
               spacing: 10,
               runSpacing: 6,
               children: [
-                _LegendDot(color: Color(0xFF95E77E), label: 'Đủ đúng giờ'),
-                _LegendDot(color: Color(0xFFFFB020), label: 'Có trễ'),
-                _LegendDot(color: Color(0xFFFF9AA2), label: 'Thiếu'),
-                _LegendDot(color: Color(0xFFE0E0E0), label: 'Không có thuốc'),
+                const _LegendDot(color: Color(0xFF95E77E), label: 'Đủ đúng giờ'),
+                const _LegendDot(color: Color(0xFFFFB020), label: 'Có trễ'),
+                const _LegendDot(color: Color(0xFFFF9AA2), label: 'Thiếu'),
+                _LegendDot(
+                    color: scheme.surfaceContainerHighest,
+                    label: 'Không có thuốc'),
               ],
             ),
           ]),
@@ -171,11 +174,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
       final date = DateTime(_month.year, _month.month, day);
       final slots = store.slotsForDay(date);
       Color bg;
+      var labelColor = scheme.onSurface;
       if (slots.isEmpty) {
-        bg = const Color(0xFFE0E0E0);
+        bg = scheme.surfaceContainerHighest;
       } else if (date.isAfter(DateTime(today.year, today.month, today.day))) {
         bg = scheme.surface;
       } else {
+        labelColor = Colors.black87;
         final completed = slots
             .where((s) =>
                 store.logs[s.key]?.status == 'taken' ||
@@ -211,7 +216,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
             ),
             alignment: Alignment.center,
             child: Text('$day',
-                style: const TextStyle(fontWeight: FontWeight.w600)),
+                style: TextStyle(
+                    color: labelColor, fontWeight: FontWeight.w600)),
           ),
         ),
       );

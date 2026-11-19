@@ -175,6 +175,7 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final isEdit = widget.existing != null;
     return Scaffold(
       appBar: AppBar(
@@ -303,7 +304,7 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
                   if (_times.length > 1)
                     IconButton(
                       onPressed: () => setState(() => _times.removeAt(e.key)),
-                      icon: const Icon(Icons.delete_outline, color: Colors.red),
+                      icon: Icon(Icons.delete_outline, color: scheme.error),
                     ),
                 ],
               ),
@@ -415,16 +416,17 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
                             child: const Text('Hủy')),
                         TextButton(
                             onPressed: () => Navigator.pop(ctx, true),
-                            child: const Text('Xóa',
-                                style: TextStyle(color: Colors.red))),
+                            child: Text('Xóa',
+                                style: TextStyle(
+                                    color: Theme.of(ctx).colorScheme.error))),
                       ],
                     ),
                   );
                   if (ok == true) widget.onDelete!();
                 },
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.red,
-                  side: const BorderSide(color: Colors.red),
+                  foregroundColor: scheme.error,
+                  side: BorderSide(color: scheme.error),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16)),
                 ),

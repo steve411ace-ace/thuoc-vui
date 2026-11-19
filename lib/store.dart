@@ -27,6 +27,7 @@ class AppSettings {
   int remindTimes;
   final HomePalette palette;
   final Color customColor;
+  final ThemeMode appThemeMode;
   // Độ mờ nền widget (%), 100 = đặc như cũ, 50 = trong suốt nhất cho phép.
   int widgetOpacity;
   final WidgetThemeMode widgetThemeMode;
@@ -40,6 +41,7 @@ class AppSettings {
     this.remindTimes = 3,
     this.palette = HomePalette.light,
     this.customColor = HomePalette.defaultCustomColor,
+    this.appThemeMode = ThemeMode.system,
     this.widgetOpacity = 100,
     this.widgetThemeMode = WidgetThemeMode.system,
   });
@@ -53,6 +55,7 @@ class AppSettings {
     int? remindTimes,
     HomePalette? palette,
     Color? customColor,
+    ThemeMode? appThemeMode,
     int? widgetOpacity,
     WidgetThemeMode? widgetThemeMode,
   }) =>
@@ -65,6 +68,7 @@ class AppSettings {
         remindTimes: remindTimes ?? this.remindTimes,
         palette: palette ?? this.palette,
         customColor: customColor ?? this.customColor,
+        appThemeMode: appThemeMode ?? this.appThemeMode,
         widgetOpacity: widgetOpacity ?? this.widgetOpacity,
         widgetThemeMode: widgetThemeMode ?? this.widgetThemeMode,
       );
@@ -78,6 +82,7 @@ class AppSettings {
         'remindTimes': remindTimes,
         'palette': palette.name,
         'customColor': customColor.value & 0xFFFFFF,
+        'appThemeMode': appThemeMode.name,
         'widgetOpacity': widgetOpacity,
         'widgetThemeMode': widgetThemeMode.name,
       };
@@ -95,6 +100,10 @@ class AppSettings {
       customColor: j['customColor'] is int
           ? Color(0xFF000000 | ((j['customColor'] as int) & 0xFFFFFF))
           : HomePalette.defaultCustomColor,
+      appThemeMode: ThemeMode.values.firstWhere(
+        (mode) => mode.name == j['appThemeMode'],
+        orElse: () => ThemeMode.system,
+      ),
       widgetOpacity: (j['widgetOpacity'] as num?)?.toInt() ?? 100,
       widgetThemeMode: WidgetThemeMode.values.firstWhere(
         (mode) => mode.name == j['widgetThemeMode'],
@@ -195,7 +204,7 @@ class ThuocStore extends ChangeNotifier {
     } catch (_) {}
   }
 
-  Future<void> _save() async {
+  Future<void> _save({bool refreshWidget = true}) async {
     final prefs = await SharedPreferences.getInstance();
     final data = {
       'medicines': medicines.map((m) => m.toJson()).toList(),
@@ -204,7 +213,9 @@ class ThuocStore extends ChangeNotifier {
       'settings': settings.toJson(),
     };
     await prefs.setString(_storageKey, jsonEncode(data));
-    try { await updateHomeWidget(); } catch (_) {}
+    if (refreshWidget) {
+      try { await updateHomeWidget(); } catch (_) {}
+    }
   }
 
   /// Chuỗi sao lưu để copy ra ngoài app (dán vào Ghi chú/email giữ lại).
@@ -891,6 +902,13 @@ class ThuocStore extends ChangeNotifier {
     settings = settings.copyWith(palette: palette, customColor: customColor);
     await _save();
     notifyListeners();
+  }
+
+  Future<void> updateAppTheme(ThemeMode mode) async {
+    if (settings.appThemeMode == mode) return;
+    settings = settings.copyWith(appThemeMode: mode);
+    notifyListeners();
+    await _save(refreshWidget: false);
   }
 
   Future<void> updateWidgetTheme(WidgetThemeMode mode) async {

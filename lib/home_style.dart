@@ -27,24 +27,35 @@ enum HomePalette {
   Color accent(Color customColor) =>
       this == custom ? customColor : Color(primary);
 
-  ThemeData themeWithCustomColor(Color customColor) {
+  ThemeData themeWithCustomColor(Color customColor) =>
+      _theme(customColor, Brightness.light);
+
+  ThemeData darkThemeWithCustomColor(Color customColor) =>
+      _theme(customColor, Brightness.dark);
+
+  ThemeData _theme(Color customColor, Brightness brightness) {
+    final dark = brightness == Brightness.dark;
     final accent = this.accent(customColor);
-    final onPrimary =
-        (this == white || this == custom) && accent.computeLuminance() > 0.179
-            ? Colors.black
-            : Colors.white;
-    final scheme = ColorScheme.fromSeed(seedColor: accent).copyWith(
+    final onPrimary = (dark || this == white || this == custom) &&
+            accent.computeLuminance() > 0.179
+        ? Colors.black
+        : Colors.white;
+    final seededScheme =
+        ColorScheme.fromSeed(seedColor: accent, brightness: brightness);
+    final scheme = seededScheme.copyWith(
       primary: accent,
       onPrimary: onPrimary,
-      surface: Colors.white,
-      onSurface: const Color(0xFF1A2B2E),
-      onSurfaceVariant: const Color(0xFF47575B),
+      surface: dark ? const Color(0xFF1C2629) : Colors.white,
+      onSurface: dark ? const Color(0xFFEDEDED) : const Color(0xFF1A2B2E),
+      onSurfaceVariant:
+          dark ? const Color(0xFFB8C4C2) : const Color(0xFF47575B),
     );
     final theme = ThemeData(
       colorScheme: scheme,
       fontFamily: 'Be Vietnam Pro',
       useMaterial3: true,
-      scaffoldBackgroundColor: Color(background),
+      scaffoldBackgroundColor:
+          dark ? const Color(0xFF12181B) : Color(background),
       appBarTheme: AppBarTheme(
         backgroundColor: accent,
         foregroundColor: onPrimary,
@@ -90,14 +101,41 @@ enum HomePalette {
         foregroundColor: onPrimary,
       ),
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
-        backgroundColor: Colors.white,
+        backgroundColor: scheme.surface,
         selectedItemColor: scheme.surfaceAccent,
         unselectedItemColor: scheme.onSurfaceVariant,
       ),
-      inputDecorationTheme: const InputDecorationTheme(
+      switchTheme: dark
+          ? SwitchThemeData(
+              trackColor: WidgetStateProperty.resolveWith((states) =>
+                  states.contains(WidgetState.selected) &&
+                          !states.contains(WidgetState.disabled)
+                      ? scheme.surfaceAccent
+                      : null),
+              thumbColor: WidgetStateProperty.resolveWith((states) =>
+                  states.contains(WidgetState.selected) &&
+                          !states.contains(WidgetState.disabled)
+                      ? scheme.surface
+                      : null),
+            )
+          : null,
+      textSelectionTheme: dark
+          ? TextSelectionThemeData(
+              cursorColor: scheme.surfaceAccent,
+              selectionColor: scheme.surfaceAccent.withAlpha(102),
+              selectionHandleColor: scheme.surfaceAccent,
+            )
+          : null,
+      inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: Colors.white,
-        border: OutlineInputBorder(
+        fillColor: scheme.surface,
+        focusedBorder: dark
+            ? OutlineInputBorder(
+                borderRadius: const BorderRadius.all(Radius.circular(16)),
+                borderSide: BorderSide(color: scheme.surfaceAccent, width: 2),
+              )
+            : null,
+        border: const OutlineInputBorder(
           borderRadius: BorderRadius.all(Radius.circular(16)),
         ),
       ),
@@ -118,8 +156,14 @@ enum HomePalette {
       ),
     );
     return theme.copyWith(
+      textTheme: dark
+          ? theme.textTheme.apply(
+              bodyColor: scheme.onSurface,
+              displayColor: scheme.onSurface,
+            )
+          : null,
       cardTheme: theme.cardTheme.copyWith(
-        color: Colors.white,
+        color: scheme.surface,
         surfaceTintColor: Colors.transparent,
         elevation: 1,
         shadowColor: const Color(0x2410282C),
@@ -132,7 +176,9 @@ enum HomePalette {
 }
 
 extension HomeSurfaceAccent on ColorScheme {
-  Color get surfaceAccent => onPrimary == Colors.white ? primary : onPrimary;
+  Color get surfaceAccent => brightness == Brightness.dark
+      ? (primary.computeLuminance() >= 0.25 ? primary : secondary)
+      : (onPrimary == Colors.white ? primary : onPrimary);
 }
 
 Color? doseStatusColor(String? status) => switch (status) {
