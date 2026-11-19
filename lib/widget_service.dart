@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:home_widget/home_widget.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'models.dart';
+import 'store.dart';
 
 /// Callback chạy nền khi bấm nút trên widget màn hình chính.
 /// Không dùng ThuocStore ở đây để tránh khởi tạo notification plugin trong isolate nền:
@@ -91,6 +92,8 @@ Future<void> widgetInteractivityCallback(Uri? uri) async {
     await HomeWidget.saveWidgetData<String>(
         'next_time', following == null ? '' : 'Lúc ${following.time} • ${following.medicine.mealLabel}');
     await HomeWidget.saveWidgetData<String>('all_done', following == null ? '1' : '0');
+    await AppSettings.fromJson(data['settings'] as Map<String, dynamic>?)
+        .saveWidgetAccent();
     await HomeWidget.updateWidget(
         name: 'ThuocVuiWidgetProvider', androidName: 'ThuocVuiWidgetProvider');
   } catch (_) {}

@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
+import 'home_style.dart';
 import 'models.dart';
 
 const String _storageKey = 'thuoc_vui_v1';
@@ -22,8 +23,8 @@ class AppSettings {
   // tối đa remindTimes lần sau lần nhắc chính (0 = tắt báo lại).
   int remindIntervalMinutes;
   int remindTimes;
-  // Giao diện: 'system' = theo điện thoại, 'light' = sáng, 'dark' = tối.
-  String themeMode;
+  final HomePalette palette;
+  final Color customColor;
   // Độ mờ nền widget (%), 100 = đặc như cũ, 50 = trong suốt nhất cho phép.
   int widgetOpacity;
 
@@ -34,7 +35,8 @@ class AppSettings {
     this.quietEnd = '07:00',
     this.remindIntervalMinutes = 10,
     this.remindTimes = 3,
-    this.themeMode = 'system',
+    this.palette = HomePalette.light,
+    this.customColor = HomePalette.defaultCustomColor,
     this.widgetOpacity = 100,
   });
 
@@ -45,7 +47,8 @@ class AppSettings {
     String? quietEnd,
     int? remindIntervalMinutes,
     int? remindTimes,
-    String? themeMode,
+    HomePalette? palette,
+    Color? customColor,
     int? widgetOpacity,
   }) =>
       AppSettings(
@@ -55,7 +58,8 @@ class AppSettings {
         quietEnd: quietEnd ?? this.quietEnd,
         remindIntervalMinutes: remindIntervalMinutes ?? this.remindIntervalMinutes,
         remindTimes: remindTimes ?? this.remindTimes,
-        themeMode: themeMode ?? this.themeMode,
+        palette: palette ?? this.palette,
+        customColor: customColor ?? this.customColor,
         widgetOpacity: widgetOpacity ?? this.widgetOpacity,
       );
 
@@ -66,7 +70,8 @@ class AppSettings {
         'quietEnd': quietEnd,
         'remindIntervalMinutes': remindIntervalMinutes,
         'remindTimes': remindTimes,
-        'themeMode': themeMode,
+        'palette': palette.name,
+        'customColor': customColor.value & 0xFFFFFF,
         'widgetOpacity': widgetOpacity,
       };
 
@@ -79,9 +84,18 @@ class AppSettings {
       quietEnd: j['quietEnd'] as String? ?? '07:00',
       remindIntervalMinutes: (j['remindIntervalMinutes'] as num?)?.toInt() ?? 10,
       remindTimes: (j['remindTimes'] as num?)?.toInt() ?? 3,
-      themeMode: (j['themeMode'] as String?) ?? 'system',
+      palette: HomePalette.fromName(j['palette']),
+      customColor: j['customColor'] is int
+          ? Color(0xFF000000 | ((j['customColor'] as int) & 0xFFFFFF))
+          : HomePalette.defaultCustomColor,
       widgetOpacity: (j['widgetOpacity'] as num?)?.toInt() ?? 100,
     );
+  }
+
+  Future<void> saveWidgetAccent() {
+    final rgb = palette.accent(customColor).value & 0xFFFFFF;
+    final hex = '#${rgb.toRadixString(16).padLeft(6, '0').toUpperCase()}';
+    return HomeWidget.saveWidgetData<String>('widget_accent', hex);
   }
 
   bool inQuietHours(String hhmm) {
@@ -861,6 +875,12 @@ class ThuocStore extends ChangeNotifier {
     await rescheduleAll();
   }
 
+  Future<void> updateAppearance(HomePalette palette, {Color? customColor}) async {
+    settings = settings.copyWith(palette: palette, customColor: customColor);
+    await _save();
+    notifyListeners();
+  }
+
   Future<void> updateSettings(AppSettings next) async {
     // Android: kênh thông báo đã tạo rồi thì đổi âm thanh/rung trong
     // NotificationDetails sẽ không có tác dụng (hệ thống giữ kênh cũ).
@@ -1063,9 +1083,7 @@ class ThuocStore extends ChangeNotifier {
       if (doneSlots.length > 3) doneLines.add('… và ${doneSlots.length - 3} lần nữa');
       await HomeWidget.saveWidgetData<String>('done_detail', doneLines.join('\n'));
       await HomeWidget.saveWidgetData<String>('all_done', next == null && slots.isNotEmpty ? '1' : '0');
-      // Widget native không tự theo theme Flutter: lưu lựa chọn thô
-      // ('system'/'light'/'dark') để Kotlin tự quyết sáng/tối lúc cập nhật.
-      await HomeWidget.saveWidgetData<String>('widget_theme', settings.themeMode);
+      await settings.saveWidgetAccent();
       await HomeWidget.saveWidgetData<String>('widget_opacity', settings.widgetOpacity.toString());
       await HomeWidget.saveWidgetData<String>('progress_pct', slots.isEmpty ? '0' : ((completed * 100) ~/ slots.length).toString());
       // 1.2.30: đóng dấu ngày của dữ liệu widget để Kotlin tự phát

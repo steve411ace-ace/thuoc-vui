@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'home_style.dart';
 import 'models.dart';
 
 const List<int> _palette = [
@@ -18,7 +19,8 @@ class AddMedicineScreen extends StatefulWidget {
   final void Function(Medicine med) onSave;
   final VoidCallback? onDelete;
 
-  const AddMedicineScreen({super.key, this.existing, required this.onSave, this.onDelete});
+  const AddMedicineScreen(
+      {super.key, this.existing, required this.onSave, this.onDelete});
 
   @override
   State<AddMedicineScreen> createState() => _AddMedicineScreenState();
@@ -52,7 +54,9 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
       _times = List.of(e.times);
       _weekdays = List.of(e.weekdays);
       _start = DateTime.parse(e.startDate);
-      _end = e.endDate != null && e.endDate!.isNotEmpty ? DateTime.parse(e.endDate!) : null;
+      _end = e.endDate != null && e.endDate!.isNotEmpty
+          ? DateTime.parse(e.endDate!)
+          : null;
       _meal = e.mealNote;
       if (e.totalPills > 0) _totalPills.text = e.totalPills.toString();
       if (e.startPill > 1) _startPill.text = e.startPill.toString();
@@ -77,7 +81,8 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
     final parts = _times[index].split(':');
     final picked = await showTimePicker(
       context: context,
-      initialTime: TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1])),
+      initialTime:
+          TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1])),
     );
     if (picked == null) return;
     setState(() {
@@ -125,7 +130,9 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
     }
     final sortedTimes = List.of(_times)..sort();
     final med = Medicine(
-      id: widget.existing?.id ?? stableHash('${DateTime.now().millisecondsSinceEpoch}$name').toString(),
+      id: widget.existing?.id ??
+          stableHash('${DateTime.now().millisecondsSinceEpoch}$name')
+              .toString(),
       name: name,
       dose: _dose.text.trim().isEmpty ? '1 viên' : _dose.text.trim(),
       form: _form,
@@ -144,25 +151,23 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
     widget.onSave(med);
   }
 
-  Widget _sectionTitle(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 20, bottom: 8),
-      child: Text(text, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-    );
-  }
+  Widget _sectionTitle(String text) => Padding(
+        padding: const EdgeInsets.only(top: 16),
+        child: HomeSectionLabel(text),
+      );
 
   Widget _chip({
     required String label,
     required bool selected,
     required VoidCallback onTap,
-    Color? color,
   }) {
     return Padding(
       padding: const EdgeInsets.only(right: 8, bottom: 8),
       child: ChoiceChip(
         label: Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
         selected: selected,
-        selectedColor: color ?? const Color(0xFFFFD93D),
+        selectedColor:
+            Theme.of(context).colorScheme.surfaceAccent.withAlpha(26),
         onSelected: (_) => onTap(),
       ),
     );
@@ -173,17 +178,21 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
     final isEdit = widget.existing != null;
     return Scaffold(
       appBar: AppBar(
-        title: Text(isEdit ? 'Sửa thuốc' : 'Thêm thuốc mới'),
+        title: HomeAppBarTitle(
+          isEdit ? 'Sửa thuốc' : 'Thêm thuốc mới',
+          'Thông tin thuốc và lịch uống',
+        ),
       ),
       body: ListView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(16),
         children: [
           _sectionTitle('Tên thuốc'),
           TextField(
             controller: _name,
             decoration: const InputDecoration(
               hintText: 'Ví dụ: Vitamin C, Thuốc huyết áp...',
-              border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(16))),
+              border: OutlineInputBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(16))),
             ),
           ),
           _sectionTitle('Liều dùng'),
@@ -191,7 +200,8 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
             controller: _dose,
             decoration: const InputDecoration(
               hintText: 'Ví dụ: 1 viên, 5 ml, 2 viên...',
-              border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(16))),
+              border: OutlineInputBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(16))),
             ),
           ),
           _sectionTitle('Đếm viên thuốc (tùy chọn, để trống nếu không cần)'),
@@ -200,7 +210,8 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
             keyboardType: TextInputType.number,
             decoration: const InputDecoration(
               hintText: 'Số viên trong 1 hộp/vỉ, ví dụ: 30',
-              border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(16))),
+              border: OutlineInputBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(16))),
             ),
           ),
           const SizedBox(height: 8),
@@ -208,8 +219,10 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
             controller: _startPill,
             keyboardType: TextInputType.number,
             decoration: const InputDecoration(
-              hintText: 'Ngày bắt đầu là viên thứ mấy, ví dụ: 1 (đang uống dở thì nhập 10)',
-              border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(16))),
+              hintText:
+                  'Ngày bắt đầu là viên thứ mấy, ví dụ: 1 (đang uống dở thì nhập 10)',
+              border: OutlineInputBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(16))),
             ),
           ),
           const SizedBox(height: 8),
@@ -218,17 +231,33 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
             keyboardType: TextInputType.number,
             decoration: const InputDecoration(
               hintText: 'Số viên mỗi lần uống, ví dụ: 1',
-              border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(16))),
+              border: OutlineInputBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(16))),
             ),
           ),
           _sectionTitle('Dạng thuốc'),
           Wrap(
             children: [
-              _chip(label: '💊 Viên', selected: _form == 'vien', onTap: () => setState(() => _form = 'vien')),
-              _chip(label: '💧 Nước', selected: _form == 'nuoc', onTap: () => setState(() => _form = 'nuoc')),
-              _chip(label: '💉 Tiêm', selected: _form == 'tiem', onTap: () => setState(() => _form = 'tiem')),
-              _chip(label: '🌬️ Xịt', selected: _form == 'xit', onTap: () => setState(() => _form = 'xit')),
-              _chip(label: '📦 Khác', selected: _form == 'khac', onTap: () => setState(() => _form = 'khac')),
+              _chip(
+                  label: '💊 Viên',
+                  selected: _form == 'vien',
+                  onTap: () => setState(() => _form = 'vien')),
+              _chip(
+                  label: '💧 Nước',
+                  selected: _form == 'nuoc',
+                  onTap: () => setState(() => _form = 'nuoc')),
+              _chip(
+                  label: '💉 Tiêm',
+                  selected: _form == 'tiem',
+                  onTap: () => setState(() => _form = 'tiem')),
+              _chip(
+                  label: '🌬️ Xịt',
+                  selected: _form == 'xit',
+                  onTap: () => setState(() => _form = 'xit')),
+              _chip(
+                  label: '📦 Khác',
+                  selected: _form == 'khac',
+                  onTap: () => setState(() => _form = 'khac')),
             ],
           ),
           _sectionTitle('Màu của thuốc'),
@@ -244,9 +273,15 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
                   decoration: BoxDecoration(
                     color: Color(c),
                     shape: BoxShape.circle,
-                    border: selected ? Border.all(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black, width: 3) : null,
+                    border: selected
+                        ? Border.all(
+                            color: Theme.of(context).colorScheme.surfaceAccent,
+                            width: 3)
+                        : null,
                   ),
-                  child: selected ? const Icon(Icons.check, color: Colors.white) : null,
+                  child: selected
+                      ? const Icon(Icons.check, color: Colors.white)
+                      : null,
                 ),
               );
             }).toList(),
@@ -261,7 +296,8 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
                     child: OutlinedButton.icon(
                       onPressed: () => _pickTime(e.key),
                       icon: const Icon(Icons.access_time),
-                      label: Text('Uống lúc ${e.value}', style: const TextStyle(fontSize: 16)),
+                      label: Text('Uống lúc ${e.value}',
+                          style: const TextStyle(fontSize: 16)),
                     ),
                   ),
                   if (_times.length > 1)
@@ -308,7 +344,9 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
               Expanded(
                 child: OutlinedButton(
                   onPressed: () => _pickDate(true),
-                  child: Text(_end == null ? 'Đến: dài hạn' : 'Đến: ${formatDateVn(_end!)}'),
+                  child: Text(_end == null
+                      ? 'Đến: dài hạn'
+                      : 'Đến: ${formatDateVn(_end!)}'),
                 ),
               ),
             ],
@@ -321,9 +359,18 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
           _sectionTitle('Uống trước hay sau ăn?'),
           Wrap(
             children: [
-              _chip(label: 'Trước ăn', selected: _meal == 'truoc_an', onTap: () => setState(() => _meal = 'truoc_an')),
-              _chip(label: 'Sau ăn', selected: _meal == 'sau_an', onTap: () => setState(() => _meal = 'sau_an')),
-              _chip(label: 'Không dặn', selected: _meal == 'khong', onTap: () => setState(() => _meal = 'khong')),
+              _chip(
+                  label: 'Trước ăn',
+                  selected: _meal == 'truoc_an',
+                  onTap: () => setState(() => _meal = 'truoc_an')),
+              _chip(
+                  label: 'Sau ăn',
+                  selected: _meal == 'sau_an',
+                  onTap: () => setState(() => _meal = 'sau_an')),
+              _chip(
+                  label: 'Không dặn',
+                  selected: _meal == 'khong',
+                  onTap: () => setState(() => _meal = 'khong')),
             ],
           ),
           _sectionTitle('Ghi chú'),
@@ -332,20 +379,22 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
             maxLines: 2,
             decoration: const InputDecoration(
               hintText: 'Ví dụ: uống với nước ấm, không uống cùng sữa...',
-              border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(16))),
+              border: OutlineInputBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(16))),
             ),
           ),
           const SizedBox(height: 28),
           SizedBox(
             height: 52,
-            child: ElevatedButton(
+            child: FilledButton(
               onPressed: _save,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF2BB3A3),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              style: FilledButton.styleFrom(
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16)),
               ),
-              child: Text(isEdit ? 'Lưu thay đổi' : 'Thêm thuốc', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+              child: Text(isEdit ? 'Lưu thay đổi' : 'Thêm thuốc',
+                  style: const TextStyle(
+                      fontSize: 17, fontWeight: FontWeight.bold)),
             ),
           ),
           if (isEdit && widget.onDelete != null) ...[
@@ -358,10 +407,16 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
                     context: context,
                     builder: (ctx) => AlertDialog(
                       title: const Text('Xóa thuốc này?'),
-                      content: const Text('Lịch nhắc và lịch sử của thuốc này cũng sẽ bị xóa.'),
+                      content: const Text(
+                          'Lịch nhắc và lịch sử của thuốc này cũng sẽ bị xóa.'),
                       actions: [
-                        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
-                        TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Xóa', style: TextStyle(color: Colors.red))),
+                        TextButton(
+                            onPressed: () => Navigator.pop(ctx, false),
+                            child: const Text('Hủy')),
+                        TextButton(
+                            onPressed: () => Navigator.pop(ctx, true),
+                            child: const Text('Xóa',
+                                style: TextStyle(color: Colors.red))),
                       ],
                     ),
                   );
@@ -370,7 +425,8 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Colors.red,
                   side: const BorderSide(color: Colors.red),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16)),
                 ),
                 child: const Text('Xóa thuốc này'),
               ),

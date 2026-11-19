@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'home_style.dart';
 import 'models.dart';
 import 'store.dart';
 
@@ -51,29 +52,20 @@ class PurchaseHistoryScreen extends StatelessWidget {
 
   static const _valueStyle = TextStyle(fontWeight: FontWeight.bold);
 
-  Widget _card(BuildContext context, Widget child) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      color: isDark ? const Color(0xFF1E2E2C) : Colors.white,
-      surfaceTintColor: Colors.transparent,
-      elevation: 2,
-      shadowColor: Colors.black12,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      clipBehavior: Clip.antiAlias,
-      child: child,
-    );
-  }
+  Widget _card(Widget child) => Card(
+        margin: const EdgeInsets.only(bottom: 8),
+        child: child,
+      );
 
   Widget _summaryValue(BuildContext context, String label, String value) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final muted = Theme.of(context).colorScheme.onSurfaceVariant;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
           style: TextStyle(
-            color: isDark ? const Color(0xFFB8C4C2) : Colors.black54,
+            color: muted,
             fontSize: 13,
           ),
         ),
@@ -87,12 +79,10 @@ class PurchaseHistoryScreen extends StatelessWidget {
       formatPurchaseMoney(amount).replaceFirst(' đ', '\u00A0đ');
 
   Widget _periodCard(
-    BuildContext context,
     String label,
     ({int boxes, int cost}) stats,
   ) {
     return _card(
-      context,
       Padding(
         padding: const EdgeInsets.all(16),
         child: Row(
@@ -135,17 +125,19 @@ class PurchaseHistoryScreen extends StatelessWidget {
         final yearKeys = years.keys.toList()..sort((a, b) => b.compareTo(a));
 
         return Scaffold(
-          appBar: AppBar(title: const Text('Mua thuốc')),
+          appBar: AppBar(
+            title: const HomeAppBarTitle('Mua thuốc', 'Chi phí và các lần mua'),
+          ),
           floatingActionButton: FloatingActionButton(
             tooltip: 'Ghi lần mua',
             onPressed: () => showPurchaseForm(context, store),
             child: const Icon(Icons.add),
           ),
           body: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 88),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
             children: [
+              const HomeSectionLabel('Tổng quan'),
               _card(
-                context,
                 Padding(
                   padding: const EdgeInsets.all(16),
                   child: Wrap(
@@ -173,23 +165,24 @@ class PurchaseHistoryScreen extends StatelessWidget {
                   ),
                 ),
               ),
+              if (monthKeys.isNotEmpty) const HomeSectionLabel('Theo tháng'),
               for (final month in monthKeys)
                 _periodCard(
-                  context,
                   'Tháng ${month.split('-').reversed.join('/')}',
                   months[month]!,
                 ),
+              if (yearKeys.isNotEmpty) const HomeSectionLabel('Theo năm'),
               for (final year in yearKeys)
-                _periodCard(context, 'Năm $year', years[year]!),
+                _periodCard('Năm $year', years[year]!),
+              if (purchases.isNotEmpty) const HomeSectionLabel('Các lần mua'),
               for (final purchase in purchases)
                 _card(
-                  context,
                   ListTile(
+                    leading: const HomeTileIcon(Icons.shopping_bag_outlined),
                     contentPadding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
                     title: Text(
                       medicineNames[purchase.medicineId] ??
                           _deletedMedicineLabel,
-                      style: _valueStyle,
                     ),
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,

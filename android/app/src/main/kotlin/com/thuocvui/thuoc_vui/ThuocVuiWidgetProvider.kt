@@ -4,8 +4,11 @@ import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
-import android.content.res.Configuration
+import android.content.res.ColorStateList
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Paint
 import android.content.Intent
 import android.content.SharedPreferences
 import android.os.Build
@@ -45,18 +48,25 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
     }
     appWidgetIds.forEach { widgetId ->
       val views = RemoteViews(context.packageName, R.layout.thuoc_vui_widget).apply {
-        // Giao diện widget (1.2.13): app lưu lựa chọn thô vào
-        // HomeWidgetPreferences key "widget_theme" ('system'/'light'/'dark').
-        // 'system' = theo chế độ tối của máy, trên Samsung chính là
-        // chế độ Tối của One UI (uiMode night): One UI bật tối thì
-        // widget tối theo, không cần cài riêng cho widget. Chọn Sáng/Tối
-        // trong app thì widget theo app, ghi đè One UI.
-        val themeMode = widgetData.getString("widget_theme", null) ?: "system"
-        val isDark = when (themeMode) {
-          "dark" -> true
-          "light" -> false
-          else -> (context.resources.configuration.uiMode and
-              Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        val accent = try {
+          Color.parseColor(widgetData.getString("widget_accent", null) ?: "#0F766E")
+        } catch (_: IllegalArgumentException) {
+          0xFF0F766E.toInt()
+        }
+        val luminance = 0.2126 * linearChannel(Color.red(accent)) +
+            0.7152 * linearChannel(Color.green(accent)) +
+            0.0722 * linearChannel(Color.blue(accent))
+        val lightAccent = luminance > 0.55
+        setInt(R.id.widget_pill, "setColorFilter", accent)
+        setInt(
+            R.id.widget_pill, "setBackgroundColor",
+            if (lightAccent) 0xFF47575B.toInt() else Color.TRANSPARENT,
+        )
+        setTextColor(R.id.widget_checkin, if (luminance > 0.179) Color.BLACK else Color.WHITE)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+          setColorStateList(R.id.widget_checkin, "setBackgroundTintList", ColorStateList.valueOf(accent))
+        } else {
+          setInt(R.id.widget_checkin, "setBackgroundColor", accent)
         }
         // Độ mờ widget (1.2.18, mở rộng 0-100% ở 1.2.26): Dart lưu
         // widget_opacity (%) vào HomeWidgetPreferences, mặc định 100.
@@ -70,35 +80,25 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
           else -> ((opacityRaw + 5) / 10 * 10)
         }
         val bgRes = when {
-          opacity >= 100 -> if (isDark) R.drawable.widget_background_dark else R.drawable.widget_background
-          opacity >= 90 -> if (isDark) R.drawable.widget_background_dark_90 else R.drawable.widget_background_90
-          opacity >= 80 -> if (isDark) R.drawable.widget_background_dark_80 else R.drawable.widget_background_80
-          opacity >= 70 -> if (isDark) R.drawable.widget_background_dark_70 else R.drawable.widget_background_70
-          opacity >= 60 -> if (isDark) R.drawable.widget_background_dark_60 else R.drawable.widget_background_60
-          opacity >= 50 -> if (isDark) R.drawable.widget_background_dark_50 else R.drawable.widget_background_50
-          opacity >= 40 -> if (isDark) R.drawable.widget_background_dark_40 else R.drawable.widget_background_40
-          opacity >= 30 -> if (isDark) R.drawable.widget_background_dark_30 else R.drawable.widget_background_30
-          opacity >= 20 -> if (isDark) R.drawable.widget_background_dark_20 else R.drawable.widget_background_20
-          opacity >= 10 -> if (isDark) R.drawable.widget_background_dark_10 else R.drawable.widget_background_10
-          else -> if (isDark) R.drawable.widget_background_dark_0 else R.drawable.widget_background_0
+          opacity >= 100 -> R.drawable.widget_background
+          opacity >= 90 -> R.drawable.widget_background_90
+          opacity >= 80 -> R.drawable.widget_background_80
+          opacity >= 70 -> R.drawable.widget_background_70
+          opacity >= 60 -> R.drawable.widget_background_60
+          opacity >= 50 -> R.drawable.widget_background_50
+          opacity >= 40 -> R.drawable.widget_background_40
+          opacity >= 30 -> R.drawable.widget_background_30
+          opacity >= 20 -> R.drawable.widget_background_20
+          opacity >= 10 -> R.drawable.widget_background_10
+          else -> R.drawable.widget_background_0
         }
         setInt(R.id.widget_container, "setBackgroundResource", bgRes)
-        setInt(R.id.widget_next_card, "setBackgroundResource", if (isDark) R.drawable.next_card_dark else R.drawable.next_card_light)
         // Thanh tiến độ hôm nay (1.2.18): Dart/Kotlin đều lưu progress_pct.
         val pct = widgetData.getString("progress_pct", null)?.toIntOrNull() ?: 0
-        setProgressBar(R.id.widget_progress_bar, 100, pct.coerceIn(0, 100), false)
-        val mainText = if (isDark) Color.parseColor("#EDEDED") else Color.parseColor("#333333")
-        val subText = if (isDark) Color.parseColor("#B8C4C2") else Color.parseColor("#666666")
-        setTextColor(R.id.widget_title, mainText)
-        setTextColor(R.id.widget_datetime, mainText)
-        setTextColor(R.id.widget_pip, mainText)
-        setTextColor(R.id.widget_progress, mainText)
-        setTextColor(R.id.widget_next, mainText)
-        setTextColor(R.id.widget_next_time, subText)
-        setTextColor(R.id.widget_done, mainText)
-        setTextColor(R.id.widget_done_detail, subText)
+        val track = if (lightAccent) 0xFF748384.toInt() else 0xFFD9E8E5.toInt()
+        setImageViewBitmap(R.id.widget_progress_bar, progressBitmap(pct, accent, track))
+        setTextColor(R.id.widget_done, 0xFF333333.toInt())
         setTextViewText(R.id.widget_done_detail, widgetData.getString("done_detail", null) ?: "")
-        // Nút teal + chữ trắng giữ nguyên cả sáng lẫn tối.
         val openIntent = HomeWidgetLaunchIntent.getActivity(context, MainActivity::class.java)
         setOnClickPendingIntent(R.id.widget_container, openIntent)
         setTextViewText(R.id.widget_pip, widgetData.getString("pip_message", null) ?: "😊 Pip đang nhắc bạn uống thuốc đúng giờ nhé!")
@@ -141,7 +141,7 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
           // 1.2.33: hết thuốc thì mờ nút check-in đi (mở lại khi mua hộp
           // mới — luôn set cả 2 chiều vì RemoteViews giữ trạng thái cũ).
           setBoolean(R.id.widget_checkin, "setEnabled", widgetData.getString("next_out_of_stock", null) != "1")
-          // 1.2.34: nút dùng backgroundTint teal trơn nên setEnabled(false)
+          // Màu nền nút đặt riêng nên setEnabled(false)
           // không làm mờ màu — chỉnh thêm độ trong suốt (mờ khi hết thuốc,
           // đậm lại khi có thuốc; luôn set cả 2 chiều).
           setFloat(R.id.widget_checkin, "setAlpha", if (widgetData.getString("next_out_of_stock", null) == "1") 0.4f else 1.0f)
@@ -149,6 +149,22 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
       }
       appWidgetManager.updateAppWidget(widgetId, views)
     }
+  }
+
+  private fun linearChannel(channel: Int): Double {
+    val value = channel / 255.0
+    return if (value <= 0.04045) value / 12.92
+    else Math.pow((value + 0.055) / 1.055, 2.4)
+  }
+
+  // RemoteViews can display the same colored track on pre-Android 12 launchers.
+  private fun progressBitmap(percent: Int, accent: Int, track: Int): Bitmap {
+    val bitmap = Bitmap.createBitmap(100, 1, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+    canvas.drawColor(track)
+    val paint = Paint().apply { color = accent }
+    canvas.drawRect(0f, 0f, percent.coerceIn(0, 100).toFloat(), 1f, paint)
+    return bitmap
   }
 
   fun refreshWidget(context: Context) {

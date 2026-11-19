@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'home_style.dart';
 import 'models.dart';
 import 'purchases.dart';
 import 'store.dart';
@@ -24,59 +25,74 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final mostMissed = store.mostMissedMedicine();
 
     return ListView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       children: [
-        const Text('Lịch sử & thống kê', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 16),
+        const HomeSectionLabel('Thống kê uống thuốc'),
         Row(
           children: [
-            Expanded(child: _statCard('Tỷ lệ uống đúng\n30 ngày qua', '${(adherence * 100).round()}%')),
-            const SizedBox(width: 12),
+            Expanded(
+                child: _statCard('Tỷ lệ uống đúng\n30 ngày qua',
+                    '${(adherence * 100).round()}%')),
+            const SizedBox(width: 8),
             Expanded(child: _statCard('Chuỗi ngày\nliên tục', '$streak ngày')),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
         Row(
           children: [
-            Expanded(child: _statCard('Chuỗi đúng giờ\nliên tục', '${store.onTimeStreak()} ngày')),
-            const SizedBox(width: 12),
-            Expanded(child: _statCard('Tổng lần uống\nđúng giờ', '${store.totalOnTime()} lần')),
+            Expanded(
+                child: _statCard('Chuỗi đúng giờ\nliên tục',
+                    '${store.onTimeStreak()} ngày')),
+            const SizedBox(width: 8),
+            Expanded(
+                child: _statCard(
+                    'Tổng lần uống\nđúng giờ', '${store.totalOnTime()} lần')),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
         _statCard(
           'Thuốc hay bị bỏ qua nhất',
           mostMissed ?? 'Chưa có lần bỏ qua nào. Tuyệt vời!',
         ),
         const SizedBox(height: 24),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            IconButton(
-              onPressed: () => setState(() => _month = DateTime(_month.year, _month.month - 1, 1)),
-              icon: const Icon(Icons.chevron_left),
+        const HomeSectionLabel('Lịch uống theo tháng'),
+        Card(
+            child: Padding(
+          padding: const EdgeInsets.all(8),
+          child: Column(children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                IconButton(
+                  onPressed: () => setState(() =>
+                      _month = DateTime(_month.year, _month.month - 1, 1)),
+                  icon: const Icon(Icons.chevron_left),
+                ),
+                Text('Tháng ${_month.month}/${_month.year}',
+                    style: const TextStyle(
+                        fontSize: 17, fontWeight: FontWeight.bold)),
+                IconButton(
+                  onPressed: () => setState(() =>
+                      _month = DateTime(_month.year, _month.month + 1, 1)),
+                  icon: const Icon(Icons.chevron_right),
+                ),
+              ],
             ),
-            Text('Tháng ${_month.month}/${_month.year}', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
-            IconButton(
-              onPressed: () => setState(() => _month = DateTime(_month.year, _month.month + 1, 1)),
-              icon: const Icon(Icons.chevron_right),
+            _monthGrid(store),
+            const SizedBox(height: 8),
+            const Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 10,
+              runSpacing: 6,
+              children: [
+                _LegendDot(color: Color(0xFF95E77E), label: 'Đủ đúng giờ'),
+                _LegendDot(color: Color(0xFFFFB020), label: 'Có trễ'),
+                _LegendDot(color: Color(0xFFFF9AA2), label: 'Thiếu'),
+                _LegendDot(color: Color(0xFFE0E0E0), label: 'Không có thuốc'),
+              ],
             ),
-          ],
-        ),
-        _monthGrid(store),
-        const SizedBox(height: 8),
-        const Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _LegendDot(color: Color(0xFF95E77E), label: 'Đủ đúng giờ'),
-            SizedBox(width: 14),
-            _LegendDot(color: Color(0xFFFFB020), label: 'Có trễ'),
-            SizedBox(width: 14),
-            _LegendDot(color: Color(0xFFFF9AA2), label: 'Thiếu'),
-            SizedBox(width: 14),
-            _LegendDot(color: Color(0xFFE0E0E0), label: 'Không có thuốc'),
-          ],
-        ),
+          ]),
+        )),
         if (_selectedDay != null) ...[
           const SizedBox(height: 20),
           Text(
@@ -94,7 +110,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text('Mua thuốc',
-                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+                    style:
+                        TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 6),
                 Text('${firstPurchaseLabel(store)} • '
                     'Tổng ${store.totalPurchasedBoxes} vỉ • '
@@ -117,33 +134,34 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   Widget _statCard(String label, String value) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
+    final muted = Theme.of(context).colorScheme.onSurfaceVariant;
+    return Card(
+        child: Padding(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E2E2C) : Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 10, offset: const Offset(0, 4))],
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: TextStyle(color: isDark ? const Color(0xFFB8C4C2) : Colors.black54, fontSize: 13)),
+          Text(label, style: TextStyle(color: muted, fontSize: 13)),
           const SizedBox(height: 6),
-          Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          Text(value,
+              style:
+                  const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         ],
       ),
-    );
+    ));
   }
 
   Widget _monthGrid(ThuocStore store) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final scheme = Theme.of(context).colorScheme;
+    final muted = scheme.onSurfaceVariant;
     final firstDay = _month;
     final daysInMonth = DateTime(_month.year, _month.month + 1, 0).day;
     final startWeekday = firstDay.weekday; // 1 = Thứ 2
     final cells = <Widget>[];
     for (final label in ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN']) {
-      cells.add(Center(child: Text(label, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? const Color(0xFFB8C4C2) : Colors.black54))));
+      cells.add(Center(
+          child: Text(label,
+              style: TextStyle(fontWeight: FontWeight.bold, color: muted))));
     }
     for (var i = 1; i < startWeekday; i++) {
       cells.add(const SizedBox());
@@ -154,12 +172,17 @@ class _HistoryScreenState extends State<HistoryScreen> {
       final slots = store.slotsForDay(date);
       Color bg;
       if (slots.isEmpty) {
-        bg = isDark ? const Color(0xFF2E3A38) : const Color(0xFFE0E0E0);
+        bg = const Color(0xFFE0E0E0);
       } else if (date.isAfter(DateTime(today.year, today.month, today.day))) {
-        bg = isDark ? const Color(0xFF1E2E2C) : Colors.white;
+        bg = scheme.surface;
       } else {
-        final completed = slots.where((s) => store.logs[s.key]?.status == 'taken' || store.logs[s.key]?.status == 'late').length;
-        final onTime = slots.where((s) => store.logs[s.key]?.status == 'taken').length;
+        final completed = slots
+            .where((s) =>
+                store.logs[s.key]?.status == 'taken' ||
+                store.logs[s.key]?.status == 'late')
+            .length;
+        final onTime =
+            slots.where((s) => store.logs[s.key]?.status == 'taken').length;
         // Trễ ≠ Thiếu: uống đủ nhưng có lần trễ = cam (Có trễ);
         // thiếu 1 lần trở lên (dù có lần trễ) = hồng (Thiếu).
         if (completed == slots.length && onTime == slots.length) {
@@ -182,10 +205,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
             decoration: BoxDecoration(
               color: bg,
               shape: BoxShape.circle,
-              border: isSelected ? Border.all(color: isDark ? Colors.white : Colors.black, width: 2) : null,
+              border: isSelected
+                  ? Border.all(color: scheme.surfaceAccent, width: 2)
+                  : null,
             ),
             alignment: Alignment.center,
-            child: Text('$day', style: const TextStyle(fontWeight: FontWeight.w600)),
+            child: Text('$day',
+                style: const TextStyle(fontWeight: FontWeight.w600)),
           ),
         ),
       );
@@ -218,31 +244,41 @@ class _HistoryScreenState extends State<HistoryScreen> {
       // bị rớt số giờ xuống dòng) — Hẹn / Uống lúc / Trễ.
       String? takenAt;
       String? lateText;
-      if ((status == 'taken' || status == 'late') && log != null && log.at.isNotEmpty) {
+      if ((status == 'taken' || status == 'late') &&
+          log != null &&
+          log.at.isNotEmpty) {
         final at = DateTime.tryParse(log.at);
         if (at != null) {
-          takenAt = '${at.hour.toString().padLeft(2, '0')}:${at.minute.toString().padLeft(2, '0')}';
+          takenAt =
+              '${at.hour.toString().padLeft(2, '0')}:${at.minute.toString().padLeft(2, '0')}';
           if (status == 'late') {
             final lateMin = at.difference(slot.dateTime).inMinutes;
             if (lateMin > 0) lateText = 'Trễ ${_formatLate(lateMin)}';
           }
         }
       }
+      final stripe = doseStatusColor(status);
       return Card(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        child: Padding(
+        margin: const EdgeInsets.only(bottom: 8),
+        child: Container(
+          decoration: stripe == null
+              ? null
+              : BoxDecoration(
+                  border: Border(left: BorderSide(color: stripe, width: 4)),
+                ),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(slot.medicine.formEmoji, style: const TextStyle(fontSize: 26)),
-              const SizedBox(width: 12),
+              HomeTileIcon.emoji(slot.medicine.formEmoji),
+              const SizedBox(width: 8),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('${slot.medicine.name} — ${slot.medicine.dose}',
-                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w600, fontSize: 16)),
                     const SizedBox(height: 2),
                     Text('Hẹn ${slot.time}'),
                     if (takenAt != null) Text('Uống lúc $takenAt'),
@@ -277,8 +313,12 @@ class _LegendDot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Container(width: 12, height: 12, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+        Container(
+            width: 12,
+            height: 12,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
         const SizedBox(width: 4),
         Text(label, style: const TextStyle(fontSize: 12)),
       ],
