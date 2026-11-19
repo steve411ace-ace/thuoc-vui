@@ -5,6 +5,7 @@ import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.res.ColorStateList
+import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
@@ -48,6 +49,10 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
     }
     appWidgetIds.forEach { widgetId ->
       val views = RemoteViews(context.packageName, R.layout.thuoc_vui_widget).apply {
+        val themeMode = widgetData.getString("widget_theme", "system")
+        val isDark = themeMode == "dark" || (themeMode == "system" &&
+            (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
+                Configuration.UI_MODE_NIGHT_YES)
         val accent = try {
           Color.parseColor(widgetData.getString("widget_accent", null) ?: "#0F766E")
         } catch (_: IllegalArgumentException) {
@@ -80,24 +85,35 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
           else -> ((opacityRaw + 5) / 10 * 10)
         }
         val bgRes = when {
-          opacity >= 100 -> R.drawable.widget_background
-          opacity >= 90 -> R.drawable.widget_background_90
-          opacity >= 80 -> R.drawable.widget_background_80
-          opacity >= 70 -> R.drawable.widget_background_70
-          opacity >= 60 -> R.drawable.widget_background_60
-          opacity >= 50 -> R.drawable.widget_background_50
-          opacity >= 40 -> R.drawable.widget_background_40
-          opacity >= 30 -> R.drawable.widget_background_30
-          opacity >= 20 -> R.drawable.widget_background_20
-          opacity >= 10 -> R.drawable.widget_background_10
-          else -> R.drawable.widget_background_0
+          opacity >= 100 -> if (isDark) R.drawable.widget_background_dark else R.drawable.widget_background
+          opacity >= 90 -> if (isDark) R.drawable.widget_background_dark_90 else R.drawable.widget_background_90
+          opacity >= 80 -> if (isDark) R.drawable.widget_background_dark_80 else R.drawable.widget_background_80
+          opacity >= 70 -> if (isDark) R.drawable.widget_background_dark_70 else R.drawable.widget_background_70
+          opacity >= 60 -> if (isDark) R.drawable.widget_background_dark_60 else R.drawable.widget_background_60
+          opacity >= 50 -> if (isDark) R.drawable.widget_background_dark_50 else R.drawable.widget_background_50
+          opacity >= 40 -> if (isDark) R.drawable.widget_background_dark_40 else R.drawable.widget_background_40
+          opacity >= 30 -> if (isDark) R.drawable.widget_background_dark_30 else R.drawable.widget_background_30
+          opacity >= 20 -> if (isDark) R.drawable.widget_background_dark_20 else R.drawable.widget_background_20
+          opacity >= 10 -> if (isDark) R.drawable.widget_background_dark_10 else R.drawable.widget_background_10
+          else -> if (isDark) R.drawable.widget_background_dark_0 else R.drawable.widget_background_0
         }
         setInt(R.id.widget_container, "setBackgroundResource", bgRes)
         // Thanh tiến độ hôm nay (1.2.18): Dart/Kotlin đều lưu progress_pct.
         val pct = widgetData.getString("progress_pct", null)?.toIntOrNull() ?: 0
         val track = if (lightAccent) 0xFF748384.toInt() else 0xFFD9E8E5.toInt()
         setImageViewBitmap(R.id.widget_progress_bar, progressBitmap(pct, accent, track))
-        setTextColor(R.id.widget_done, 0xFF333333.toInt())
+        setInt(R.id.widget_next_card, "setBackgroundResource",
+            if (isDark) R.drawable.next_card_dark else R.drawable.next_card_light)
+        val mainText = if (isDark) 0xFFEDEDED.toInt() else 0xFF333333.toInt()
+        val subText = if (isDark) 0xFFB8C4C2.toInt() else 0xFF666666.toInt()
+        setTextColor(R.id.widget_title, mainText)
+        setTextColor(R.id.widget_datetime, mainText)
+        setTextColor(R.id.widget_pip, mainText)
+        setTextColor(R.id.widget_progress, mainText)
+        setTextColor(R.id.widget_next, mainText)
+        setTextColor(R.id.widget_next_time, subText)
+        setTextColor(R.id.widget_done, mainText)
+        setTextColor(R.id.widget_done_detail, if (isDark) subText else mainText)
         setTextViewText(R.id.widget_done_detail, widgetData.getString("done_detail", null) ?: "")
         val openIntent = HomeWidgetLaunchIntent.getActivity(context, MainActivity::class.java)
         setOnClickPendingIntent(R.id.widget_container, openIntent)

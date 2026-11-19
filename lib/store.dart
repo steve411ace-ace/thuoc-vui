@@ -14,6 +14,8 @@ import 'models.dart';
 const String _storageKey = 'thuoc_vui_v1';
 const String _channelId = 'thuoc_vui_reminder';
 
+enum WidgetThemeMode { system, light, dark }
+
 class AppSettings {
   bool sound;
   bool vibration;
@@ -27,6 +29,7 @@ class AppSettings {
   final Color customColor;
   // Độ mờ nền widget (%), 100 = đặc như cũ, 50 = trong suốt nhất cho phép.
   int widgetOpacity;
+  final WidgetThemeMode widgetThemeMode;
 
   AppSettings({
     this.sound = true,
@@ -38,6 +41,7 @@ class AppSettings {
     this.palette = HomePalette.light,
     this.customColor = HomePalette.defaultCustomColor,
     this.widgetOpacity = 100,
+    this.widgetThemeMode = WidgetThemeMode.system,
   });
 
   AppSettings copyWith({
@@ -50,6 +54,7 @@ class AppSettings {
     HomePalette? palette,
     Color? customColor,
     int? widgetOpacity,
+    WidgetThemeMode? widgetThemeMode,
   }) =>
       AppSettings(
         sound: sound ?? this.sound,
@@ -61,6 +66,7 @@ class AppSettings {
         palette: palette ?? this.palette,
         customColor: customColor ?? this.customColor,
         widgetOpacity: widgetOpacity ?? this.widgetOpacity,
+        widgetThemeMode: widgetThemeMode ?? this.widgetThemeMode,
       );
 
   Map<String, dynamic> toJson() => {
@@ -73,6 +79,7 @@ class AppSettings {
         'palette': palette.name,
         'customColor': customColor.value & 0xFFFFFF,
         'widgetOpacity': widgetOpacity,
+        'widgetThemeMode': widgetThemeMode.name,
       };
 
   factory AppSettings.fromJson(Map<String, dynamic>? j) {
@@ -89,13 +96,18 @@ class AppSettings {
           ? Color(0xFF000000 | ((j['customColor'] as int) & 0xFFFFFF))
           : HomePalette.defaultCustomColor,
       widgetOpacity: (j['widgetOpacity'] as num?)?.toInt() ?? 100,
+      widgetThemeMode: WidgetThemeMode.values.firstWhere(
+        (mode) => mode.name == j['widgetThemeMode'],
+        orElse: () => WidgetThemeMode.system,
+      ),
     );
   }
 
-  Future<void> saveWidgetAccent() {
+  Future<void> saveWidgetAppearance() async {
     final rgb = palette.accent(customColor).value & 0xFFFFFF;
     final hex = '#${rgb.toRadixString(16).padLeft(6, '0').toUpperCase()}';
-    return HomeWidget.saveWidgetData<String>('widget_accent', hex);
+    await HomeWidget.saveWidgetData<String>('widget_accent', hex);
+    await HomeWidget.saveWidgetData<String>('widget_theme', widgetThemeMode.name);
   }
 
   bool inQuietHours(String hhmm) {
@@ -881,6 +893,13 @@ class ThuocStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> updateWidgetTheme(WidgetThemeMode mode) async {
+    if (settings.widgetThemeMode == mode) return;
+    settings = settings.copyWith(widgetThemeMode: mode);
+    notifyListeners();
+    await _save();
+  }
+
   Future<void> updateSettings(AppSettings next) async {
     // Android: kênh thông báo đã tạo rồi thì đổi âm thanh/rung trong
     // NotificationDetails sẽ không có tác dụng (hệ thống giữ kênh cũ).
@@ -1083,7 +1102,7 @@ class ThuocStore extends ChangeNotifier {
       if (doneSlots.length > 3) doneLines.add('… và ${doneSlots.length - 3} lần nữa');
       await HomeWidget.saveWidgetData<String>('done_detail', doneLines.join('\n'));
       await HomeWidget.saveWidgetData<String>('all_done', next == null && slots.isNotEmpty ? '1' : '0');
-      await settings.saveWidgetAccent();
+      await settings.saveWidgetAppearance();
       await HomeWidget.saveWidgetData<String>('widget_opacity', settings.widgetOpacity.toString());
       await HomeWidget.saveWidgetData<String>('progress_pct', slots.isEmpty ? '0' : ((completed * 100) ~/ slots.length).toString());
       // 1.2.30: đóng dấu ngày của dữ liệu widget để Kotlin tự phát

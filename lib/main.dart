@@ -758,6 +758,25 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       style: const TextStyle(fontWeight: FontWeight.bold)),
                 ],
               ),
+              const SizedBox(height: 8),
+              const Text('Giao diện widget'),
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: [
+                  for (final mode in WidgetThemeMode.values)
+                    ChoiceChip(
+                      label: Text(switch (mode) {
+                        WidgetThemeMode.system => 'Theo máy',
+                        WidgetThemeMode.light => 'Sáng',
+                        WidgetThemeMode.dark => 'Tối',
+                      }),
+                      selected: settings.widgetThemeMode == mode,
+                      shape: const StadiumBorder(),
+                      onSelected: (_) => store.updateWidgetTheme(mode),
+                    ),
+                ],
+              ),
             ],
           ),
         )),
@@ -1139,7 +1158,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         ),
         const SizedBox(height: 16),
         Center(
-            child: Text('Thuốc Vui • Phiên bản 1.2.41+44',
+            child: Text('Thuốc Vui • Phiên bản 1.2.42+45',
                 style: TextStyle(color: muted))),
       ],
     );

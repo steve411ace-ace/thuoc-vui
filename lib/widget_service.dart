@@ -93,7 +93,7 @@ Future<void> widgetInteractivityCallback(Uri? uri) async {
         'next_time', following == null ? '' : 'Lúc ${following.time} • ${following.medicine.mealLabel}');
     await HomeWidget.saveWidgetData<String>('all_done', following == null ? '1' : '0');
     await AppSettings.fromJson(data['settings'] as Map<String, dynamic>?)
-        .saveWidgetAccent();
+        .saveWidgetAppearance();
     await HomeWidget.updateWidget(
         name: 'ThuocVuiWidgetProvider', androidName: 'ThuocVuiWidgetProvider');
   } catch (_) {}

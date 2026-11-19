@@ -27,12 +27,15 @@ void main() {
       (tester) async {
     SharedPreferences.setMockInitialValues({});
     final widgetData = <String, Object?>{};
+    final widgetUpdates = <Object?>[];
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(const MethodChannel('home_widget'),
             (call) async {
       if (call.method == 'saveWidgetData') {
         final args = call.arguments as Map;
         widgetData[args['id'] as String] = args['data'];
+      } else if (call.method == 'updateWidget') {
+        widgetUpdates.add(widgetData['widget_theme']);
       }
       return true;
     });
@@ -65,9 +68,35 @@ void main() {
     expect(restored.palette, HomePalette.custom);
     expect(restored.customColor, const Color(0xFF9A492B));
 
-    await tester.scrollUntilVisible(find.textContaining('1.2.41+44'), 400);
-    await tester.ensureVisible(find.textContaining('1.2.41+44'));
-    expect(find.textContaining('1.2.41+44'), findsOneWidget);
+    final systemChip = find.widgetWithText(ChoiceChip, 'Theo máy');
+    await tester.scrollUntilVisible(systemChip, 200);
+    expect(tester.widget<ChoiceChip>(systemChip).selected, isTrue);
+    expect(widgetData['widget_theme'], 'system');
+    for (final (label, mode) in [
+      ('Sáng', WidgetThemeMode.light),
+      ('Tối', WidgetThemeMode.dark),
+      ('Theo máy', WidgetThemeMode.system),
+    ]) {
+      final chip = find.widgetWithText(ChoiceChip, label);
+      await tester.ensureVisible(chip);
+      final previousUpdates = widgetUpdates.length;
+      await tester.tap(chip);
+      await tester.pumpAndSettle();
+
+      expect(tester.widget<ChoiceChip>(chip).selected, isTrue);
+      expect(store.settings.widgetThemeMode, mode);
+      final saved = jsonDecode(prefs.getString('thuoc_vui_v1')!) as Map;
+      expect(saved['settings']['widgetThemeMode'], mode.name);
+      expect(widgetData['widget_theme'], mode.name);
+      expect(widgetUpdates.skip(previousUpdates), [mode.name]);
+      expect(widgetData['widget_accent'], '#9A492B');
+      expect(tester.widget<MaterialApp>(find.byType(MaterialApp)).theme!.brightness,
+          Brightness.light);
+    }
+
+    await tester.scrollUntilVisible(find.textContaining('1.2.42+45'), 400);
+    await tester.ensureVisible(find.textContaining('1.2.42+45'));
+    expect(find.textContaining('1.2.42+45'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }
