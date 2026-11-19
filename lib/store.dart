@@ -413,46 +413,6 @@ class ThuocStore extends ChangeNotifier {
     }
   }
 
-  /// Trạng thái quyền báo thức chính xác + miễn tối ưu pin, để chẩn đoán
-  /// "gửi ngay thì hiện, đến giờ thì không": lịch theo giờ cần cả hai.
-  Future<String> alarmPermissionStatus() async {
-    final exact = await canScheduleExact();
-    bool ignoringBattery = false;
-    try {
-      const channel = MethodChannel('thuoc_vui/reminders');
-      ignoringBattery = await channel.invokeMethod<bool>('isIgnoringBatteryOptimizations') ?? false;
-    } catch (_) {}
-    return 'Báo thức chính xác: ${exact ? 'ĐÃ BẬT' : 'CHƯA BẬT'}\n'
-        'Miễn tối ưu pin: ${ignoringBattery ? 'ĐÃ BẬT' : 'CHƯA BẬT'}\n\n'
-        'Cả hai đều cần BẬT thì lịch theo giờ mới chạy đúng giờ trên Samsung. '
-        'Nếu báo thức chính xác CHƯA BẬT, bấm "Cho phép báo thức chính xác" rồi bật trong Cài đặt máy. '
-        'Nếu miễn tối ưu pin CHƯA BẬT, bấm "Tắt tối ưu pin cho Thuốc Vui".';
-  }
-
-  /// Nhắc thử bằng báo thức native sau 1 phút (không qua plugin).
-  /// Nếu sau 1 phút không thấy thì máy đang chặn báo thức
-  /// (pin / báo thức chính xác).
-  Future<void> sendNativeScheduledTestNotification() async {
-    try {
-      const channel = MethodChannel('thuoc_vui/reminders');
-      await channel.invokeMethod('scheduleNativeTest');
-    } catch (_) {}
-  }
-
-  /// Lần bấm nút trên thông báo cuối, do receiver native ghi lại, để
-  /// chẩn đoán "bấm Đã uống / Nhắc lại sau không có tác dụng": nếu bấm
-  /// rồi mà giá trị này không đổi thì lệnh bấm không tới receiver; nếu
-  /// đổi mà app không cập nhật thì lỗi nằm ở phần ghi log / nạp lại.
-  Future<String> lastNotificationActionSummary() async {
-    try {
-      final value = await HomeWidget.getWidgetData<String>('last_notification_action', defaultValue: '');
-      if (value == null || value.isEmpty) return 'Chưa ghi nhận lần bấm nút thông báo nào.';
-      return value;
-    } catch (_) {
-      return 'Không đọc được lần bấm thông báo.';
-    }
-  }
-
   /// Số viên còn lại của 1 thuốc, null nếu không theo dõi (totalPills <= 0).
   /// Còn lại = tổng hộp − (viên bắt đầu − 1) − (số lần đã uống × viên mỗi lần).
   /// Chỉ đếm log taken/late từ ngày bắt đầu hộp (stockFrom, mặc định startDate).
@@ -570,20 +530,6 @@ class ThuocStore extends ChangeNotifier {
       return await channel.invokeMethod<bool>('requestIgnoreBatteryOptimizations') ?? false;
     } catch (_) {
       return false;
-    }
-  }
-
-  /// Lần bấm widget cuối, do receiver native ghi lại, để chẩn đoán
-  /// "bấm nút widget không có gì": nếu bấm rồi mà giá trị này không đổi
-  /// thì lệnh bấm không tới receiver; nếu đổi mà không check-in thì
-  /// lỗi nằm ở phần ghi log.
-  Future<String> lastWidgetTapSummary() async {
-    try {
-      final value = await HomeWidget.getWidgetData<String>('last_widget_tap', defaultValue: '');
-      if (value == null || value.isEmpty) return 'Chưa ghi nhận lần bấm widget nào.';
-      return value;
-    } catch (_) {
-      return 'Không đọc được lần bấm widget.';
     }
   }
 

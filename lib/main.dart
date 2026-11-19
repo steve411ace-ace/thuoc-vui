@@ -854,7 +854,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 8),
           child: Text(
-            'Lịch nhắc chính dùng báo thức native, không dùng lịch plugin nữa. Nếu chưa từng thấy thông báo, bấm "Nhắc thử native sau 1 phút" để kiểm tra. Nếu máy đã từ chối quyền vĩnh viễn thì hộp xin quyền sẽ không hiện nữa, anh bật tay theo đường dẫn: Cài đặt máy > Ứng dụng > Thuốc Vui > Thông báo.',
+            'Lịch nhắc chính dùng báo thức native, không dùng lịch plugin nữa. Nếu máy đã từ chối quyền vĩnh viễn thì hộp xin quyền sẽ không hiện nữa, anh bật tay theo đường dẫn: Cài đặt máy > Ứng dụng > Thuốc Vui > Thông báo.',
             style: TextStyle(color: muted),
           ),
         ),
@@ -909,30 +909,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         SizedBox(
           width: double.infinity,
           child: OutlinedButton.icon(
-            icon: const Icon(Icons.alarm_on_outlined),
-            label: const Text('Kiểm tra báo thức chính xác + pin'),
-            onPressed: () async {
-              final status = await store.alarmPermissionStatus();
-              if (!mounted) return;
-              await showDialog<void>(
-                context: context,
-                builder: (ctx) => AlertDialog(
-                  title: const Text('Báo thức + pin'),
-                  content: SingleChildScrollView(child: Text(status)),
-                  actions: [
-                    TextButton(
-                        onPressed: () => Navigator.pop(ctx),
-                        child: const Text('Đóng')),
-                  ],
-                ),
-              );
-            },
-          ),
-        ),
-        const SizedBox(height: 8),
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton.icon(
             icon: const Icon(Icons.battery_charging_full_outlined),
             label: const Text('Tắt tối ưu pin cho Thuốc Vui'),
             onPressed: () async {
@@ -943,71 +919,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     content: Text(opened
                         ? 'Đã mở màn hình miễn tối ưu pin. Bấm "Cho phép" để Thuốc Vui không bị máy cho ngủ, lịch theo giờ mới chạy được.'
                         : 'Không mở được màn hình pin. Vào Cài đặt máy > Ứng dụng > Thuốc Vui > Pin > Không giới hạn nhé!')),
-              );
-            },
-          ),
-        ),
-        const SizedBox(height: 8),
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton.icon(
-            icon: const Icon(Icons.alarm_add_outlined),
-            label: const Text('Nhắc thử native sau 1 phút'),
-            onPressed: () async {
-              await store.sendNativeScheduledTestNotification();
-              if (!mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                    content: Text(
-                        'Đã lên lịch thử native sau 1 phút. Đừng mở lại app trong 1 phút này. Nếu sau 1 phút không thấy thì máy đang chặn báo thức (pin / báo thức chính xác).')),
-              );
-            },
-          ),
-        ),
-        const SizedBox(height: 8),
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton.icon(
-            icon: const Icon(Icons.notifications_active_outlined),
-            label: const Text('Xem lần bấm nút thông báo cuối'),
-            onPressed: () async {
-              final action = await store.lastNotificationActionSummary();
-              if (!mounted) return;
-              await showDialog<void>(
-                context: context,
-                builder: (ctx) => AlertDialog(
-                  title: const Text('Lần bấm nút thông báo cuối'),
-                  content: Text(action),
-                  actions: [
-                    TextButton(
-                        onPressed: () => Navigator.pop(ctx),
-                        child: const Text('Đóng')),
-                  ],
-                ),
-              );
-            },
-          ),
-        ),
-        const SizedBox(height: 8),
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton.icon(
-            icon: const Icon(Icons.touch_app_outlined),
-            label: const Text('Xem lần bấm widget cuối'),
-            onPressed: () async {
-              final tap = await store.lastWidgetTapSummary();
-              if (!mounted) return;
-              await showDialog<void>(
-                context: context,
-                builder: (ctx) => AlertDialog(
-                  title: const Text('Lần bấm widget cuối'),
-                  content: Text(tap),
-                  actions: [
-                    TextButton(
-                        onPressed: () => Navigator.pop(ctx),
-                        child: const Text('Đóng')),
-                  ],
-                ),
               );
             },
           ),
@@ -1186,7 +1097,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         ),
         const SizedBox(height: 16),
         Center(
-            child: Text('Thuốc Vui • Phiên bản 1.2.44+47',
+            child: Text('Thuốc Vui • Phiên bản 1.2.45+48',
                 style: TextStyle(color: muted))),
       ],
     );

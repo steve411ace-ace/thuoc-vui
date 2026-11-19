@@ -143,14 +143,6 @@ class ReReminderReceiver : BroadcastReceiver() {
     }
   }
 
-  private fun writeNotificationActionDiagnostic(context: Context, text: String) {
-    try {
-      val timeStr = SimpleDateFormat("HH:mm:ss", Locale.US).format(Calendar.getInstance().time)
-      context.getSharedPreferences("HomeWidgetPreferences", Context.MODE_PRIVATE)
-          .edit().putString("last_notification_action", "$timeStr - $text").apply()
-    } catch (_: Exception) {}
-  }
-
   override fun onReceive(context: Context, intent: Intent) {
     when (intent.action) {
       ACTION_MIDNIGHT -> {
@@ -163,7 +155,6 @@ class ReReminderReceiver : BroadcastReceiver() {
       ACTION_CHECKIN -> {
         val slotKey = intent.getStringExtra("slotKey") ?: return
         val notificationId = intent.getIntExtra("notificationId", 0)
-        writeNotificationActionDiagnostic(context, "Đã uống $slotKey")
         markTaken(context, slotKey)
         // 1.2.14: cập nhật luôn widget, không chờ mở app. Trước đây chỉ
         // ghi log + hủy thông báo, nên widget vẫn hiện "chưa uống" dù
@@ -174,7 +165,6 @@ class ReReminderReceiver : BroadcastReceiver() {
         return
       }
       ACTION_SCHEDULE_SNOOZE -> {
-        writeNotificationActionDiagnostic(context, "Nhắc lại sau ${intent.getStringExtra("medId") ?: ""}|${intent.getStringExtra("slotTime") ?: ""}")
         val notificationId = intent.getIntExtra("notificationId", 0)
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         try { manager.cancel(notificationId) } catch (_: Exception) {}

@@ -1,9 +1,7 @@
 package com.thuocvui.thuoc_vui
 
-import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.os.PowerManager
 import android.provider.Settings
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -59,30 +57,6 @@ class MainActivity : FlutterActivity() {
                 // reset lúc nửa đêm mà không cần mở app.
                 ReReminderReceiver.scheduleMidnight(this)
                 result.success(null)
-              }
-              "scheduleNativeTest" -> {
-                // Nhắc thử native sau 1 phút, 1 lần, không đặt lại tuần sau.
-                // medId/slotTime giả "test"/"00:00" để receiver không chặn
-                // vì đã uống (log test không bao giờ có trạng thái).
-                ReReminderReceiver.scheduleAlarm(
-                    this,
-                    999997,
-                    ReReminderReceiver.ACTION_REMIND,
-                    System.currentTimeMillis() + 60L * 1000L,
-                    "Nhắc thử native sau 1 phút",
-                    "Báo thức native hoạt động bình thường.",
-                    "test",
-                    "00:00",
-                    10,
-                    true,
-                    true,
-                    true,
-                )
-                result.success(null)
-              }
-              "isIgnoringBatteryOptimizations" -> {
-                val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
-                result.success(pm.isIgnoringBatteryOptimizations(packageName))
               }
               "requestIgnoreBatteryOptimizations" -> {
                 // Mở hộp xin miễn tối ưu pin của hệ thống. Samsung hay
