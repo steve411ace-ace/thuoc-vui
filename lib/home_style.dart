@@ -352,7 +352,7 @@ class HomePaletteSwatch extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final hex = (color.toARGB32() & 0xFFFFFF)
+    final hex = (color.value & 0xFFFFFF)
         .toRadixString(16)
         .padLeft(6, '0')
         .toUpperCase();
