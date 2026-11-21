@@ -21,7 +21,7 @@ void main() {
     for (final palette in HomePalette.values) {
       final theme = palette.themeWithCustomColor(Colors.pink);
       expect(theme.brightness, Brightness.light);
-      expect(theme.cardTheme.elevation, 1);
+      expect(theme.cardTheme.elevation, 2);
       expect(theme.scaffoldBackgroundColor, Color(palette.background));
       final darkTheme = palette.darkThemeWithCustomColor(Colors.pink);
       expect(darkTheme.brightness, Brightness.dark);
@@ -173,9 +173,9 @@ void main() {
           Brightness.light);
     }
 
-    await tester.scrollUntilVisible(find.textContaining('1.2.45+48'), 400);
-    await tester.ensureVisible(find.textContaining('1.2.45+48'));
-    expect(find.textContaining('1.2.45+48'), findsOneWidget);
+    await tester.scrollUntilVisible(find.textContaining('1.2.46+49'), 400);
+    await tester.ensureVisible(find.textContaining('1.2.46+49'));
+    expect(find.textContaining('1.2.46+49'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

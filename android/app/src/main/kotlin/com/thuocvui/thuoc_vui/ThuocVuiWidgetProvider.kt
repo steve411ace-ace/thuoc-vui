@@ -4,7 +4,6 @@ import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
-import android.content.res.ColorStateList
 import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -68,11 +67,7 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
             if (lightAccent) 0xFF47575B.toInt() else Color.TRANSPARENT,
         )
         setTextColor(R.id.widget_checkin, if (luminance > 0.179) Color.BLACK else Color.WHITE)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-          setColorStateList(R.id.widget_checkin, "setBackgroundTintList", ColorStateList.valueOf(accent))
-        } else {
-          setInt(R.id.widget_checkin, "setBackgroundColor", accent)
-        }
+        setInt(R.id.widget_checkin_background, "setColorFilter", accent)
         // Độ mờ widget (1.2.18, mở rộng 0-100% ở 1.2.26): Dart lưu
         // widget_opacity (%) vào HomeWidgetPreferences, mặc định 100.
         // Drawable có đủ các mức 0/10/.../100 nên làm tròn về mức 10%
@@ -100,7 +95,11 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
         setInt(R.id.widget_container, "setBackgroundResource", bgRes)
         // Thanh tiến độ hôm nay (1.2.18): Dart/Kotlin đều lưu progress_pct.
         val pct = widgetData.getString("progress_pct", null)?.toIntOrNull() ?: 0
-        val track = if (lightAccent) 0xFF748384.toInt() else 0xFFD9E8E5.toInt()
+        val track = when {
+          lightAccent -> 0xFF748384.toInt()
+          isDark -> 0xFF344541.toInt()
+          else -> 0xFFD9E8E5.toInt()
+        }
         setImageViewBitmap(R.id.widget_progress_bar, progressBitmap(pct, accent, track))
         setInt(R.id.widget_next_card, "setBackgroundResource",
             if (isDark) R.drawable.next_card_dark else R.drawable.next_card_light)
@@ -117,13 +116,22 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
         setTextViewText(R.id.widget_done_detail, widgetData.getString("done_detail", null) ?: "")
         val openIntent = HomeWidgetLaunchIntent.getActivity(context, MainActivity::class.java)
         setOnClickPendingIntent(R.id.widget_container, openIntent)
-        setTextViewText(R.id.widget_pip, widgetData.getString("pip_message", null) ?: "😊 Pip đang nhắc bạn uống thuốc đúng giờ nhé!")
+        val pipMessage = widgetData.getString("pip_message", null) ?: "😊 Pip đang nhắc bạn uống thuốc đúng giờ nhé!"
+        val pipFace = when {
+          pipMessage.startsWith("🥳 ") -> R.drawable.widget_pip_celebrate
+          pipMessage.startsWith("😟 ") -> R.drawable.widget_pip_worried
+          pipMessage.startsWith("😊 ") -> R.drawable.widget_pip_happy
+          else -> null
+        }
+        setViewVisibility(R.id.widget_pip_face, if (pipFace == null) View.GONE else View.VISIBLE)
+        if (pipFace != null) setImageViewResource(R.id.widget_pip_face, pipFace)
+        setTextViewText(R.id.widget_pip, if (pipFace == null) pipMessage else pipMessage.substringAfter(' '))
         setTextViewText(R.id.widget_progress, widgetData.getString("progress", null) ?: "Thuốc Vui")
         setTextViewText(R.id.widget_next, widgetData.getString("next_text", null) ?: "Mở app để xem lịch hôm nay")
         setTextViewText(R.id.widget_next_time, widgetData.getString("next_time", null) ?: "")
         val allDone = widgetData.getString("all_done", null) == "1"
         if (allDone) {
-          setViewVisibility(R.id.widget_checkin, View.GONE)
+          setViewVisibility(R.id.widget_checkin_row, View.GONE)
           setViewVisibility(R.id.widget_done, View.VISIBLE)
           setViewVisibility(R.id.widget_done_detail, View.VISIBLE)
           // Trước đây cả widget_next ("🎉 Đã xong hôm nay!" từ dữ liệu
@@ -133,7 +141,7 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
           setViewVisibility(R.id.widget_next, View.GONE)
           setViewVisibility(R.id.widget_next_time, View.GONE)
         } else {
-          setViewVisibility(R.id.widget_checkin, View.VISIBLE)
+          setViewVisibility(R.id.widget_checkin_row, View.VISIBLE)
           setViewVisibility(R.id.widget_done, View.GONE)
           setViewVisibility(R.id.widget_done_detail, View.GONE)
           setViewVisibility(R.id.widget_next_card, View.VISIBLE)
@@ -160,7 +168,9 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
           // Màu nền nút đặt riêng nên setEnabled(false)
           // không làm mờ màu — chỉnh thêm độ trong suốt (mờ khi hết thuốc,
           // đậm lại khi có thuốc; luôn set cả 2 chiều).
-          setFloat(R.id.widget_checkin, "setAlpha", if (widgetData.getString("next_out_of_stock", null) == "1") 0.4f else 1.0f)
+          val checkinAlpha = if (widgetData.getString("next_out_of_stock", null) == "1") 0.4f else 1.0f
+          setFloat(R.id.widget_checkin, "setAlpha", checkinAlpha)
+          setFloat(R.id.widget_checkin_background, "setAlpha", checkinAlpha)
         }
       }
       appWidgetManager.updateAppWidget(widgetId, views)
@@ -175,11 +185,18 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
 
   // RemoteViews can display the same colored track on pre-Android 12 launchers.
   private fun progressBitmap(percent: Int, accent: Int, track: Int): Bitmap {
-    val bitmap = Bitmap.createBitmap(100, 1, Bitmap.Config.ARGB_8888)
+    val width = 300
+    val height = 6
+    val radius = height / 2f
+    val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
-    canvas.drawColor(track)
-    val paint = Paint().apply { color = accent }
-    canvas.drawRect(0f, 0f, percent.coerceIn(0, 100).toFloat(), 1f, paint)
+    val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = track }
+    canvas.drawRoundRect(0f, 0f, width.toFloat(), height.toFloat(), radius, radius, paint)
+    val filledWidth = width * (percent.coerceIn(0, 100) / 100f)
+    if (filledWidth > 0) {
+      paint.color = accent
+      canvas.drawRoundRect(0f, 0f, filledWidth, height.toFloat(), radius, radius, paint)
+    }
     return bitmap
   }
 

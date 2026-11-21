@@ -11,6 +11,9 @@ import 'purchases.dart';
 import 'store.dart';
 import 'widget_service.dart';
 
+const _appVersion = '1.2.46';
+const _appBuild = '49';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   HomeWidget.registerInteractivityCallback(widgetInteractivityCallback);
@@ -230,15 +233,31 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     return Stack(
       children: [
         ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(18, 20, 18, 16),
           children: [
             Card(
-                child: Padding(
+                child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          scheme.surface,
+                          scheme.brightness == Brightness.light &&
+                                  scheme.primary ==
+                                      HomePalette.defaultCustomColor
+                              ? const Color(0xFFF0F9F5)
+                              : Color.alphaBlend(
+                                  scheme.surfaceAccent.withAlpha(20),
+                                  scheme.surface),
+                        ],
+                      ),
+                    ),
                     padding: const EdgeInsets.all(16),
                     child: Row(
                       children: [
                         PipWidget(
-                          size: 96,
+                          size: 54,
                           mood: pipMood,
                         ),
                         const SizedBox(width: 14),
@@ -260,8 +279,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                               text: TextSpan(
                                 style: TextStyle(
                                   fontFamily: 'Be Vietnam Pro',
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                  height: 1.55,
+                                  fontWeight: FontWeight.w500,
                                   color: scheme.onSurface,
                                 ),
                                 children: [
@@ -323,7 +343,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       borderRadius: BorderRadius.circular(10),
                       child: LinearProgressIndicator(
                         value: slots.isEmpty ? 0 : taken / slots.length,
-                        minHeight: 12,
+                        minHeight: 8,
                         backgroundColor: scheme.surfaceAccent.withAlpha(26),
                         color: scheme.surfaceAccent,
                       ),
@@ -345,7 +365,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               const HomeSectionLabel('Thuốc của tôi (bấm để sửa)'),
               ...store.medicines.map((med) {
                 return Card(
-                  margin: const EdgeInsets.only(bottom: 8),
+                  margin: const EdgeInsets.only(bottom: 12),
                   child: ListTile(
                     contentPadding:
                         const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
@@ -387,7 +407,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final log = store.logs[slot.key];
 
     final stripe = doseStatusColor(isOverdue ? 'late' : status) ??
-        Color(slot.medicine.color);
+        theme.colorScheme.surfaceAccent;
     String statusText;
     if (status == 'taken') {
       final at =
@@ -412,7 +432,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: 12),
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
@@ -422,6 +442,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 HomeTileIcon.emoji(slot.medicine.formEmoji),
                 const SizedBox(width: 10),
@@ -444,7 +465,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       // tên thuốc còn rộng ~1 ký tự nên chữ xếp dọc từng ký tự.
                       const SizedBox(height: 4),
                       Text(statusText,
-                          style: const TextStyle(fontWeight: FontWeight.bold)),
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: doseStatusInk(
+                                theme.colorScheme, isOverdue ? 'late' : status),
+                          )),
                       if (store.remainingPills(slot.medicine) != null) ...[
                         const SizedBox(height: 2),
                         Text(
@@ -458,6 +484,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 ),
               ],
             ),
+            const Divider(height: 20),
             if (store.remainingPills(slot.medicine) != null &&
                 (store.remainingPills(slot.medicine)! <= 0 ||
                     (store.daysSupply(slot.medicine) ?? 999) <= 3)) ...[
@@ -566,8 +593,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                               }
                             },
                       style: FilledButton.styleFrom(
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14)),
                         padding: const EdgeInsets.symmetric(
                             horizontal: 8, vertical: 12),
                       ),
@@ -650,14 +675,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 decoration: BoxDecoration(
-                  color: got
-                      ? scheme.surfaceAccent.withAlpha(26)
-                      : scheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(14),
+                  color:
+                      got ? scheme.surfaceAccent.withAlpha(26) : scheme.surface,
+                  border: Border.all(color: scheme.surfaceAccent.withAlpha(55)),
+                  borderRadius: BorderRadius.circular(100),
                 ),
                 child: Text(
                   got ? '${b.emoji} ${b.title}' : '🔒 ${b.title}',
                   style: TextStyle(
+                      fontSize: 11,
                       fontWeight: got ? FontWeight.bold : FontWeight.normal),
                 ),
               );
@@ -693,65 +719,74 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
 
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(18, 20, 18, 16),
       children: [
         const HomeSectionLabel('Giao diện'),
-        const Text('Chế độ'),
-        Wrap(
-          spacing: 8,
-          runSpacing: 4,
-          children: [
-            for (final mode in [
-              ThemeMode.light,
-              ThemeMode.dark,
-              ThemeMode.system,
-            ])
-              ChoiceChip(
-                label: Text(switch (mode) {
-                  ThemeMode.light => 'Sáng',
-                  ThemeMode.dark => 'Tối',
-                  ThemeMode.system => 'Theo điện thoại',
-                }),
-                selected: settings.appThemeMode == mode,
-                shape: const StadiumBorder(),
-                onSelected: (_) => store.updateAppTheme(mode),
-              ),
-          ],
-        ),
-        const SizedBox(height: 8),
         Card(
-          child: Column(
-            children: [
-              for (final palette in HomePalette.values)
-                RadioListTile<HomePalette>(
-                  value: palette,
-                  groupValue: settings.palette,
-                  title: Text(palette.label),
-                  secondary: CircleAvatar(
-                    radius: 13,
-                    backgroundColor: scheme.outline,
-                    child: CircleAvatar(
-                      radius: 12,
-                      backgroundColor: palette.accent(settings.customColor),
-                    ),
-                  ),
-                  toggleable: palette == HomePalette.custom,
-                  onChanged: (_) async {
-                    if (palette == HomePalette.custom) {
-                      final color = await showDialog<Color>(
-                        context: context,
-                        builder: (_) => HomeColorPicker(
-                          initialColor: store.settings.customColor,
-                        ),
-                      );
-                      if (color == null) return;
-                      await store.updateAppearance(palette, customColor: color);
-                    } else {
-                      await store.updateAppearance(palette);
-                    }
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Chế độ'),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: [
+                    for (final mode in [
+                      ThemeMode.light,
+                      ThemeMode.dark,
+                      ThemeMode.system,
+                    ])
+                      ChoiceChip(
+                        label: Text(switch (mode) {
+                          ThemeMode.light => 'Sáng',
+                          ThemeMode.dark => 'Tối',
+                          ThemeMode.system => 'Theo điện thoại',
+                        }),
+                        selected: settings.appThemeMode == mode,
+                        shape: const StadiumBorder(),
+                        onSelected: (_) => store.updateAppTheme(mode),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final columns = constraints.maxWidth < 270 ? 4 : 5;
+                    return Wrap(
+                      runSpacing: 6,
+                      children: [
+                        for (final palette in HomePalette.values)
+                          SizedBox(
+                            width: constraints.maxWidth / columns,
+                            child: HomePaletteSwatch(
+                              palette: palette,
+                              color: palette.accent(settings.customColor),
+                              selected: settings.palette == palette,
+                              onTap: () async {
+                                if (palette == HomePalette.custom) {
+                                  final color = await showDialog<Color>(
+                                    context: context,
+                                    builder: (_) => HomeColorPicker(
+                                      initialColor: store.settings.customColor,
+                                    ),
+                                  );
+                                  if (color == null) return;
+                                  await store.updateAppearance(palette,
+                                      customColor: color);
+                                } else {
+                                  await store.updateAppearance(palette);
+                                }
+                              },
+                            ),
+                          ),
+                      ],
+                    );
                   },
                 ),
-            ],
+              ],
+            ),
           ),
         ),
         const SizedBox(height: 16),
@@ -812,30 +847,29 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         Card(
             child: Column(children: [
           SwitchListTile(
-            secondary: const HomeTileIcon(Icons.volume_up_outlined),
             title: const Text('Âm thanh nhắc'),
             value: settings.sound,
             onChanged: (v) async {
               await store.updateSettings(settings.copyWith(sound: v));
             },
           ),
+          const Divider(height: 1, indent: 16, endIndent: 16),
           SwitchListTile(
-            secondary: const HomeTileIcon(Icons.vibration),
             title: const Text('Rung khi nhắc'),
             value: settings.vibration,
             onChanged: (v) async {
               await store.updateSettings(settings.copyWith(vibration: v));
             },
           ),
+          const Divider(height: 1, indent: 16, endIndent: 16),
           ListTile(
-            leading: const HomeTileIcon(Icons.bedtime_outlined),
             title: const Text('Giờ yên lặng bắt đầu'),
             trailing: Text(settings.quietStart,
                 style: const TextStyle(fontWeight: FontWeight.bold)),
             onTap: () => pickQuiet(true),
           ),
+          const Divider(height: 1, indent: 16, endIndent: 16),
           ListTile(
-            leading: const HomeTileIcon(Icons.wb_sunny_outlined),
             title: const Text('Giờ yên lặng kết thúc'),
             trailing: Text(settings.quietEnd,
                 style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -851,83 +885,94 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         ),
         const SizedBox(height: 16),
         const HomeSectionLabel('Thông báo'),
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Text(
-            'Lịch nhắc chính dùng báo thức native, không dùng lịch plugin nữa. Nếu máy đã từ chối quyền vĩnh viễn thì hộp xin quyền sẽ không hiện nữa, anh bật tay theo đường dẫn: Cài đặt máy > Ứng dụng > Thuốc Vui > Thông báo.',
-            style: TextStyle(color: muted),
-          ),
-        ),
-        // Nút thông báo xếp dọc full-width, không chia đôi nữa: chia đôi
-        // làm chữ dài bị wrap 2 dòng, trông xấu và khó bấm.
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton.icon(
-            icon: const Icon(Icons.notifications_outlined),
-            label: const Text('Xin quyền thông báo'),
-            onPressed: () async {
-              final granted = await store.requestNotificationPermission();
-              if (!mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(granted
-                      ? 'Đã có quyền thông báo, lịch nhắc đã lên lại!'
-                      : 'Chưa có quyền thông báo. Anh bật tay: Cài đặt máy > Ứng dụng > Thuốc Vui > Thông báo.'),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Text(
+                    'Lịch nhắc chính dùng báo thức native, không dùng lịch plugin nữa. Nếu máy đã từ chối quyền vĩnh viễn thì hộp xin quyền sẽ không hiện nữa, anh bật tay theo đường dẫn: Cài đặt máy > Ứng dụng > Thuốc Vui > Thông báo.',
+                    style: TextStyle(color: muted),
+                  ),
                 ),
-              );
-            },
-          ),
-        ),
-        const SizedBox(height: 8),
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton.icon(
-            icon: const Icon(Icons.alarm_outlined),
-            label: const Text('Cho phép báo thức chính xác'),
-            onPressed: () async {
-              final canExact = await store.canScheduleExact();
-              if (canExact) {
-                if (!mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                      content: Text(
-                          'Máy đã cho phép báo thức chính xác rồi, nhắc sẽ đúng giờ.')),
-                );
-                return;
-              }
-              await store.requestExactAlarmPermission();
-              if (!mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                    content: Text(
-                        'Đã mở màn hình Báo thức & nhắc nhở. Bật "Cho phép đặt báo thức và nhắc nhở" cho Thuốc Vui nhé!')),
-              );
-            },
-          ),
-        ),
-        const SizedBox(height: 8),
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton.icon(
-            icon: const Icon(Icons.battery_charging_full_outlined),
-            label: const Text('Tắt tối ưu pin cho Thuốc Vui'),
-            onPressed: () async {
-              final opened = await store.requestIgnoreBatteryOptimizations();
-              if (!mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                    content: Text(opened
-                        ? 'Đã mở màn hình miễn tối ưu pin. Bấm "Cho phép" để Thuốc Vui không bị máy cho ngủ, lịch theo giờ mới chạy được.'
-                        : 'Không mở được màn hình pin. Vào Cài đặt máy > Ứng dụng > Thuốc Vui > Pin > Không giới hạn nhé!')),
-              );
-            },
+                // Nút thông báo xếp dọc full-width, không chia đôi nữa: chia đôi
+                // làm chữ dài bị wrap 2 dòng, trông xấu và khó bấm.
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    icon: const Icon(Icons.notifications_outlined),
+                    label: const Text('Xin quyền thông báo'),
+                    onPressed: () async {
+                      final granted =
+                          await store.requestNotificationPermission();
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(granted
+                              ? 'Đã có quyền thông báo, lịch nhắc đã lên lại!'
+                              : 'Chưa có quyền thông báo. Anh bật tay: Cài đặt máy > Ứng dụng > Thuốc Vui > Thông báo.'),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    icon: const Icon(Icons.alarm_outlined),
+                    label: const Text('Cho phép báo thức chính xác'),
+                    onPressed: () async {
+                      final canExact = await store.canScheduleExact();
+                      if (canExact) {
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                              content: Text(
+                                  'Máy đã cho phép báo thức chính xác rồi, nhắc sẽ đúng giờ.')),
+                        );
+                        return;
+                      }
+                      await store.requestExactAlarmPermission();
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                            content: Text(
+                                'Đã mở màn hình Báo thức & nhắc nhở. Bật "Cho phép đặt báo thức và nhắc nhở" cho Thuốc Vui nhé!')),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    icon: const Icon(Icons.battery_charging_full_outlined),
+                    label: const Text('Tắt tối ưu pin cho Thuốc Vui'),
+                    onPressed: () async {
+                      final opened =
+                          await store.requestIgnoreBatteryOptimizations();
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                            content: Text(opened
+                                ? 'Đã mở màn hình miễn tối ưu pin. Bấm "Cho phép" để Thuốc Vui không bị máy cho ngủ, lịch theo giờ mới chạy được.'
+                                : 'Không mở được màn hình pin. Vào Cài đặt máy > Ứng dụng > Thuốc Vui > Pin > Không giới hạn nhé!')),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
         const SizedBox(height: 8),
         Card(
             child: Column(children: [
           ListTile(
-            leading: const HomeTileIcon(Icons.timer_outlined),
             title: const Text('Báo lại sau mỗi'),
             trailing: Text('${settings.remindIntervalMinutes} phút',
                 style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -955,8 +1000,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               }
             },
           ),
+          const Divider(height: 1, indent: 16, endIndent: 16),
           ListTile(
-            leading: const HomeTileIcon(Icons.repeat),
             title: const Text('Số lần báo lại nếu chưa uống'),
             trailing: Text(
                 settings.remindTimes == 0
@@ -997,70 +1042,80 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         ),
         const SizedBox(height: 16),
         const HomeSectionLabel('Sao lưu dữ liệu'),
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Text(
-            'Gỡ app sẽ xóa dữ liệu trong máy. Trước khi gỡ để cài bản mới, bấm Sao lưu rồi dán chuỗi sao lưu vào Ghi chú hoặc email để giữ. Sau khi cài lại, bấm Khôi phục rồi dán chuỗi đó vào.',
-            style: TextStyle(color: muted),
-          ),
-        ),
-        Row(
-          children: [
-            Expanded(
-              child: FilledButton(
-                onPressed: () async {
-                  await Clipboard.setData(
-                      ClipboardData(text: store.exportBackup()));
-                  if (!mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                        content: Text(
-                            'Đã copy chuỗi sao lưu. Dán vào Ghi chú hoặc email để giữ lại nhé!')),
-                  );
-                },
-                child: const Text('Sao lưu (copy)'),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: OutlinedButton(
-                onPressed: () async {
-                  final controller = TextEditingController();
-                  final pasted = await showDialog<String>(
-                    context: context,
-                    builder: (ctx) => AlertDialog(
-                      title: const Text('Khôi phục dữ liệu'),
-                      content: TextField(
-                        controller: controller,
-                        maxLines: 5,
-                        decoration: const InputDecoration(
-                            hintText: 'Dán chuỗi sao lưu vào đây'),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Text(
+                    'Gỡ app sẽ xóa dữ liệu trong máy. Trước khi gỡ để cài bản mới, bấm Sao lưu rồi dán chuỗi sao lưu vào Ghi chú hoặc email để giữ. Sau khi cài lại, bấm Khôi phục rồi dán chuỗi đó vào.',
+                    style: TextStyle(color: muted),
+                  ),
+                ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: () async {
+                          await Clipboard.setData(
+                              ClipboardData(text: store.exportBackup()));
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                                content: Text(
+                                    'Đã copy chuỗi sao lưu. Dán vào Ghi chú hoặc email để giữ lại nhé!')),
+                          );
+                        },
+                        child: const Text('Sao lưu (copy)'),
                       ),
-                      actions: [
-                        TextButton(
-                            onPressed: () => Navigator.pop(ctx),
-                            child: const Text('Hủy')),
-                        TextButton(
-                            onPressed: () =>
-                                Navigator.pop(ctx, controller.text),
-                            child: const Text('Khôi phục')),
-                      ],
                     ),
-                  );
-                  if (pasted == null || pasted.trim().isEmpty) return;
-                  final ok = await store.importBackup(pasted.trim());
-                  if (!mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                        content: Text(ok
-                            ? 'Khôi phục xong!'
-                            : 'Chuỗi sao lưu không đúng định dạng, chưa đổi gì cả.')),
-                  );
-                },
-                child: const Text('Khôi phục (dán)'),
-              ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () async {
+                          final controller = TextEditingController();
+                          final pasted = await showDialog<String>(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Text('Khôi phục dữ liệu'),
+                              content: TextField(
+                                controller: controller,
+                                maxLines: 5,
+                                decoration: const InputDecoration(
+                                    hintText: 'Dán chuỗi sao lưu vào đây'),
+                              ),
+                              actions: [
+                                TextButton(
+                                    onPressed: () => Navigator.pop(ctx),
+                                    child: const Text('Hủy')),
+                                TextButton(
+                                    onPressed: () =>
+                                        Navigator.pop(ctx, controller.text),
+                                    child: const Text('Khôi phục')),
+                              ],
+                            ),
+                          );
+                          if (pasted == null || pasted.trim().isEmpty) return;
+                          final ok = await store.importBackup(pasted.trim());
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                                content: Text(ok
+                                    ? 'Khôi phục xong!'
+                                    : 'Chuỗi sao lưu không đúng định dạng, chưa đổi gì cả.')),
+                          );
+                        },
+                        child: const Text('Khôi phục (dán)'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
-          ],
+          ),
         ),
         const Divider(height: 32),
         Text(
@@ -1097,7 +1152,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         ),
         const SizedBox(height: 16),
         Center(
-            child: Text('Thuốc Vui • Phiên bản 1.2.45+48',
+            child: Text('Thuốc Vui • Phiên bản $_appVersion+$_appBuild',
                 style: TextStyle(color: muted))),
       ],
     );
@@ -1114,8 +1169,29 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         }
         return Scaffold(
           appBar: AppBar(
+            toolbarHeight: 82,
+            titleSpacing: 22,
+            flexibleSpace: const HomeHeaderBackground(),
+            actions: [
+              Builder(builder: (context) {
+                final ink = Theme.of(context).colorScheme.onPrimary;
+                return Container(
+                  margin: const EdgeInsets.only(right: 20),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: ink.withAlpha(16),
+                    border: Border.all(color: ink.withAlpha(40)),
+                    borderRadius: BorderRadius.circular(100),
+                  ),
+                  child: Text(_appVersion,
+                      style: TextStyle(fontSize: 11, color: ink)),
+                );
+              }),
+            ],
             title: HomeAppBarTitle(
-                'Thuốc Vui', ['Hôm nay', 'Lịch sử', 'Cài đặt'][_tab]),
+                'Thuốc Vui', ['Hôm nay', 'Lịch sử', 'Cài đặt'][_tab],
+                icon: Icons.medication_outlined),
             centerTitle: false,
           ),
           body: _tab == 0
@@ -1131,23 +1207,37 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       style: TextStyle(fontWeight: FontWeight.bold)),
                 )
               : null,
-          bottomNavigationBar: BottomNavigationBar(
-            currentIndex: _tab,
-            onTap: (i) {
-              setState(() => _tab = i);
-              // Chuyển về tab Hôm nay sau khi bấm nút thông báo / widget:
-              // app đang mở sẵn không có sự kiện resumed, nên phải nạp lại
-              // ở đây thì tiến độ mới hiện, kể cả khi Kotlin vừa ghi log.
-              if (i == 0) widget.store.reload();
-            },
-            items: const [
-              BottomNavigationBarItem(
-                  icon: Icon(Icons.today), label: 'Hôm nay'),
-              BottomNavigationBarItem(
-                  icon: Icon(Icons.calendar_month), label: 'Lịch sử'),
-              BottomNavigationBarItem(
-                  icon: Icon(Icons.settings), label: 'Cài đặt'),
-            ],
+          bottomNavigationBar: DecoratedBox(
+            position: DecorationPosition.foreground,
+            decoration: BoxDecoration(
+              border: Border(
+                  top: BorderSide(color: Theme.of(context).dividerColor)),
+            ),
+            child: NavigationBar(
+              height: 68,
+              backgroundColor: Theme.of(context).colorScheme.surface,
+              indicatorColor:
+                  Theme.of(context).colorScheme.surfaceAccent.withAlpha(26),
+              indicatorShape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(11)),
+              selectedIndex: _tab,
+              onDestinationSelected: (i) {
+                setState(() => _tab = i);
+                // Chuyển về tab Hôm nay sau khi bấm nút thông báo / widget:
+                // app đang mở sẵn không có sự kiện resumed, nên phải nạp lại
+                // ở đây thì tiến độ mới hiện, kể cả khi Kotlin vừa ghi log.
+                if (i == 0) widget.store.reload();
+              },
+              destinations: const [
+                NavigationDestination(
+                    icon: Icon(Icons.today_outlined), label: 'Hôm nay'),
+                NavigationDestination(
+                    icon: Icon(Icons.calendar_month_outlined),
+                    label: 'Lịch sử'),
+                NavigationDestination(
+                    icon: Icon(Icons.settings_outlined), label: 'Cài đặt'),
+              ],
+            ),
           ),
         );
       },

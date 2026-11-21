@@ -179,6 +179,8 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
     final isEdit = widget.existing != null;
     return Scaffold(
       appBar: AppBar(
+        toolbarHeight: 76,
+        flexibleSpace: const HomeHeaderBackground(),
         title: HomeAppBarTitle(
           isEdit ? 'Sửa thuốc' : 'Thêm thuốc mới',
           'Thông tin thuốc và lịch uống',

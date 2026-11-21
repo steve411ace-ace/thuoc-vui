@@ -26,7 +26,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final mostMissed = store.mostMissedMedicine();
 
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(18, 20, 18, 16),
       children: [
         const HomeSectionLabel('Thống kê uống thuốc'),
         Row(
@@ -86,7 +86,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
               spacing: 10,
               runSpacing: 6,
               children: [
-                const _LegendDot(color: Color(0xFF95E77E), label: 'Đủ đúng giờ'),
+                const _LegendDot(
+                    color: Color(0xFF95E77E), label: 'Đủ đúng giờ'),
                 const _LegendDot(color: Color(0xFFFFB020), label: 'Có trễ'),
                 const _LegendDot(color: Color(0xFFFF9AA2), label: 'Thiếu'),
                 _LegendDot(
@@ -98,11 +99,20 @@ class _HistoryScreenState extends State<HistoryScreen> {
         )),
         if (_selectedDay != null) ...[
           const SizedBox(height: 20),
-          Text(
-            'Ngày ${formatDateVn(_selectedDay!)}',
-            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Ngày ${formatDateVn(_selectedDay!)}',
+                  style: const TextStyle(
+                      fontSize: 17, fontWeight: FontWeight.w700),
+                ),
+              ),
+              Icon(Icons.calendar_month_outlined,
+                  color: scheme.surfaceAccent, size: 20),
+            ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 16),
           ..._dayDetails(store, _selectedDay!),
         ],
         const SizedBox(height: 24),
@@ -216,8 +226,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
             ),
             alignment: Alignment.center,
             child: Text('$day',
-                style: TextStyle(
-                    color: labelColor, fontWeight: FontWeight.w600)),
+                style:
+                    TextStyle(color: labelColor, fontWeight: FontWeight.w600)),
           ),
         ),
       );
@@ -263,16 +273,23 @@ class _HistoryScreenState extends State<HistoryScreen> {
           }
         }
       }
-      final stripe = doseStatusColor(status);
+      final scheme = Theme.of(context).colorScheme;
+      final stripe = doseStatusColor(status) ?? scheme.surfaceAccent;
+      final ink = doseStatusInk(scheme, status);
+      final badgeBackground = scheme.brightness == Brightness.dark
+          ? Color.alphaBlend(ink.withAlpha(32), scheme.surface)
+          : switch (status) {
+              'taken' => const Color(0xFFEAF4E8),
+              'late' => const Color(0xFFFFF4D9),
+              _ => const Color(0xFFEFF3F2),
+            };
       return Card(
-        margin: const EdgeInsets.only(bottom: 8),
+        margin: const EdgeInsets.only(bottom: 12),
         child: Container(
-          decoration: stripe == null
-              ? null
-              : BoxDecoration(
-                  border: Border(left: BorderSide(color: stripe, width: 4)),
-                ),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            border: Border(left: BorderSide(color: stripe, width: 4)),
+          ),
+          padding: const EdgeInsets.all(16),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -288,13 +305,27 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     const SizedBox(height: 2),
                     Text('Hẹn ${slot.time}'),
                     if (takenAt != null) Text('Uống lúc $takenAt'),
-                    if (lateText != null) Text(lateText),
+                    if (lateText != null)
+                      Text(lateText, style: TextStyle(color: ink)),
                     if (remaining != null) Text('Còn lại: $remaining viên'),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 9, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: badgeBackground,
+                        borderRadius: BorderRadius.circular(100),
+                      ),
+                      child: Text(label,
+                          style: TextStyle(
+                            color: ink,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          )),
+                    ),
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
-              Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
             ],
           ),
         ),
