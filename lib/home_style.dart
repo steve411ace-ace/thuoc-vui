@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 enum HomePalette {
@@ -292,44 +294,59 @@ class HomeHeaderBackground extends StatelessWidget {
     final accent = scheme.primary;
     final teal = accent == HomePalette.defaultCustomColor;
     return ClipRect(
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            stops: const [0.18, 0.6, 1],
-            colors: [
-              accent,
-              teal
-                  ? const Color(0xFF117C72)
-                  : Color.alphaBlend(scheme.onPrimary.withAlpha(8), accent),
-              teal
-                  ? const Color(0xFF0B665D)
-                  : Color.alphaBlend(scheme.onPrimary.withAlpha(16), accent),
-            ],
-          ),
-        ),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            for (final diameter in [170.0, 220.0, 272.0])
-              Positioned(
-                right: 38 - diameter / 2,
-                top: 36 - diameter / 2,
-                child: Container(
-                  width: diameter,
-                  height: diameter,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color:
-                          scheme.onPrimary.withAlpha(diameter == 170 ? 25 : 12),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          const angle = 124 * math.pi / 180;
+          final width = constraints.maxWidth;
+          final height = constraints.maxHeight;
+          final direction = Offset(math.sin(angle), -math.cos(angle));
+          // Match the CSS gradient line projected across the header bounds.
+          final length = width * direction.dx + height * direction.dy;
+          final end = Alignment(
+            width == 0 ? 0 : length * direction.dx / width,
+            height == 0 ? 0 : length * direction.dy / height,
+          );
+          return DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: teal ? -end : Alignment.topLeft,
+                end: teal ? end : Alignment.bottomRight,
+                stops: const [0.18, 0.6, 1],
+                colors: [
+                  accent,
+                  teal
+                      ? const Color(0xFF157972)
+                      : Color.alphaBlend(scheme.onPrimary.withAlpha(8), accent),
+                  teal
+                      ? const Color(0xFF0D6760)
+                      : Color.alphaBlend(
+                          scheme.onPrimary.withAlpha(16), accent),
+                ],
+              ),
+            ),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                for (final diameter in [170.0, 220.0, 272.0])
+                  Positioned(
+                    right: 38 - diameter / 2,
+                    top: 36 - diameter / 2,
+                    child: Container(
+                      width: diameter,
+                      height: diameter,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: scheme.onPrimary
+                              .withAlpha(diameter == 170 ? 25 : 12),
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              ),
-          ],
-        ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }

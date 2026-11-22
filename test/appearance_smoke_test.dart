@@ -31,7 +31,7 @@ void main() {
     }
   });
 
-  testWidgets('App mode chips save and apply appearance independently',
+  testWidgets('App theme segments save and apply appearance independently',
       (tester) async {
     SharedPreferences.setMockInitialValues({});
     const widgetChannel = MethodChannel('home_widget');
@@ -51,10 +51,13 @@ void main() {
     await tester.tap(find.text('Cài đặt'));
     await tester.pumpAndSettle();
 
-    final systemChip =
-        find.widgetWithText(ChoiceChip, 'Theo điện thoại').hitTestable();
-    final appChips = find.ancestor(of: systemChip, matching: find.byType(Wrap));
-    expect(tester.widget<ChoiceChip>(systemChip).selected, isTrue);
+    final appCard =
+        find.ancestor(of: find.text('Chế độ'), matching: find.byType(Card));
+    final systemChip = find.descendant(
+      of: appCard,
+      matching: find.widgetWithText(TextButton, 'Theo điện thoại'),
+    );
+    expect(_isSelected(tester, systemChip), isTrue);
     expect(Theme.of(tester.element(systemChip)).brightness, Brightness.dark);
     final prefs = await SharedPreferences.getInstance();
 
@@ -64,13 +67,13 @@ void main() {
       ('Theo điện thoại', ThemeMode.system, Brightness.dark),
     ]) {
       final chip = find.descendant(
-        of: appChips,
-        matching: find.widgetWithText(ChoiceChip, label),
+        of: appCard,
+        matching: find.widgetWithText(TextButton, label),
       );
       await tester.tap(chip);
       await tester.pumpAndSettle();
 
-      expect(tester.widget<ChoiceChip>(chip).selected, isTrue);
+      expect(_isSelected(tester, chip), isTrue);
       final app = tester.widget<MaterialApp>(find.byType(MaterialApp));
       expect(app.themeMode, mode);
       expect(Theme.of(tester.element(chip)).brightness, brightness);
@@ -139,10 +142,10 @@ void main() {
         find.ancestor(of: widgetHeading, matching: find.byType(Card));
     final systemChip = find.descendant(
       of: widgetCard,
-      matching: find.widgetWithText(ChoiceChip, 'Theo điện thoại'),
+      matching: find.widgetWithText(TextButton, 'Theo điện thoại'),
     );
     await tester.ensureVisible(systemChip);
-    expect(tester.widget<ChoiceChip>(systemChip).selected, isTrue);
+    expect(_isSelected(tester, systemChip), isTrue);
     expect(widgetData['widget_theme'], 'system');
     for (final (label, mode) in [
       ('Sáng', WidgetThemeMode.light),
@@ -151,14 +154,14 @@ void main() {
     ]) {
       final chip = find.descendant(
         of: widgetCard,
-        matching: find.widgetWithText(ChoiceChip, label),
+        matching: find.widgetWithText(TextButton, label),
       );
       await tester.ensureVisible(chip);
       final previousUpdates = widgetUpdates.length;
       await tester.tap(chip);
       await tester.pumpAndSettle();
 
-      expect(tester.widget<ChoiceChip>(chip).selected, isTrue);
+      expect(_isSelected(tester, chip), isTrue);
       expect(store.settings.widgetThemeMode, mode);
       final saved = jsonDecode(prefs.getString('thuoc_vui_v1')!) as Map;
       expect(saved['settings']['widgetThemeMode'], mode.name);
@@ -173,9 +176,14 @@ void main() {
           Brightness.light);
     }
 
-    await tester.scrollUntilVisible(find.textContaining('1.2.46+49'), 400);
-    await tester.ensureVisible(find.textContaining('1.2.46+49'));
-    expect(find.textContaining('1.2.46+49'), findsOneWidget);
+    await tester.scrollUntilVisible(find.textContaining('1.2.47+50'), 400);
+    await tester.ensureVisible(find.textContaining('1.2.47+50'));
+    expect(find.textContaining('1.2.47+50'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+}
+
+bool? _isSelected(WidgetTester tester, Finder button) {
+  final child = tester.widget<TextButton>(button).child as Semantics;
+  return child.properties.selected;
 }

@@ -95,11 +95,7 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
         setInt(R.id.widget_container, "setBackgroundResource", bgRes)
         // Thanh tiến độ hôm nay (1.2.18): Dart/Kotlin đều lưu progress_pct.
         val pct = widgetData.getString("progress_pct", null)?.toIntOrNull() ?: 0
-        val track = when {
-          lightAccent -> 0xFF748384.toInt()
-          isDark -> 0xFF344541.toInt()
-          else -> 0xFFD9E8E5.toInt()
-        }
+        val track = if (lightAccent) 0xFF748384.toInt() else 0xFFD9E8E5.toInt()
         setImageViewBitmap(R.id.widget_progress_bar, progressBitmap(pct, accent, track))
         setInt(R.id.widget_next_card, "setBackgroundResource",
             if (isDark) R.drawable.next_card_dark else R.drawable.next_card_light)

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:home_widget/home_widget.dart';
 import 'add_medicine.dart';
 import 'history.dart';
@@ -11,8 +10,8 @@ import 'purchases.dart';
 import 'store.dart';
 import 'widget_service.dart';
 
-const _appVersion = '1.2.46';
-const _appBuild = '49';
+const _appVersion = '1.2.47';
+const _appBuild = '50';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -699,6 +698,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final settings = store.settings;
     final scheme = Theme.of(context).colorScheme;
     final muted = scheme.onSurfaceVariant;
+    const appModes = [ThemeMode.light, ThemeMode.dark, ThemeMode.system];
 
     Future<void> pickQuiet(bool isStart) async {
       final parts =
@@ -729,26 +729,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text('Chế độ'),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 4,
-                  children: [
-                    for (final mode in [
-                      ThemeMode.light,
-                      ThemeMode.dark,
-                      ThemeMode.system,
-                    ])
-                      ChoiceChip(
-                        label: Text(switch (mode) {
-                          ThemeMode.light => 'Sáng',
-                          ThemeMode.dark => 'Tối',
-                          ThemeMode.system => 'Theo điện thoại',
-                        }),
-                        selected: settings.appThemeMode == mode,
-                        shape: const StadiumBorder(),
-                        onSelected: (_) => store.updateAppTheme(mode),
-                      ),
-                  ],
+                const SizedBox(height: 6),
+                _ThemeModeControl(
+                  labels: const ['Sáng', 'Tối', 'Theo điện thoại'],
+                  systemIndex: 2,
+                  selectedIndex: appModes.indexOf(settings.appThemeMode),
+                  onSelected: (index) => store.updateAppTheme(appModes[index]),
                 ),
                 const SizedBox(height: 12),
                 LayoutBuilder(
@@ -822,22 +808,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               ),
               const SizedBox(height: 8),
               const Text('Giao diện widget'),
-              Wrap(
-                spacing: 8,
-                runSpacing: 4,
-                children: [
-                  for (final mode in WidgetThemeMode.values)
-                    ChoiceChip(
-                      label: Text(switch (mode) {
-                        WidgetThemeMode.system => 'Theo điện thoại',
-                        WidgetThemeMode.light => 'Sáng',
-                        WidgetThemeMode.dark => 'Tối',
-                      }),
-                      selected: settings.widgetThemeMode == mode,
-                      shape: const StadiumBorder(),
-                      onSelected: (_) => store.updateWidgetTheme(mode),
-                    ),
-                ],
+              const SizedBox(height: 6),
+              _ThemeModeControl(
+                labels: const ['Theo điện thoại', 'Sáng', 'Tối'],
+                systemIndex: 0,
+                selectedIndex: settings.widgetThemeMode.index,
+                onSelected: (index) =>
+                    store.updateWidgetTheme(WidgetThemeMode.values[index]),
               ),
             ],
           ),
@@ -862,24 +839,29 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             },
           ),
           const Divider(height: 1, indent: 16, endIndent: 16),
-          ListTile(
-            title: const Text('Giờ yên lặng bắt đầu'),
-            trailing: Text(settings.quietStart,
-                style: const TextStyle(fontWeight: FontWeight.bold)),
-            onTap: () => pickQuiet(true),
-          ),
-          const Divider(height: 1, indent: 16, endIndent: 16),
-          ListTile(
-            title: const Text('Giờ yên lặng kết thúc'),
-            trailing: Text(settings.quietEnd,
-                style: const TextStyle(fontWeight: FontWeight.bold)),
-            onTap: () => pickQuiet(false),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+            child: Column(
+              children: [
+                _SettingsField(
+                  label: 'Giờ yên lặng bắt đầu',
+                  value: settings.quietStart,
+                  onTap: () => pickQuiet(true),
+                ),
+                const SizedBox(height: 11),
+                _SettingsField(
+                  label: 'Giờ yên lặng kết thúc',
+                  value: settings.quietEnd,
+                  onTap: () => pickQuiet(false),
+                ),
+              ],
+            ),
           ),
         ])),
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 8),
           child: Text(
-            'Trong giờ yên lặng, app không lên lịch nhắc mới. Các lần uống trong khoảng này vẫn hiện trên lịch hôm nay.',
+            'Trong giờ yên lặng, app không lên lịch nhắc mới. Các lần uống vẫn hiện trên lịch hôm nay.',
             style: TextStyle(color: muted),
           ),
         ),
@@ -894,7 +876,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   child: Text(
-                    'Lịch nhắc chính dùng báo thức native, không dùng lịch plugin nữa. Nếu máy đã từ chối quyền vĩnh viễn thì hộp xin quyền sẽ không hiện nữa, anh bật tay theo đường dẫn: Cài đặt máy > Ứng dụng > Thuốc Vui > Thông báo.',
+                    'Lịch nhắc dùng báo thức hệ thống. Nếu đã từ chối quyền vĩnh viễn, bật thủ công tại Cài đặt máy > Ứng dụng > Thuốc Vui > Thông báo.',
                     style: TextStyle(color: muted),
                   ),
                 ),
@@ -971,184 +953,80 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         ),
         const SizedBox(height: 8),
         Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
             child: Column(children: [
-          ListTile(
-            title: const Text('Báo lại sau mỗi'),
-            trailing: Text('${settings.remindIntervalMinutes} phút',
-                style: const TextStyle(fontWeight: FontWeight.bold)),
-            onTap: () async {
-              final picked = await showDialog<int>(
-                context: context,
-                builder: (ctx) => SimpleDialog(
-                  title: const Text('Báo lại sau mỗi'),
-                  children: [
-                    for (final m in [5, 10, 15, 30, 60])
-                      SimpleDialogOption(
-                        onPressed: () => Navigator.pop(ctx, m),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          child: Text('$m phút',
-                              style: const TextStyle(fontSize: 16)),
-                        ),
-                      ),
-                  ],
-                ),
-              );
-              if (picked != null) {
-                await store.updateSettings(
-                    settings.copyWith(remindIntervalMinutes: picked));
-              }
-            },
-          ),
-          const Divider(height: 1, indent: 16, endIndent: 16),
-          ListTile(
-            title: const Text('Số lần báo lại nếu chưa uống'),
-            trailing: Text(
-                settings.remindTimes == 0
+              _SettingsField(
+                label: 'Báo lại sau mỗi',
+                value: '${settings.remindIntervalMinutes} phút',
+                onTap: () async {
+                  final picked = await showDialog<int>(
+                    context: context,
+                    builder: (ctx) => SimpleDialog(
+                      title: const Text('Báo lại sau mỗi'),
+                      children: [
+                        for (final m in [5, 10, 15, 30, 60])
+                          SimpleDialogOption(
+                            onPressed: () => Navigator.pop(ctx, m),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              child: Text('$m phút',
+                                  style: const TextStyle(fontSize: 16)),
+                            ),
+                          ),
+                      ],
+                    ),
+                  );
+                  if (picked != null) {
+                    await store.updateSettings(
+                        settings.copyWith(remindIntervalMinutes: picked));
+                  }
+                },
+              ),
+              const SizedBox(height: 11),
+              _SettingsField(
+                label: 'Số lần báo lại nếu chưa uống',
+                value: settings.remindTimes == 0
                     ? 'Tắt'
                     : '${settings.remindTimes} lần',
-                style: const TextStyle(fontWeight: FontWeight.bold)),
-            onTap: () async {
-              final picked = await showDialog<int>(
-                context: context,
-                builder: (ctx) => SimpleDialog(
-                  title: const Text('Số lần báo lại nếu chưa uống'),
-                  children: [
-                    for (final n in [0, 1, 2, 3, 5])
-                      SimpleDialogOption(
-                        onPressed: () => Navigator.pop(ctx, n),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          child: Text(n == 0 ? 'Tắt' : '$n lần',
-                              style: const TextStyle(fontSize: 16)),
-                        ),
-                      ),
-                  ],
-                ),
-              );
-              if (picked != null) {
-                await store
-                    .updateSettings(settings.copyWith(remindTimes: picked));
-              }
-            },
+                onTap: () async {
+                  final picked = await showDialog<int>(
+                    context: context,
+                    builder: (ctx) => SimpleDialog(
+                      title: const Text('Số lần báo lại nếu chưa uống'),
+                      children: [
+                        for (final n in [0, 1, 2, 3, 5])
+                          SimpleDialogOption(
+                            onPressed: () => Navigator.pop(ctx, n),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              child: Text(n == 0 ? 'Tắt' : '$n lần',
+                                  style: const TextStyle(fontSize: 16)),
+                            ),
+                          ),
+                      ],
+                    ),
+                  );
+                  if (picked != null) {
+                    await store
+                        .updateSettings(settings.copyWith(remindTimes: picked));
+                  }
+                },
+              ),
+            ]),
           ),
-        ])),
+        ),
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 8),
           child: Text(
-            'Báo lại là nhắc tự động sau lần nhắc chính, chỉ khi chưa bấm đã uống. Bấm đã uống ở app, widget hay thông báo đều dừng báo lại cho lần đó.',
+            'Sau lần nhắc chính, app tự động báo lại nếu chưa bấm đã uống. Bấm đã uống trong app, trên widget hoặc thông báo sẽ dừng báo lại cho lần đó.',
             style: TextStyle(color: muted),
-          ),
-        ),
-        const SizedBox(height: 16),
-        const HomeSectionLabel('Sao lưu dữ liệu'),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Text(
-                    'Gỡ app sẽ xóa dữ liệu trong máy. Trước khi gỡ để cài bản mới, bấm Sao lưu rồi dán chuỗi sao lưu vào Ghi chú hoặc email để giữ. Sau khi cài lại, bấm Khôi phục rồi dán chuỗi đó vào.',
-                    style: TextStyle(color: muted),
-                  ),
-                ),
-                Row(
-                  children: [
-                    Expanded(
-                      child: FilledButton(
-                        onPressed: () async {
-                          await Clipboard.setData(
-                              ClipboardData(text: store.exportBackup()));
-                          if (!mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content: Text(
-                                    'Đã copy chuỗi sao lưu. Dán vào Ghi chú hoặc email để giữ lại nhé!')),
-                          );
-                        },
-                        child: const Text('Sao lưu (copy)'),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () async {
-                          final controller = TextEditingController();
-                          final pasted = await showDialog<String>(
-                            context: context,
-                            builder: (ctx) => AlertDialog(
-                              title: const Text('Khôi phục dữ liệu'),
-                              content: TextField(
-                                controller: controller,
-                                maxLines: 5,
-                                decoration: const InputDecoration(
-                                    hintText: 'Dán chuỗi sao lưu vào đây'),
-                              ),
-                              actions: [
-                                TextButton(
-                                    onPressed: () => Navigator.pop(ctx),
-                                    child: const Text('Hủy')),
-                                TextButton(
-                                    onPressed: () =>
-                                        Navigator.pop(ctx, controller.text),
-                                    child: const Text('Khôi phục')),
-                              ],
-                            ),
-                          );
-                          if (pasted == null || pasted.trim().isEmpty) return;
-                          final ok = await store.importBackup(pasted.trim());
-                          if (!mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                                content: Text(ok
-                                    ? 'Khôi phục xong!'
-                                    : 'Chuỗi sao lưu không đúng định dạng, chưa đổi gì cả.')),
-                          );
-                        },
-                        child: const Text('Khôi phục (dán)'),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
           ),
         ),
         const Divider(height: 32),
         Text(
-          'Lưu ý: app chỉ nhắc giờ uống và ghi lại việc đã uống, không thay thế chỉ định của bác sĩ. Sau khi khởi động lại điện thoại, mở app một lần để lịch nhắc hoạt động lại.',
+          'Lưu ý: app chỉ nhắc giờ uống và ghi nhận đã uống, không thay thế chỉ định của bác sĩ. Khởi động lại điện thoại xong, mở app một lần để lịch nhắc hoạt động lại.',
           style: TextStyle(color: muted),
-        ),
-        const SizedBox(height: 24),
-        OutlinedButton(
-          onPressed: () async {
-            final ok = await showDialog<bool>(
-              context: context,
-              builder: (ctx) => AlertDialog(
-                title: const Text('Xóa toàn bộ dữ liệu?'),
-                content: const Text(
-                    'Toàn bộ thuốc, lịch nhắc và lịch sử sẽ bị xóa khỏi máy.'),
-                actions: [
-                  TextButton(
-                      onPressed: () => Navigator.pop(ctx, false),
-                      child: const Text('Hủy')),
-                  TextButton(
-                      onPressed: () => Navigator.pop(ctx, true),
-                      child: Text('Xóa hết',
-                          style: TextStyle(
-                              color: Theme.of(ctx).colorScheme.error))),
-                ],
-              ),
-            );
-            if (ok == true) await store.clearAll();
-          },
-          style: OutlinedButton.styleFrom(
-              foregroundColor: scheme.error,
-              side: BorderSide(color: scheme.error)),
-          child: const Text('Xóa toàn bộ dữ liệu'),
         ),
         const SizedBox(height: 16),
         Center(
@@ -1198,7 +1076,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               ? _homeTab()
               : _tab == 1
                   ? HistoryScreen(store: widget.store)
-                  : _settingsTab(),
+                  : Theme(
+                      data: Theme.of(context).copyWith(
+                        cardTheme: Theme.of(context).cardTheme.copyWith(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              shadowColor: const Color(0x16173E2C),
+                            ),
+                      ),
+                      child: _settingsTab(),
+                    ),
           floatingActionButton: _tab == 0
               ? FloatingActionButton.extended(
                   onPressed: () => _openAdd(),
@@ -1241,6 +1129,126 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           ),
         );
       },
+    );
+  }
+}
+
+Color _settingsTrackColor(ColorScheme scheme) =>
+    scheme.brightness == Brightness.dark
+        ? const Color(0xFF253D36)
+        : const Color(0xFFF0F4F1);
+
+class _ThemeModeControl extends StatelessWidget {
+  const _ThemeModeControl({
+    required this.labels,
+    required this.systemIndex,
+    required this.selectedIndex,
+    required this.onSelected,
+  });
+
+  final List<String> labels;
+  final int systemIndex;
+  final int selectedIndex;
+  final ValueChanged<int> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: _settingsTrackColor(scheme),
+        borderRadius: BorderRadius.circular(11),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(3),
+        child: Row(
+          children: [
+            for (var index = 0; index < labels.length; index++) ...[
+              if (index > 0) const SizedBox(width: 3),
+              Expanded(
+                flex: index == systemIndex ? 3 : 2,
+                child: TextButton(
+                  style: TextButton.styleFrom(
+                    foregroundColor: index == selectedIndex
+                        ? scheme.surfaceAccent
+                        : scheme.onSurfaceVariant,
+                    backgroundColor: index == selectedIndex
+                        ? scheme.surface
+                        : Colors.transparent,
+                    elevation: index == selectedIndex ? 1 : 0,
+                    shadowColor: const Color(0x20153A23),
+                    padding:
+                        const EdgeInsets.symmetric(vertical: 8, horizontal: 2),
+                    minimumSize: const Size(0, 42),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    textStyle: TextStyle(
+                      fontSize: 12,
+                      fontWeight: index == selectedIndex
+                          ? FontWeight.w700
+                          : FontWeight.w500,
+                    ),
+                  ),
+                  onPressed: () => onSelected(index),
+                  child: Semantics(
+                    selected: index == selectedIndex,
+                    child: Text(labels[index], textAlign: TextAlign.center),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SettingsField extends StatelessWidget {
+  const _SettingsField({
+    required this.label,
+    required this.value,
+    required this.onTap,
+  });
+
+  final String label;
+  final String value;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return MergeSemantics(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 6),
+          OutlinedButton(
+            style: OutlinedButton.styleFrom(
+              backgroundColor: _settingsTrackColor(scheme),
+              foregroundColor: scheme.onSurface,
+              side: BorderSide(color: theme.dividerColor),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+              minimumSize: const Size(0, 44),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            onPressed: onTap,
+            child: Row(
+              children: [
+                Expanded(child: Text(value)),
+                Icon(Icons.keyboard_arrow_down, color: scheme.surfaceAccent),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
