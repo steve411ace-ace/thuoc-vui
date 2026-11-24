@@ -163,8 +163,9 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
           else -> PILL_AMBER
         }
         setInt(R.id.widget_status_dot, "setColorFilter", statusDotColor)
-        setInt(R.id.widget_pip, "setMaxLines", if (isTall) 3 else 1)
-        setTextViewText(R.id.widget_pip, if (hasMoodPrefix) pipMessage.substringAfter(' ') else pipMessage)
+        setInt(R.id.widget_pip, "setMaxLines", if (isTall) 4 else 3)
+        val rawPip = if (hasMoodPrefix) pipMessage.substringAfter(' ') else pipMessage
+        setTextViewText(R.id.widget_pip, rawPip.replace(" 🛒 ", "\n🛒 "))
 
         if (allDone) {
           setViewVisibility(R.id.widget_next_card, View.GONE)
@@ -414,11 +415,11 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
     return intArrayOf(c1, middle, c3)
   }
 
-  /** Nền thẻ Hero Bento bo 18dp: gradient 135° theo pillGradient() + vòng sáng trang trí góc phải trên. */
+  /** Nền thẻ Hero Bento bo 20dp: gradient 135° theo pillGradient() + vòng sáng trang trí góc phải trên. */
   private fun heroBackgroundBitmap(heroColors: IntArray): Bitmap {
     val width = 360
-    val height = 84
-    val radius = 20f
+    val height = 116
+    val radius = 22f
     val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
     val rect = RectF(0f, 0f, width.toFloat(), height.toFloat())
@@ -442,15 +443,15 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
     val orbPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
       color = 0x1CFFFFFF // rgba(255, 255, 255, 0.11)
     }
-    canvas.drawCircle(width - 22f, 16f, 44f, orbPaint)
+    canvas.drawCircle(width - 26f, 22f, 52f, orbPaint)
     canvas.restore()
     return bitmap
   }
 
-  /** Vòng tròn tiến độ 42dp viền trắng bo tròn đầu (chỉ vẽ vòng; % hiển thị bằng TextView Be Vietnam Pro ở giữa). */
+  /** Vòng tròn tiến độ 56dp viền trắng bo tròn đầu (chỉ vẽ vòng; % hiển thị bằng TextView Be Vietnam Pro ở giữa). */
   private fun progressRingBitmap(context: Context, percent: Int): Bitmap {
     val density = context.resources.displayMetrics.density
-    val size = (42f * density).roundToInt().coerceIn(84, 168)
+    val size = (56f * density).roundToInt().coerceIn(112, 196)
     val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
     val cx = size / 2f

@@ -6,15 +6,16 @@
     android:layout_margin="0dp"
     android:orientation="vertical"
     android:background="@drawable/widget_background"
-    android:paddingHorizontal="6dp"
-    android:paddingVertical="5dp">
+    android:paddingHorizontal="8dp"
+    android:paddingVertical="6dp">
 
-    <!-- Hero Bento Gradient Card (Header: App name + TextClock merged inside top row) -->
+    <!-- Hero Bento Gradient Card (giãn theo chiều cao khung nhờ layout_weight="1") -->
     <FrameLayout
         android:id="@+id/widget_hero_card"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="4dp">
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginBottom="10dp">
 
         <ImageView
             android:id="@+id/widget_hero_bg"
@@ -26,28 +27,29 @@
 
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="match_parent"
             android:orientation="vertical"
-            android:paddingHorizontal="9dp"
-            android:paddingVertical="5dp">
+            android:gravity="center_vertical"
+            android:paddingHorizontal="12dp"
+            android:paddingVertical="7dp">
 
-            <!-- Row 1 inside Hero: Brand icon + App name + TextClock pill -->
+            <!-- Row 1 inside Hero: Brand icon + App name (19sp) + TextClock pill -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="3dp"
+                android:layout_marginBottom="4dp"
                 android:orientation="horizontal"
                 android:gravity="center_vertical">
 
                 <FrameLayout
-                    android:layout_width="16dp"
-                    android:layout_height="16dp"
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
                     android:background="@drawable/widget_hero_logo_bg">
 
                     <ImageView
                         android:id="@+id/widget_pill"
-                        android:layout_width="11dp"
-                        android:layout_height="11dp"
+                        android:layout_width="14dp"
+                        android:layout_height="14dp"
                         android:layout_gravity="center"
                         android:importantForAccessibility="no"
                         android:src="@drawable/widget_ic_capsule" />
@@ -59,12 +61,12 @@
                     android:layout_width="0dp"
                     android:layout_weight="1"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="5dp"
+                    android:layout_marginStart="7dp"
                     android:layout_marginEnd="6dp"
                     android:maxLines="1"
                     android:ellipsize="end"
                     android:text="Thuốc Vui"
-                    android:textSize="10.5sp"
+                    android:textSize="19sp"
                     android:textStyle="bold"
                     android:textColor="#FFFFFF" />
 
@@ -74,17 +76,17 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:background="@drawable/widget_hero_clock_bg"
-                    android:paddingHorizontal="6dp"
-                    android:paddingVertical="1dp"
+                    android:paddingHorizontal="7dp"
+                    android:paddingVertical="2dp"
                     android:singleLine="true"
-                    android:textSize="8.5sp"
+                    android:textSize="9.5sp"
                     android:textStyle="bold"
                     android:textColor="#F5FFFFFF"
                     android:format24Hour="dd/MM/yyyy • HH:mm:ss"
                     android:format12Hour="dd/MM/yyyy • hh:mm:ss" />
             </LinearLayout>
 
-            <!-- Row 2 inside Hero: 42dp Progress Ring (%) + Today Progress + Status Message -->
+            <!-- Row 2 inside Hero: 56dp Progress Ring (%) + Today Progress + Status Message (2+ lines) -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -92,8 +94,8 @@
                 android:gravity="center_vertical">
 
                 <FrameLayout
-                    android:layout_width="42dp"
-                    android:layout_height="42dp">
+                    android:layout_width="56dp"
+                    android:layout_height="56dp">
 
                     <ImageView
                         android:id="@+id/widget_progress_ring"
@@ -110,7 +112,7 @@
                         android:gravity="center"
                         android:maxLines="1"
                         android:text="0%"
-                        android:textSize="11sp"
+                        android:textSize="14sp"
                         android:textStyle="bold"
                         android:textColor="#FFFFFF" />
                 </FrameLayout>
@@ -119,7 +121,7 @@
                     android:layout_width="0dp"
                     android:layout_weight="1"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="9dp"
+                    android:layout_marginStart="11dp"
                     android:orientation="vertical">
 
                     <TextView
@@ -129,7 +131,7 @@
                         android:layout_height="wrap_content"
                         android:maxLines="1"
                         android:text="Tiến độ hôm nay"
-                        android:textSize="8.5sp"
+                        android:textSize="10sp"
                         android:textColor="#CCFFFFFF" />
 
                     <TextView
@@ -140,22 +142,23 @@
                         android:maxLines="1"
                         android:ellipsize="end"
                         android:text="Thuốc Vui"
-                        android:textSize="11sp"
+                        android:textSize="14sp"
                         android:textStyle="bold"
                         android:textColor="#FFFFFF" />
 
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="1dp"
+                        android:layout_marginTop="2dp"
                         android:orientation="horizontal"
-                        android:gravity="center_vertical">
+                        android:gravity="top">
 
                         <ImageView
                             android:id="@+id/widget_status_dot"
-                            android:layout_width="6dp"
-                            android:layout_height="6dp"
-                            android:layout_marginEnd="5dp"
+                            android:layout_width="7dp"
+                            android:layout_height="7dp"
+                            android:layout_marginTop="5dp"
+                            android:layout_marginEnd="6dp"
                             android:importantForAccessibility="no"
                             android:src="@drawable/widget_status_dot" />
 
@@ -165,9 +168,10 @@
                             android:layout_width="0dp"
                             android:layout_weight="1"
                             android:layout_height="wrap_content"
-                            android:maxLines="1"
+                            android:maxLines="3"
                             android:ellipsize="end"
-                            android:textSize="9.5sp"
+                            android:lineSpacingExtra="1dp"
+                            android:textSize="12sp"
                             android:textColor="#F0FFFFFF" />
                     </LinearLayout>
                 </LinearLayout>
@@ -180,19 +184,19 @@
         android:id="@+id/widget_next_card"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="4dp"
+        android:layout_marginBottom="10dp"
         android:orientation="horizontal"
         android:gravity="center_vertical"
         android:background="@drawable/next_card_light"
-        android:paddingHorizontal="8dp"
-        android:paddingVertical="4dp">
+        android:paddingHorizontal="10dp"
+        android:paddingVertical="6dp">
 
-        <!-- 30dp Pill Shape Icon Box (exact widget_ic_capsule.xml) -->
+        <!-- 44dp Pill Shape Icon Box (exact widget_ic_capsule.xml) -->
         <FrameLayout
             android:id="@+id/widget_shape_box"
-            android:layout_width="30dp"
-            android:layout_height="30dp"
-            android:layout_marginEnd="8dp">
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:layout_marginEnd="10dp">
 
             <ImageView
                 android:id="@+id/widget_shape_box_bg"
@@ -204,8 +208,8 @@
 
             <ImageView
                 android:id="@+id/widget_shape_icon"
-                android:layout_width="18dp"
-                android:layout_height="18dp"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
                 android:layout_gravity="center"
                 android:importantForAccessibility="no"
                 android:src="@drawable/widget_ic_capsule" />
@@ -224,7 +228,7 @@
                 android:layout_height="wrap_content"
                 android:maxLines="1"
                 android:text="LẦN UỐNG TIẾP THEO"
-                android:textSize="8sp"
+                android:textSize="9.5sp"
                 android:textStyle="bold"
                 android:letterSpacing="0.04"
                 android:textColor="#64748B" />
@@ -237,7 +241,7 @@
                 android:maxLines="1"
                 android:ellipsize="end"
                 android:text="Mở app để xem lịch hôm nay"
-                android:textSize="11sp"
+                android:textSize="13.5sp"
                 android:textStyle="bold"
                 android:textColor="#0F172A" />
 
@@ -248,16 +252,16 @@
                 android:layout_height="wrap_content"
                 android:maxLines="1"
                 android:ellipsize="end"
-                android:textSize="9.5sp"
+                android:textSize="11.5sp"
                 android:textColor="#64748B" />
         </LinearLayout>
     </LinearLayout>
 
-    <!-- State 1: Check-in Bento CTA Button (16dp corners) -->
+    <!-- State 1: Check-in Bento CTA Button (52dp height, 16dp corners) -->
     <FrameLayout
         android:id="@+id/widget_checkin_row"
         android:layout_width="match_parent"
-        android:layout_height="32dp">
+        android:layout_height="52dp">
 
         <ImageView
             android:id="@+id/widget_checkin_background"
@@ -283,12 +287,12 @@
             android:orientation="horizontal"
             android:gravity="center"
             android:background="?android:attr/selectableItemBackground"
-            android:paddingHorizontal="12dp">
+            android:paddingHorizontal="14dp">
 
             <ImageView
                 android:id="@+id/widget_checkin_icon"
-                android:layout_width="14dp"
-                android:layout_height="14dp"
+                android:layout_width="18dp"
+                android:layout_height="18dp"
                 android:importantForAccessibility="no"
                 android:src="@drawable/widget_ic_check" />
 
@@ -297,10 +301,10 @@
                 android:fontFamily="@font/be_vietnam_pro"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="6dp"
+                android:layout_marginStart="8dp"
                 android:maxLines="1"
                 android:text="Đã uống lần này"
-                android:textSize="11.5sp"
+                android:textSize="16sp"
                 android:textStyle="bold"
                 android:textColor="#FFFFFF" />
         </LinearLayout>
@@ -313,20 +317,20 @@
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:background="@drawable/done_card_light"
-        android:paddingHorizontal="9dp"
-        android:paddingVertical="6dp"
+        android:paddingHorizontal="11dp"
+        android:paddingVertical="9dp"
         android:visibility="gone">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="4dp"
+            android:layout_marginBottom="6dp"
             android:orientation="horizontal"
             android:gravity="center_vertical">
 
             <ImageView
-                android:layout_width="18dp"
-                android:layout_height="18dp"
+                android:layout_width="22dp"
+                android:layout_height="22dp"
                 android:importantForAccessibility="no"
                 android:src="@drawable/widget_ic_done_circle" />
 
@@ -336,11 +340,11 @@
                 android:layout_width="0dp"
                 android:layout_weight="1"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="6dp"
+                android:layout_marginStart="7dp"
                 android:maxLines="1"
                 android:ellipsize="end"
                 android:text="🎉 Đã xong hôm nay!"
-                android:textSize="11.5sp"
+                android:textSize="13.5sp"
                 android:textStyle="bold"
                 android:textColor="#0F172A" />
         </LinearLayout>
@@ -352,8 +356,8 @@
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:background="@drawable/done_item_light"
-            android:paddingHorizontal="8dp"
-            android:paddingVertical="4dp"
+            android:paddingHorizontal="9dp"
+            android:paddingVertical="6dp"
             android:visibility="gone">
 
             <TextView
@@ -363,7 +367,7 @@
                 android:layout_height="wrap_content"
                 android:maxLines="1"
                 android:ellipsize="end"
-                android:textSize="10sp"
+                android:textSize="11.5sp"
                 android:textStyle="bold"
                 android:textColor="#0F172A" />
 
@@ -372,23 +376,23 @@
                 android:fontFamily="@font/be_vietnam_pro"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="1dp"
+                android:layout_marginTop="2dp"
                 android:maxLines="1"
                 android:ellipsize="end"
-                android:textSize="9.5sp"
+                android:textSize="11sp"
                 android:textColor="#64748B" />
         </LinearLayout>
 
-        <!-- Done dose item 2 (shown when resized to 4x3+) -->
+        <!-- Done dose item 2 -->
         <LinearLayout
             android:id="@+id/widget_done_item_2"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="5dp"
+            android:layout_marginTop="6dp"
             android:orientation="vertical"
             android:background="@drawable/done_item_light"
-            android:paddingHorizontal="8dp"
-            android:paddingVertical="4dp"
+            android:paddingHorizontal="9dp"
+            android:paddingVertical="6dp"
             android:visibility="gone">
 
             <TextView
@@ -398,7 +402,7 @@
                 android:layout_height="wrap_content"
                 android:maxLines="1"
                 android:ellipsize="end"
-                android:textSize="10sp"
+                android:textSize="11.5sp"
                 android:textStyle="bold"
                 android:textColor="#0F172A" />
 
@@ -407,10 +411,10 @@
                 android:fontFamily="@font/be_vietnam_pro"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="1dp"
+                android:layout_marginTop="2dp"
                 android:maxLines="1"
                 android:ellipsize="end"
-                android:textSize="9.5sp"
+                android:textSize="11sp"
                 android:textColor="#64748B" />
         </LinearLayout>
 
@@ -419,11 +423,11 @@
             android:id="@+id/widget_done_item_3"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="5dp"
+            android:layout_marginTop="6dp"
             android:orientation="vertical"
             android:background="@drawable/done_item_light"
-            android:paddingHorizontal="8dp"
-            android:paddingVertical="4dp"
+            android:paddingHorizontal="9dp"
+            android:paddingVertical="6dp"
             android:visibility="gone">
 
             <TextView
@@ -433,7 +437,7 @@
                 android:layout_height="wrap_content"
                 android:maxLines="1"
                 android:ellipsize="end"
-                android:textSize="10sp"
+                android:textSize="11.5sp"
                 android:textStyle="bold"
                 android:textColor="#0F172A" />
 
@@ -442,10 +446,10 @@
                 android:fontFamily="@font/be_vietnam_pro"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="1dp"
+                android:layout_marginTop="2dp"
                 android:maxLines="1"
                 android:ellipsize="end"
-                android:textSize="9.5sp"
+                android:textSize="11sp"
                 android:textColor="#64748B" />
         </LinearLayout>
 
@@ -454,10 +458,10 @@
             android:fontFamily="@font/be_vietnam_pro"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="3dp"
+            android:layout_marginTop="4dp"
             android:maxLines="1"
             android:ellipsize="end"
-            android:textSize="9.5sp"
+            android:textSize="10.5sp"
             android:textColor="#64748B"
             android:visibility="gone" />
     </LinearLayout>

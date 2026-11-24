@@ -1184,7 +1184,7 @@ class ThuocStore extends ChangeNotifier {
       // ngay cả khi không mở app.
       final buyPrompt = todayBuyPrompt();
       await HomeWidget.saveWidgetData<String>(
-          'pip_message', buyPrompt == null ? pipMessage : '$pipMessage 🛒 $buyPrompt');
+          'pip_message', buyPrompt == null ? pipMessage : '$pipMessage\n🛒 $buyPrompt');
       await HomeWidget.saveWidgetData<String>(
           'progress',
           slots.isEmpty

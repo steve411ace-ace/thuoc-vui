@@ -1,5 +1,10 @@
 # Nhật ký thay đổi
 
+## 1.2.55+58
+
+- Widget to hơn, lấp đầy khung 4×2: thẻ hero tự giãn theo chiều cao, vòng tiến độ 56dp, nút check-in 52dp.
+- Cảnh báo sắp hết thuốc xuống dòng riêng trong thẻ tiến độ.
+
 ## 1.2.54+57
 
 - Widget vừa gọn trong 4×2: bỏ hàng header riêng, tên app + giờ vào trong thẻ hero, vòng tiến độ 42dp.
