@@ -4,7 +4,7 @@ import 'models.dart';
 import 'purchases.dart';
 import 'store.dart';
 
-/// Màn hình Lịch sử: lưới tháng + thống kê 30 ngày.
+/// Màn hình Thống kê (Tab Thống kê & Lịch sử theo phong cách MediFlow).
 class HistoryScreen extends StatefulWidget {
   final ThuocStore store;
   const HistoryScreen({super.key, required this.store});
@@ -21,89 +21,318 @@ class _HistoryScreenState extends State<HistoryScreen> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final store = widget.store;
-    final adherence = store.adherence30Days();
+    final weekAdherence = store.adherenceThisWeek();
+    final monthDoses = store.takenDosesThisMonth();
     final streak = store.currentStreak();
-    final mostMissed = store.mostMissedMedicine();
+    final onTimeStreak = store.onTimeStreak();
+    final now = DateTime.now();
+    final medStats = store.medicineAdherenceStats();
+    final weekChart = store.weeklyDailyAdherence();
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(18, 20, 18, 16),
+      padding: const EdgeInsets.fromLTRB(18, 20, 18, 24),
       children: [
-        const HomeSectionLabel('Thống kê uống thuốc'),
-        Row(
-          children: [
-            Expanded(
-                child: _statCard('Tỷ lệ uống đúng\n30 ngày qua',
-                    '${(adherence * 100).round()}%')),
-            const SizedBox(width: 8),
-            Expanded(child: _statCard('Chuỗi ngày\nliên tục', '$streak ngày')),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-                child: _statCard('Chuỗi đúng giờ\nliên tục',
-                    '${store.onTimeStreak()} ngày')),
-            const SizedBox(width: 8),
-            Expanded(
-                child: _statCard(
-                    'Tổng lần uống\nđúng giờ', '${store.totalOnTime()} lần')),
-          ],
-        ),
-        const SizedBox(height: 8),
-        _statCard(
-          'Thuốc hay bị bỏ qua nhất',
-          mostMissed ?? 'Chưa có lần bỏ qua nào. Tuyệt vời!',
-        ),
-        const SizedBox(height: 24),
-        const HomeSectionLabel('Lịch uống theo tháng'),
+        // 1. Thẻ tổng quan MediFlow
+        const HomeSectionLabel('TỔNG QUAN TUÂN THỦ'),
         Card(
-            child: Padding(
-          padding: const EdgeInsets.all(8),
-          child: Column(children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
               children: [
-                IconButton(
-                  onPressed: () => setState(() =>
-                      _month = DateTime(_month.year, _month.month - 1, 1)),
-                  icon: const Icon(Icons.chevron_left),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _statBox(
+                        context,
+                        'Tuân thủ tuần này',
+                        '${(weekAdherence * 100).round()}%',
+                        Icons.verified_outlined,
+                        scheme.surfaceAccent,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _statBox(
+                        context,
+                        'Đã uống tháng ${now.month}',
+                        '$monthDoses liều',
+                        Icons.check_circle_outline,
+                        const Color(0xFF2E7D32),
+                      ),
+                    ),
+                  ],
                 ),
-                Text('Tháng ${_month.month}/${_month.year}',
-                    style: const TextStyle(
-                        fontSize: 17, fontWeight: FontWeight.bold)),
-                IconButton(
-                  onPressed: () => setState(() =>
-                      _month = DateTime(_month.year, _month.month + 1, 1)),
-                  icon: const Icon(Icons.chevron_right),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _statBox(
+                        context,
+                        'Chuỗi ngày uống',
+                        '$streak ngày',
+                        Icons.local_fire_department_outlined,
+                        const Color(0xFFFF7A45),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _statBox(
+                        context,
+                        'Chuỗi đúng giờ',
+                        '$onTimeStreak ngày',
+                        Icons.alarm_on_outlined,
+                        const Color(0xFFE5A000),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
-            _monthGrid(store),
-            const SizedBox(height: 8),
-            Wrap(
-              alignment: WrapAlignment.center,
-              spacing: 10,
-              runSpacing: 6,
+          ),
+        ),
+        const SizedBox(height: 20),
+
+        // 2. Biểu đồ cột 7 ngày
+        const HomeSectionLabel('BIỂU ĐỒ 7 NGÀY TUẦN NÀY'),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const _LegendDot(
-                    color: Color(0xFF95E77E), label: 'Đủ đúng giờ'),
-                const _LegendDot(color: Color(0xFFFFB020), label: 'Có trễ'),
-                const _LegendDot(color: Color(0xFFFF9AA2), label: 'Thiếu'),
-                _LegendDot(
-                    color: scheme.surfaceContainerHighest,
-                    label: 'Không có thuốc'),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Tỉ lệ uống đúng giờ',
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                    Text(
+                      'Đúng giờ / tổng liều',
+                      style: TextStyle(
+                          fontSize: 12, color: scheme.onSurfaceVariant),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                SizedBox(
+                  height: 140,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: weekChart.map((item) {
+                      final isToday =
+                          DateUtils.isSameDay(item.day, DateTime.now());
+                      final isFuture = item.day
+                          .isAfter(DateUtils.dateOnly(DateTime.now()));
+                      final pct = (item.rate * 100).round();
+                      final hasDoses = item.total > 0;
+                      // Chiều cao thanh cột tối đa 80px
+                      final barHeight = hasDoses && !isFuture
+                          ? (item.rate * 76).clamp(8.0, 76.0)
+                          : 4.0;
+                      Color barColor;
+                      if (isFuture || !hasDoses) {
+                        barColor = scheme.surfaceContainerHighest;
+                      } else if (pct >= 80) {
+                        barColor = const Color(0xFF2E7D32);
+                      } else if (pct >= 50) {
+                        barColor = const Color(0xFFE5A000);
+                      } else {
+                        barColor = const Color(0xFFFF6B9D);
+                      }
+
+                      return Expanded(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            Text(
+                              isFuture || !hasDoses ? '-' : '$pct%',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: isToday
+                                    ? FontWeight.bold
+                                    : FontWeight.w500,
+                                color: isFuture || !hasDoses
+                                    ? scheme.onSurfaceVariant.withAlpha(120)
+                                    : scheme.onSurface,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Container(
+                              height: barHeight,
+                              width: 22,
+                              decoration: BoxDecoration(
+                                color: barColor,
+                                borderRadius: BorderRadius.circular(6),
+                                border: isToday
+                                    ? Border.all(
+                                        color: scheme.surfaceAccent, width: 2)
+                                    : null,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 5, vertical: 2),
+                              decoration: isToday
+                                  ? BoxDecoration(
+                                      color:
+                                          scheme.surfaceAccent.withAlpha(30),
+                                      borderRadius: BorderRadius.circular(10),
+                                    )
+                                  : null,
+                              child: Text(
+                                item.weekdayLabel,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: isToday
+                                      ? FontWeight.bold
+                                      : FontWeight.w500,
+                                  color: isToday
+                                      ? scheme.surfaceAccent
+                                      : scheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
               ],
             ),
-          ]),
-        )),
+          ),
+        ),
+        const SizedBox(height: 20),
+
+        // 3. Chi tiết % uống đúng giờ từng thuốc
+        if (medStats.isNotEmpty) ...[
+          const HomeSectionLabel('CHI TIẾT THEO THUỐC (30 NGÀY)'),
+          ...medStats.map((stat) {
+            final pct = (stat.onTimeRate * 100).round();
+            return Card(
+              margin: const EdgeInsets.only(bottom: 8),
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        HomeTileIcon.emoji(stat.medicine.formEmoji),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${stat.medicine.name} — ${stat.medicine.dose}',
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w600, fontSize: 15),
+                              ),
+                              Text(
+                                '${stat.onTimeDoses}/${stat.totalDoses} lần đúng giờ',
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: scheme.onSurfaceVariant),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Text(
+                          '$pct%',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: pct >= 80
+                                ? const Color(0xFF2E7D32)
+                                : pct >= 50
+                                    ? const Color(0xFFE5A000)
+                                    : scheme.error,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: LinearProgressIndicator(
+                        value: stat.onTimeRate,
+                        minHeight: 6,
+                        backgroundColor: scheme.surfaceAccent.withAlpha(26),
+                        color: pct >= 80
+                            ? const Color(0xFF2E7D32)
+                            : pct >= 50
+                                ? const Color(0xFFE5A000)
+                                : scheme.error,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
+          const SizedBox(height: 20),
+        ],
+
+        // 4. Danh hiệu đúng giờ
+        _badgesSection(store),
+        const SizedBox(height: 20),
+
+        // 5. Lịch uống theo tháng (tính năng cốt lõi Thuốc Vui)
+        const HomeSectionLabel('LỊCH UỐNG THEO THÁNG'),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(8),
+            child: Column(children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  IconButton(
+                    onPressed: () => setState(() =>
+                        _month = DateTime(_month.year, _month.month - 1, 1)),
+                    icon: const Icon(Icons.chevron_left),
+                  ),
+                  Text('Tháng ${_month.month}/${_month.year}',
+                      style: const TextStyle(
+                          fontSize: 17, fontWeight: FontWeight.bold)),
+                  IconButton(
+                    onPressed: () => setState(() =>
+                        _month = DateTime(_month.year, _month.month + 1, 1)),
+                    icon: const Icon(Icons.chevron_right),
+                  ),
+                ],
+              ),
+              _monthGrid(store),
+              const SizedBox(height: 8),
+              Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 10,
+                runSpacing: 6,
+                children: [
+                  const _LegendDot(
+                      color: Color(0xFF95E77E), label: 'Đủ đúng giờ'),
+                  const _LegendDot(color: Color(0xFFFFB020), label: 'Có trễ'),
+                  const _LegendDot(color: Color(0xFFFF9AA2), label: 'Thiếu'),
+                  _LegendDot(
+                      color: scheme.surfaceContainerHighest,
+                      label: 'Không có thuốc'),
+                ],
+              ),
+            ]),
+          ),
+        ),
+
+        // Chi tiết ngày được chọn
         if (_selectedDay != null) ...[
           const SizedBox(height: 20),
           Row(
             children: [
               Expanded(
                 child: Text(
-                  'Ngày ${formatDateVn(_selectedDay!)}',
+                  'Chi tiết ngày ${formatDateVn(_selectedDay!)}',
                   style: const TextStyle(
                       fontSize: 17, fontWeight: FontWeight.w700),
                 ),
@@ -112,30 +341,38 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   color: scheme.surfaceAccent, size: 20),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           ..._dayDetails(store, _selectedDay!),
         ],
-        const SizedBox(height: 24),
+        const SizedBox(height: 20),
+
+        // 6. Mua thuốc
+        const HomeSectionLabel('MUA THUỐC'),
         Card(
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Mua thuốc',
+                const Text('Lịch sử mua thuốc',
                     style:
                         TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 6),
                 Text('${firstPurchaseLabel(store)} • '
                     'Tổng ${store.totalPurchasedBoxes} vỉ • '
                     '${formatPurchaseMoney(store.totalPurchaseCost)}'),
-                TextButton(
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => PurchaseHistoryScreen(store: store),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton.icon(
+                    icon: const Icon(Icons.receipt_long_outlined, size: 18),
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => PurchaseHistoryScreen(store: store),
+                      ),
                     ),
+                    label: const Text('Xem & ghi lần mua'),
                   ),
-                  child: const Text('Xem & ghi lần mua'),
                 ),
               ],
             ),
@@ -146,22 +383,94 @@ class _HistoryScreenState extends State<HistoryScreen> {
     );
   }
 
-  Widget _statCard(String label, String value) {
-    final muted = Theme.of(context).colorScheme.onSurfaceVariant;
-    return Card(
-        child: Padding(
-      padding: const EdgeInsets.all(16),
+  Widget _statBox(BuildContext context, String label, String value,
+      IconData icon, Color iconColor) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: iconColor.withAlpha(16),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: iconColor.withAlpha(40)),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: TextStyle(color: muted, fontSize: 13)),
+          Row(
+            children: [
+              Icon(icon, size: 18, color: iconColor),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    color: scheme.onSurfaceVariant,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 6),
-          Text(value,
-              style:
-                  const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          Text(
+            value,
+            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+          ),
         ],
       ),
-    ));
+    );
+  }
+
+  Widget _badgesSection(ThuocStore store) {
+    final scheme = Theme.of(context).colorScheme;
+    final earned = store.earnedBadgeIds();
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Danh hiệu đúng giờ',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            Text(
+              'Chuỗi đúng giờ: ${store.onTimeStreak()} ngày • Tổng lần đúng giờ: ${store.totalOnTime()}',
+              style: TextStyle(color: scheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: allBadges.map((b) {
+                final got = earned.contains(b.id);
+                return Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: got
+                        ? scheme.surfaceAccent.withAlpha(26)
+                        : scheme.surface,
+                    border:
+                        Border.all(color: scheme.surfaceAccent.withAlpha(55)),
+                    borderRadius: BorderRadius.circular(100),
+                  ),
+                  child: Text(
+                    got ? '${b.emoji} ${b.title}' : '🔒 ${b.title}',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: got ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _monthGrid(ThuocStore store) {
@@ -198,8 +507,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
             .length;
         final onTime =
             slots.where((s) => store.logs[s.key]?.status == 'taken').length;
-        // Trễ ≠ Thiếu: uống đủ nhưng có lần trễ = cam (Có trễ);
-        // thiếu 1 lần trở lên (dù có lần trễ) = hồng (Thiếu).
         if (completed == slots.length && onTime == slots.length) {
           bg = const Color(0xFF95E77E);
         } else if (completed == slots.length) {
@@ -256,8 +563,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
               : status == 'skipped'
                   ? 'Đã bỏ qua'
                   : 'Chưa uống';
-      // 1.2.37: mỗi ý một dòng riêng (ListTile 2 dòng làm "Uống lúc"
-      // bị rớt số giờ xuống dòng) — Hẹn / Uống lúc / Trễ.
       String? takenAt;
       String? lateText;
       if ((status == 'taken' || status == 'late') &&

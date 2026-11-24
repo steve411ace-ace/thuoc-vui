@@ -176,9 +176,9 @@ void main() {
           Brightness.light);
     }
 
-    await tester.scrollUntilVisible(find.textContaining('1.2.47+50'), 400);
-    await tester.ensureVisible(find.textContaining('1.2.47+50'));
-    expect(find.textContaining('1.2.47+50'), findsOneWidget);
+    await tester.scrollUntilVisible(find.textContaining('1.2.48+51'), 400);
+    await tester.ensureVisible(find.textContaining('1.2.48+51'));
+    expect(find.textContaining('1.2.48+51'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

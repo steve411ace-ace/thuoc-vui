@@ -254,3 +254,35 @@ class PurchaseRecord {
         pillsPerBox: json['pillsPerBox'] as int? ?? 10,
       );
 }
+
+/// Thống kê tuân thủ theo ngày (cho biểu đồ cột 7 ngày).
+class DailyAdherence {
+  final DateTime day;
+  final String weekdayLabel;
+  final double rate;
+  final int total;
+  final int onTime;
+
+  const DailyAdherence({
+    required this.day,
+    required this.weekdayLabel,
+    required this.rate,
+    required this.total,
+    required this.onTime,
+  });
+}
+
+/// Thống kê tuân thủ theo từng thuốc.
+class MedicineAdherence {
+  final Medicine medicine;
+  final double onTimeRate;
+  final int totalDoses;
+  final int onTimeDoses;
+
+  const MedicineAdherence({
+    required this.medicine,
+    required this.onTimeRate,
+    required this.totalDoses,
+    required this.onTimeDoses,
+  });
+}

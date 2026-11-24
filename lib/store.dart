@@ -37,7 +37,7 @@ class AppSettings {
     this.vibration = true,
     this.quietStart = '22:00',
     this.quietEnd = '07:00',
-    this.remindIntervalMinutes = 10,
+    this.remindIntervalMinutes = 15,
     this.remindTimes = 3,
     this.palette = HomePalette.light,
     this.customColor = HomePalette.defaultCustomColor,
@@ -94,7 +94,7 @@ class AppSettings {
       vibration: j['vibration'] as bool? ?? true,
       quietStart: j['quietStart'] as String? ?? '22:00',
       quietEnd: j['quietEnd'] as String? ?? '07:00',
-      remindIntervalMinutes: (j['remindIntervalMinutes'] as num?)?.toInt() ?? 10,
+      remindIntervalMinutes: (j['remindIntervalMinutes'] as num?)?.toInt() ?? 15,
       remindTimes: (j['remindTimes'] as num?)?.toInt() ?? 3,
       palette: HomePalette.fromName(j['palette']),
       customColor: j['customColor'] is int
@@ -488,6 +488,36 @@ class ThuocStore extends ChangeNotifier {
     return carry;
   }
 
+  /// Bổ sung thêm thuốc (+count viên). Nếu thuốc đang hết (<= 0 viên)
+  /// thì gọi buyNewBox để đặt lại hộp mới và trừ viên vượt. Nếu thuốc
+  /// chưa theo dõi (totalPills <= 0) thì đặt totalPills = count.
+  Future<int> replenishMedicine(Medicine med, int count) async {
+    if (med.totalPills <= 0) {
+      med.totalPills = count;
+      med.startPill = 1;
+      med.stockFrom = todayKey(DateTime.now());
+      med.stockFromAt = DateTime.now().toIso8601String();
+      await _save();
+      notifyListeners();
+      await updateHomeWidget();
+      return 0;
+    }
+    final remaining = remainingPills(med) ?? 0;
+    if (remaining <= 0) {
+      final over = await buyNewBox(med);
+      med.totalPills = count;
+      await _save();
+      notifyListeners();
+      await updateHomeWidget();
+      return over;
+    }
+    med.totalPills += count;
+    await _save();
+    notifyListeners();
+    await updateHomeWidget();
+    return 0;
+  }
+
   Future<bool> requestIgnoreBatteryOptimizations() async {
     try {
       const channel = MethodChannel('thuoc_vui/reminders');
@@ -699,15 +729,18 @@ class ThuocStore extends ChangeNotifier {
     return scheduled;
   }
 
-  Future<void> scheduleSnooze(String slotKey) async {
+  Future<void> scheduleSnooze(String slotKey, [int? minutes]) async {
     if (!notificationsReady) return;
     try {
       final parts = slotKey.split('|');
       if (parts.length != 3) return;
       final med = medicines.where((m) => m.id == parts[0]).toList();
       if (med.isEmpty) return;
-      final at = tz.TZDateTime.now(tz.local)
-          .add(Duration(minutes: settings.remindIntervalMinutes > 0 ? settings.remindIntervalMinutes : 10));
+      final snoozeMin = minutes ??
+          (settings.remindIntervalMinutes > 0
+              ? settings.remindIntervalMinutes
+              : 15);
+      final at = tz.TZDateTime.now(tz.local).add(Duration(minutes: snoozeMin));
       await notifications.zonedSchedule(
         stableHash('snooze|$slotKey') % 2000000000,
         'Nhắc lại: đến giờ uống thuốc!',
@@ -881,6 +914,107 @@ class ThuocStore extends ChangeNotifier {
     }
     if (total == 0) return 0;
     return taken / total;
+  }
+
+  /// Tỷ lệ tuân thủ tuần này (từ đầu tuần đến hiện tại).
+  double adherenceThisWeek() {
+    final now = DateTime.now();
+    final todayDate = DateTime(now.year, now.month, now.day);
+    final monday = todayDate.subtract(Duration(days: todayDate.weekday - 1));
+    var total = 0;
+    var taken = 0;
+    for (var i = 0; i < 7; i++) {
+      final day = monday.add(Duration(days: i));
+      if (day.isAfter(todayDate)) break;
+      for (final slot in slotsForDay(day)) {
+        if (slot.dateTime.isAfter(now)) continue;
+        total++;
+        final st = logs[slot.key]?.status;
+        if (st == 'taken' || st == 'late') taken++;
+      }
+    }
+    if (total == 0) return 1.0;
+    return taken / total;
+  }
+
+  /// Tổng số liều đã uống trong tháng hiện tại.
+  int takenDosesThisMonth() {
+    final now = DateTime.now();
+    var count = 0;
+    for (final entry in logs.entries) {
+      if (entry.value.status != 'taken' && entry.value.status != 'late') continue;
+      final parts = entry.key.split('|');
+      if (parts.length != 3) continue;
+      final dateParts = parts[1].split('-');
+      if (dateParts.length != 3) continue;
+      final year = int.tryParse(dateParts[0]);
+      final month = int.tryParse(dateParts[1]);
+      if (year == now.year && month == now.month) {
+        count++;
+      }
+    }
+    return count;
+  }
+
+  /// Tỉ lệ đúng giờ 7 ngày tuần này (T2 đến CN, ngày chưa tới thì 0%).
+  List<DailyAdherence> weeklyDailyAdherence() {
+    final now = DateTime.now();
+    final todayDate = DateTime(now.year, now.month, now.day);
+    final monday = todayDate.subtract(Duration(days: todayDate.weekday - 1));
+    const labels = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+    final list = <DailyAdherence>[];
+    for (var i = 0; i < 7; i++) {
+      final day = monday.add(Duration(days: i));
+      final isFuture = day.isAfter(todayDate);
+      final slots = slotsForDay(day);
+      if (isFuture || slots.isEmpty) {
+        list.add(DailyAdherence(
+          day: day,
+          weekdayLabel: labels[i],
+          rate: 0.0,
+          total: slots.length,
+          onTime: 0,
+        ));
+      } else {
+        final onTime =
+            slots.where((s) => logs[s.key]?.status == 'taken').length;
+        list.add(DailyAdherence(
+          day: day,
+          weekdayLabel: labels[i],
+          rate: slots.isEmpty ? 0.0 : onTime / slots.length,
+          total: slots.length,
+          onTime: onTime,
+        ));
+      }
+    }
+    return list;
+  }
+
+  /// Thống kê tỉ lệ đúng giờ theo từng thuốc (trong 30 ngày qua).
+  List<MedicineAdherence> medicineAdherenceStats() {
+    final now = DateTime.now();
+    final list = <MedicineAdherence>[];
+    for (final med in medicines) {
+      var total = 0;
+      var onTime = 0;
+      for (var i = 0; i < 30; i++) {
+        final day = now.subtract(Duration(days: i));
+        if (!med.activeOn(day)) continue;
+        for (final time in med.times) {
+          final slot = DoseSlot(medicine: med, time: time, day: day);
+          if (slot.dateTime.isAfter(now)) continue;
+          total++;
+          if (logs[slot.key]?.status == 'taken') onTime++;
+        }
+      }
+      list.add(MedicineAdherence(
+        medicine: med,
+        onTimeRate: total == 0 ? 1.0 : onTime / total,
+        totalDoses: total,
+        onTimeDoses: onTime,
+      ));
+    }
+    return list;
   }
 
   /// Thuốc hay bị bỏ qua nhất trong 30 ngày qua (trả về tên hoặc null).

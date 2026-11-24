@@ -10,8 +10,8 @@ import 'purchases.dart';
 import 'store.dart';
 import 'widget_service.dart';
 
-const _appVersion = '1.2.47';
-const _appBuild = '50';
+const _appVersion = '1.2.48';
+const _appBuild = '51';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -57,6 +57,12 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   int _tab = 0;
   bool _showConfetti = false;
+  DateTime _selectedDay = DateUtils.dateOnly(DateTime.now());
+
+  // Tủ thuốc search & filter
+  final _cabinetSearchController = TextEditingController();
+  String _cabinetQuery = '';
+  String _cabinetFilter = 'all'; // all, active, low
 
   @override
   void initState() {
@@ -67,14 +73,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _cabinetSearchController.dispose();
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      // Mở lại app sau khi bấm widget: nạp lại log để không ghi đè
-      // check-in từ widget bằng bản cũ trong bộ nhớ.
       widget.store.reload();
     }
   }
@@ -92,14 +97,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       return [
         'Giờ uống thuốc trưa rồi, đừng quên nhé!',
         'Trưa rồi, uống thuốc xong nghỉ ngơi nhé!',
-        'Trưa nay Pip nhắc nhẹ: uống thuốc rồi nghỉ trưa thôi!'
+        'Trưa nay Pip nhắc nhẹ: uống thuốc rồi nghỉ trưa thôi!',
       ];
     }
     if (hour < 18) {
       return [
         'Chiều rồi! Còn mấy lần uống nữa là xong hôm nay!',
         'Pip đây! Nhớ uống thuốc chiều nhé!',
-        'Chiều rồi, Pip cổ vũ bạn nốt mấy lần nữa là xong!'
+        'Chiều rồi, Pip cổ vũ bạn nốt mấy lần nữa là xong!',
       ];
     }
     return [
@@ -163,226 +168,198 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
   }
 
+  Future<void> _handleRefill(Medicine med) async {
+    final over = await widget.store.replenishMedicine(med, 10);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(over > 0
+            ? 'Đã bổ sung 10 viên cho ${med.name} (đã trừ $over viên uống trước).'
+            : 'Đã bổ sung 10 viên cho ${med.name}.'),
+      ),
+    );
+    final recordPurchase = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Ghi lần mua này không?'),
+        content: Text(
+            'Bạn vừa bổ sung 10 viên ${med.name}. Có muốn ghi vào lịch sử mua thuốc không?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Để sau'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Ghi lần mua'),
+          ),
+        ],
+      ),
+    );
+    if (recordPurchase == true && mounted) {
+      await showPurchaseForm(context, widget.store, medicineId: med.id);
+    }
+  }
+
+  // -------------------------------------------------------------
+  // TAB 0: HÔM NAY (MEDIFLOW)
+  // -------------------------------------------------------------
   Widget _homeTab() {
     final store = widget.store;
     final scheme = Theme.of(context).colorScheme;
-    final today = DateTime.now();
-    final slots = store.slotsForDay(today);
+    final today = DateUtils.dateOnly(DateTime.now());
+    final isViewingToday = DateUtils.isSameDay(_selectedDay, today);
+    final slots = store.slotsForDay(_selectedDay);
     final taken = slots
         .where(
             (s) => store.statusOf(s) == 'taken' || store.statusOf(s) == 'late')
         .length;
     final onTime = slots.where((s) => store.statusOf(s) == 'taken').length;
-    final overdue = slots.any((s) =>
-        store.statusOf(s) == null && s.dateTime.isBefore(DateTime.now()));
+    final overdue = isViewingToday &&
+        slots.any((s) =>
+            store.statusOf(s) == null && s.dateTime.isBefore(DateTime.now()));
     final allDone = slots.isNotEmpty && taken == slots.length;
-    // Cải tiến Pip (theo yêu cầu sau bản 1.2, gộp luôn vào bản sửa build này):
-    // trước đây Pip chỉ có 3 trạng thái thô (đủ = ăn mừng, quá giờ = lo,
-    // còn lại = vui + câu chào theo giờ). Nay Pip phân biệt rõ hơn:
-    // đủ + đúng giờ hết, đủ nhưng có trễ, bỏ qua, quá giờ, và luôn cho biết
-    // lần uống tiếp theo + chuỗi đúng giờ, để mặt và thông tin khớp với thực tế.
-    final lateCount = slots.where((s) => store.statusOf(s) == 'late').length;
-    final skippedCount =
-        slots.where((s) => store.statusOf(s) == 'skipped').length;
     final allOnTime = slots.isNotEmpty && onTime == slots.length;
-    final streak = store.onTimeStreak();
+    final streak = store.currentStreak();
+
     DoseSlot? nextSlot;
-    for (final s in slots) {
-      if (store.statusOf(s) == null) {
-        nextSlot = s;
-        break;
+    if (isViewingToday) {
+      for (final s in slots) {
+        if (store.statusOf(s) == null) {
+          nextSlot = s;
+          break;
+        }
       }
     }
+
     final PipMood pipMood;
-    final String pipMessage;
     if (allOnTime) {
       pipMood = PipMood.celebrate;
-      pipMessage = streak >= 2
-          ? 'Hôm nay bạn uống đủ và đúng giờ hết rồi, tuyệt vời! Chuỗi đúng giờ: $streak ngày 🔥'
-          : 'Hôm nay bạn uống đủ và đúng giờ hết rồi, tuyệt vời!';
-    } else if (allDone) {
-      pipMood = PipMood.happy;
-      pipMessage =
-          'Hôm nay uống đủ hết rồi, có $lateCount lần trễ, lần sau cố đúng giờ nhé!';
     } else if (overdue) {
       pipMood = PipMood.worried;
-      pipMessage = 'Ơ, có lần uống quá giờ chưa thấy bạn bấm, uống bù nhé?';
-    } else if (skippedCount > 0) {
-      pipMood = PipMood.worried;
-      pipMessage = 'Hôm nay bạn bỏ qua $skippedCount lần, mai cố nhé?';
-    } else if (nextSlot != null && slots.length - taken == 1) {
-      // Còn đúng 1 lần: Pip cổ vũ nốt lần cuối, thay vì chỉ chào theo giờ.
-      pipMood = PipMood.happy;
-      pipMessage =
-          'Sắp xong rồi, cố nốt lần này nhé! 💪\nTiếp theo: ${nextSlot.medicine.formEmoji} ${nextSlot.medicine.name} lúc ${nextSlot.time}';
-    } else if (nextSlot != null) {
-      pipMood = PipMood.happy;
-      pipMessage =
-          '$_greeting\nTiếp theo: ${nextSlot.medicine.formEmoji} ${nextSlot.medicine.name} lúc ${nextSlot.time}';
     } else {
       pipMood = PipMood.happy;
-      pipMessage = _greeting;
     }
-    // Nhắc mua thuốc (nếu có): thêm vào cuối câu Pip để người dùng thấy
-    // ngay trên trang Hôm nay, kể cả khi hôm nay đã uống đủ.
-    final buyPrompt = store.todayBuyPrompt();
-    final String finalPipMessage =
-        buyPrompt == null ? pipMessage : '$pipMessage\n🛒 $buyPrompt';
+
+    // Nhóm liều theo buổi: BUỔI SÁNG / BUỔI TRƯA / BUỔI TỐI
+    final morningSlots = <DoseSlot>[];
+    final noonSlots = <DoseSlot>[];
+    final eveningSlots = <DoseSlot>[];
+    for (final s in slots) {
+      final hour = int.tryParse(s.time.split(':')[0]) ?? 0;
+      if (hour < 12) {
+        morningSlots.add(s);
+      } else if (hour < 17) {
+        noonSlots.add(s);
+      } else {
+        eveningSlots.add(s);
+      }
+    }
 
     return Stack(
       children: [
         ListView(
-          padding: const EdgeInsets.fromLTRB(18, 20, 18, 16),
+          padding: const EdgeInsets.fromLTRB(18, 16, 18, 32),
           children: [
-            Card(
-                child: Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          scheme.surface,
-                          scheme.brightness == Brightness.light &&
-                                  scheme.primary ==
-                                      HomePalette.defaultCustomColor
-                              ? const Color(0xFFF0F9F5)
-                              : Color.alphaBlend(
-                                  scheme.surfaceAccent.withAlpha(20),
-                                  scheme.surface),
-                        ],
-                      ),
-                    ),
-                    padding: const EdgeInsets.all(16),
-                    child: Row(
-                      children: [
-                        PipWidget(
-                          size: 54,
-                          mood: pipMood,
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 400),
-                            transitionBuilder: (child, anim) => FadeTransition(
-                              opacity: anim,
-                              child: SlideTransition(
-                                position: Tween<Offset>(
-                                        begin: const Offset(0, 0.1),
-                                        end: Offset.zero)
-                                    .animate(anim),
-                                child: child,
-                              ),
-                            ),
-                            child: RichText(
-                              key: ValueKey(finalPipMessage),
-                              text: TextSpan(
-                                style: TextStyle(
-                                  fontFamily: 'Be Vietnam Pro',
-                                  fontSize: 13,
-                                  height: 1.55,
-                                  fontWeight: FontWeight.w500,
-                                  color: scheme.onSurface,
-                                ),
-                                children: [
-                                  for (int i = 0;
-                                      i < finalPipMessage.split('\n').length;
-                                      i++) ...[
-                                    if (i > 0) const TextSpan(text: '\n'),
-                                    TextSpan(
-                                      text: finalPipMessage.split('\n')[i],
-                                      style: finalPipMessage
-                                              .split('\n')[i]
-                                              .startsWith('Tiếp theo:')
-                                          ? TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              color: scheme.surfaceAccent,
-                                            )
-                                          : null,
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ))),
-            const SizedBox(height: 8),
-            if (slots.isEmpty) ...[
-              const Card(
-                  child: Padding(
-                padding: EdgeInsets.all(16),
-                child: Column(
+            // 1. Thanh chọn ngày cả tuần ở đầu trang (T7-T6 / T2-CN)
+            _weekSelectorStrip(scheme, today),
+
+            if (!isViewingToday) ...[
+              Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: scheme.surfaceAccent.withAlpha(20),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
                   children: [
-                    Text('Chưa có thuốc nào cho hôm nay.',
+                    Icon(Icons.event, size: 18, color: scheme.surfaceAccent),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Đang xem ngày ${formatDateVn(_selectedDay)}',
                         style: TextStyle(
-                            fontSize: 17, fontWeight: FontWeight.bold)),
-                    SizedBox(height: 8),
-                    Text(
-                      'Bấm nút bên dưới để thêm thuốc đầu tiên, Pip sẽ nhắc bạn đúng giờ.',
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
-              )),
-            ] else ...[
-              Card(
-                  child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Hôm nay: đã uống $taken/${slots.length} lần • đúng giờ $onTime lần',
-                      style: const TextStyle(
-                          fontSize: 17, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 10),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
-                      child: LinearProgressIndicator(
-                        value: slots.isEmpty ? 0 : taken / slots.length,
-                        minHeight: 8,
-                        backgroundColor: scheme.surfaceAccent.withAlpha(26),
-                        color: scheme.surfaceAccent,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: scheme.surfaceAccent),
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                        'Chuỗi ngày liên tục: ${store.currentStreak()} ngày 🔥'),
+                    TextButton(
+                      style: TextButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                      ),
+                      onPressed: () => setState(() => _selectedDay = today),
+                      child: const Text('Về hôm nay'),
+                    ),
                   ],
                 ),
-              )),
-              const SizedBox(height: 8),
-              _badgesSection(store),
-              const SizedBox(height: 20),
-              const HomeSectionLabel('Lịch uống hôm nay'),
-              ...slots.map((slot) => _slotCard(slot)),
+              ),
             ],
-            const SizedBox(height: 24),
-            if (store.medicines.isNotEmpty) ...[
-              const HomeSectionLabel('Thuốc của tôi (bấm để sửa)'),
-              ...store.medicines.map((med) {
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  child: ListTile(
-                    contentPadding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
-                    leading: HomeTileIcon.emoji(med.formEmoji),
-                    title: Text('${med.name} — ${med.dose}'),
-                    subtitle:
-                        Text('${med.times.join(', ')} • ${med.mealLabel}'),
-                    trailing: Container(
-                        width: 14,
-                        height: 14,
-                        decoration: BoxDecoration(
-                            color: Color(med.color), shape: BoxShape.circle)),
-                    onTap: () => _openAdd(med),
+
+            // 2. Thẻ tổng quan ở đầu trang: streak, liều tiếp theo, vòng tròn tiến độ %
+            _overviewCard(scheme, taken, slots.length, streak, nextSlot,
+                allDone, pipMood, isViewingToday),
+            const SizedBox(height: 12),
+
+            // 3. Cảnh báo sắp hết thuốc ngay trên trang chính kèm nút "Bổ sung"
+            _lowStockAlertBanner(store, scheme),
+
+            // 4. Lịch uống trong ngày chia nhóm theo buổi
+            if (slots.isEmpty) ...[
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    children: [
+                      Icon(Icons.check_circle_outline,
+                          size: 48, color: scheme.surfaceAccent.withAlpha(120)),
+                      const SizedBox(height: 12),
+                      Text(
+                        isViewingToday
+                            ? 'Chưa có lịch uống thuốc hôm nay.'
+                            : 'Không có thuốc nào cần uống ngày này.',
+                        style: const TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.bold),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        isViewingToday
+                            ? 'Bấm nút "Thêm thuốc" để bắt đầu theo dõi.'
+                            : 'Lịch nhắc sẽ tự động hiển thị theo các ngày bạn cài đặt.',
+                        style: TextStyle(
+                            fontSize: 13, color: scheme.onSurfaceVariant),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
                   ),
-                );
-              }),
+                ),
+              ),
+            ] else ...[
+              if (morningSlots.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                const HomeSectionLabel('BUỔI SÁNG'),
+                ...morningSlots.map((s) => _slotCard(s, isViewingToday)),
+              ],
+              if (noonSlots.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                const HomeSectionLabel('BUỔI TRƯA'),
+                ...noonSlots.map((s) => _slotCard(s, isViewingToday)),
+              ],
+              if (eveningSlots.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                const HomeSectionLabel('BUỔI TỐI'),
+                ...eveningSlots.map((s) => _slotCard(s, isViewingToday)),
+              ],
             ],
-            const SizedBox(height: 90),
+
+            // 5. Dòng tóm tắt cuối trang
+            const SizedBox(height: 16),
+            _summaryBanner(scheme, taken, slots.length, nextSlot, isViewingToday),
+            const SizedBox(height: 72),
           ],
         ),
         if (_showConfetti)
@@ -391,44 +368,383 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
-  Widget _slotCard(DoseSlot slot) {
+  /// Thanh chọn 7 ngày trong tuần
+  Widget _weekSelectorStrip(ColorScheme scheme, DateTime today) {
+    final monday = _selectedDay.subtract(Duration(days: _selectedDay.weekday - 1));
+    const weekdayNames = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+        child: Row(
+          children: List.generate(7, (i) {
+            final day = monday.add(Duration(days: i));
+            final isSelected = DateUtils.isSameDay(day, _selectedDay);
+            final isToday = DateUtils.isSameDay(day, today);
+
+            return Expanded(
+              child: GestureDetector(
+                onTap: () => setState(() => _selectedDay = day),
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 2),
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? scheme.surfaceAccent
+                        : (isToday
+                            ? scheme.surfaceAccent.withAlpha(24)
+                            : Colors.transparent),
+                    borderRadius: BorderRadius.circular(14),
+                    border: isToday && !isSelected
+                        ? Border.all(color: scheme.surfaceAccent, width: 1.5)
+                        : null,
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        weekdayNames[i],
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: isToday || isSelected
+                              ? FontWeight.bold
+                              : FontWeight.w500,
+                          color: isSelected
+                              ? Colors.white
+                              : (isToday
+                                  ? scheme.surfaceAccent
+                                  : scheme.onSurfaceVariant),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${day.day}',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: isSelected || isToday
+                              ? FontWeight.bold
+                              : FontWeight.w600,
+                          color: isSelected
+                              ? Colors.white
+                              : (isToday
+                                  ? scheme.surfaceAccent
+                                  : scheme.onSurface),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }),
+        ),
+      ),
+    );
+  }
+
+  /// Thẻ tổng quan đầu trang: streak, liều tiếp theo, vòng tròn tiến độ %
+  Widget _overviewCard(
+    ColorScheme scheme,
+    int taken,
+    int total,
+    int streak,
+    DoseSlot? nextSlot,
+    bool allDone,
+    PipMood pipMood,
+    bool isViewingToday,
+  ) {
+    final nextDoseText = nextSlot != null
+        ? 'Tiếp theo lúc ${nextSlot.time} — ${nextSlot.medicine.name} · ${nextSlot.medicine.dose}'
+        : (allDone
+            ? 'Đã hoàn thành tất cả liều hôm nay! 🎉'
+            : (total == 0
+                ? 'Không có liều thuốc nào cần uống'
+                : 'Đã hoàn thành các liều đã đến giờ'));
+
+    return Card(
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              scheme.surface,
+              Color.alphaBlend(scheme.surfaceAccent.withAlpha(16), scheme.surface),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(22),
+        ),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                // Vòng tròn tiến độ % liều đã uống
+                _progressCircle(taken, total, scheme),
+                const SizedBox(width: 14),
+                // Thông tin chuỗi ngày + liều tiếp theo
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFF7A45).withAlpha(24),
+                              borderRadius: BorderRadius.circular(100),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Text('🔥 ', style: TextStyle(fontSize: 11)),
+                                Text(
+                                  'Chuỗi $streak ngày liên tiếp',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFFD64D18),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        isViewingToday
+                            ? nextDoseText
+                            : 'Lịch ngày: $taken/$total liều hoàn thành',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          height: 1.35,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            // Bong bóng lời nhắn của Pip
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                PipWidget(size: 46, mood: pipMood),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: scheme.surfaceAccent.withAlpha(18),
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(4),
+                        topRight: Radius.circular(14),
+                        bottomLeft: Radius.circular(14),
+                        bottomRight: Radius.circular(14),
+                      ),
+                      border: Border.all(
+                        color: scheme.surfaceAccent.withAlpha(35),
+                        width: 1,
+                      ),
+                    ),
+                    child: Text(
+                      _greeting,
+                      style: TextStyle(
+                        fontFamily: 'Be Vietnam Pro',
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w500,
+                        color: scheme.onSurface,
+                        height: 1.35,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Vòng tròn tiến độ %
+  Widget _progressCircle(int completed, int total, ColorScheme scheme) {
+    final pct = total > 0 ? (completed / total).clamp(0.0, 1.0) : 0.0;
+    final pctInt = (pct * 100).round();
+    return SizedBox(
+      width: 66,
+      height: 66,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          CircularProgressIndicator(
+            value: pct,
+            strokeWidth: 6,
+            backgroundColor: scheme.surfaceAccent.withAlpha(30),
+            valueColor: AlwaysStoppedAnimation<Color>(scheme.surfaceAccent),
+            strokeCap: StrokeCap.round,
+          ),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '$pctInt%',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                  height: 1.1,
+                ),
+              ),
+              Text(
+                '$completed/$total liều',
+                style: TextStyle(
+                  fontSize: 9.5,
+                  color: scheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Cảnh báo sắp hết thuốc trên trang chính
+  Widget _lowStockAlertBanner(ThuocStore store, ColorScheme scheme) {
+    final lowMeds = store.medicines.where((m) {
+      final rem = store.remainingPills(m);
+      return rem != null && rem <= 6;
+    }).toList();
+
+    if (lowMeds.isEmpty) return const SizedBox.shrink();
+
+    final med = lowMeds.first;
+    final rem = store.remainingPills(med) ?? 0;
+    final isOut = rem <= 0;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      color: scheme.brightness == Brightness.dark
+          ? (isOut ? const Color(0xFF381A1E) : const Color(0xFF362810))
+          : (isOut ? const Color(0xFFFFECEF) : const Color(0xFFFFF7E6)),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          children: [
+            Icon(
+              isOut ? Icons.error_outline : Icons.warning_amber_rounded,
+              color: isOut ? const Color(0xFFD32F2F) : const Color(0xFFE65100),
+              size: 24,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    isOut ? 'Hết thuốc: ${med.name}' : 'Sắp hết: ${med.name}',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13.5,
+                      color: isOut
+                          ? const Color(0xFFD32F2F)
+                          : const Color(0xFFE65100),
+                    ),
+                  ),
+                  Text(
+                    isOut
+                        ? 'Đã hết liều trong tủ thuốc'
+                        : 'Chỉ còn $rem liều trong tủ thuốc',
+                    style: TextStyle(fontSize: 12, color: scheme.onSurface),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            FilledButton.tonal(
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                minimumSize: const Size(0, 36),
+              ),
+              onPressed: () => _handleRefill(med),
+              child: const Text('Bổ sung',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Thẻ liều thuốc từng lần uống
+  Widget _slotCard(DoseSlot slot, bool isViewingToday) {
     final store = widget.store;
     final theme = Theme.of(context);
-    final muted = theme.colorScheme.onSurfaceVariant;
+    final scheme = theme.colorScheme;
+    final muted = scheme.onSurfaceVariant;
     final status = store.statusOf(slot);
-    // 1.2.32: hết thuốc (còn 0 viên) thì không cho bấm Đã uống / Nhắc lại
-    // sau nữa — không còn viên nào để uống; chỉ còn Bỏ qua và Đã mua hộp mới.
-    // remainingPills == null nghĩa là thuốc không theo dõi số viên thì
-    // không khóa (?? 1).
-    final outOfStock = (store.remainingPills(slot.medicine) ?? 1) <= 0;
+    final remaining = store.remainingPills(slot.medicine);
+    final outOfStock = (remaining ?? 1) <= 0;
     final now = DateTime.now();
-    final isOverdue = status == null && slot.dateTime.isBefore(now);
+    final isOverdue = isViewingToday &&
+        status == null &&
+        slot.dateTime.isBefore(now);
     final log = store.logs[slot.key];
 
-    final stripe = doseStatusColor(isOverdue ? 'late' : status) ??
-        theme.colorScheme.surfaceAccent;
-    String statusText;
-    if (status == 'taken') {
-      final at =
-          log != null && log.at.isNotEmpty ? DateTime.tryParse(log.at) : null;
-      statusText = at == null
-          ? 'Đã uống đúng giờ'
-          : 'Đã uống đúng giờ lúc ${at.hour.toString().padLeft(2, '0')}:${at.minute.toString().padLeft(2, '0')}';
-    } else if (status == 'late') {
-      final at =
-          log != null && log.at.isNotEmpty ? DateTime.tryParse(log.at) : null;
-      final lateMin = at?.difference(slot.dateTime).inMinutes ?? 0;
-      statusText = at == null
-          ? 'Đã uống trễ'
-          : 'Đã uống trễ lúc ${at.hour.toString().padLeft(2, '0')}:${at.minute.toString().padLeft(2, '0')}${lateMin > 0 ? ' (trễ $lateMin phút)' : ''}';
-    } else if (status == 'skipped') {
-      statusText =
-          'Đã bỏ qua${log != null && log.reason.isNotEmpty ? ' (${log.reason})' : ''}';
+    final isTaken = status == 'taken' || status == 'late';
+    final isSkipped = status == 'skipped';
+
+    // Tính thời gian còn lại hoặc quá giờ
+    String timeBadge;
+    Color timeBadgeColor = scheme.surfaceAccent;
+    if (isTaken) {
+      final at = log != null && log.at.isNotEmpty ? DateTime.tryParse(log.at) : null;
+      final atText = at != null
+          ? '${at.hour.toString().padLeft(2, '0')}:${at.minute.toString().padLeft(2, '0')}'
+          : '';
+      if (status == 'late') {
+        final lateMin = at?.difference(slot.dateTime).inMinutes ?? 0;
+        timeBadge = 'Đã uống trễ lúc $atText${lateMin > 0 ? ' (trễ $lateMin phút)' : ''}';
+        timeBadgeColor = const Color(0xFFE5A000);
+      } else {
+        timeBadge = 'Đã uống lúc $atText';
+        timeBadgeColor = const Color(0xFF2E7D32);
+      }
+    } else if (isSkipped) {
+      timeBadge = 'Đã bỏ qua${log != null && log.reason.isNotEmpty ? ' (${log.reason})' : ''}';
+      timeBadgeColor = muted;
     } else if (isOverdue) {
-      statusText = 'Quá giờ';
+      final lateMin = now.difference(slot.dateTime).inMinutes;
+      timeBadge = 'Quá giờ • Trễ ${_formatLate(lateMin)}';
+      timeBadgeColor = const Color(0xFFE5A000);
     } else {
-      statusText = 'Sắp tới lúc ${slot.time}';
+      // Chưa đến giờ
+      if (isViewingToday && now.isBefore(slot.dateTime)) {
+        final diff = slot.dateTime.difference(now);
+        final hours = diff.inHours;
+        final mins = diff.inMinutes % 60;
+        final diffText =
+            hours > 0 ? '$hours giờ $mins phút' : '$mins phút';
+        timeBadge = 'Chưa đến giờ • Còn $diffText';
+      } else {
+        timeBadge = 'Hẹn lúc ${slot.time}';
+      }
+      timeBadgeColor = scheme.surfaceAccent;
     }
+
+    final stripe = doseStatusColor(isOverdue ? 'late' : status) ??
+        (isTaken ? const Color(0xFF2E7D32) : scheme.surfaceAccent);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -449,92 +765,92 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        '${slot.medicine.name} — ${slot.medicine.dose}',
-                        style: theme.listTileTheme.titleTextStyle,
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              '${slot.medicine.name} — ${slot.medicine.dose}',
+                              style: theme.listTileTheme.titleTextStyle,
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: scheme.surfaceAccent.withAlpha(20),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              slot.time,
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: scheme.surfaceAccent,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
+                      const SizedBox(height: 3),
                       Text(
-                        'Lúc ${slot.time} • ${slot.medicine.mealLabel}'
+                        '${slot.medicine.mealLabel}'
                         '${slot.medicine.note.isNotEmpty ? ' • ${slot.medicine.note}' : ''}',
                         style: theme.listTileTheme.subtitleTextStyle,
                       ),
-                      // Trạng thái nằm trong cột Expanded, không nằm ngoài Row:
-                      // trước đây Text trạng thái dài (ví dụ "Đã uống trễ lúc
-                      // 20:11 (trễ 671 phút)") chiếm hết chiều ngang, ép cột
-                      // tên thuốc còn rộng ~1 ký tự nên chữ xếp dọc từng ký tự.
-                      const SizedBox(height: 4),
-                      Text(statusText,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: doseStatusInk(
-                                theme.colorScheme, isOverdue ? 'late' : status),
-                          )),
-                      if (store.remainingPills(slot.medicine) != null) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          'Còn ${store.remainingPills(slot.medicine)} viên'
-                          '${store.daysSupply(slot.medicine) != null ? ' (đủ ${store.daysSupply(slot.medicine)} ngày)' : ''}',
-                          style: TextStyle(color: muted),
-                        ),
-                      ],
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: timeBadgeColor.withAlpha(20),
+                              borderRadius: BorderRadius.circular(100),
+                            ),
+                            child: Text(
+                              timeBadge,
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w600,
+                                color: timeBadgeColor,
+                              ),
+                            ),
+                          ),
+                          if (remaining != null) ...[
+                            const SizedBox(width: 8),
+                            Text(
+                              'Còn $remaining liều',
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                color: remaining <= 3
+                                    ? scheme.error
+                                    : muted,
+                                fontWeight: remaining <= 3
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
                     ],
                   ),
                 ),
               ],
             ),
             const Divider(height: 20),
-            if (store.remainingPills(slot.medicine) != null &&
-                (store.remainingPills(slot.medicine)! <= 0 ||
-                    (store.daysSupply(slot.medicine) ?? 999) <= 3)) ...[
-              const SizedBox(height: 8),
+            // Nút thao tác
+            if (isTaken || isSkipped) ...[
               Align(
                 alignment: Alignment.centerLeft,
                 child: OutlinedButton.icon(
-                  icon: const Icon(Icons.shopping_bag_outlined, size: 18),
-                  label: const Text('Đã mua hộp mới'),
-                  onPressed: () async {
-                    final over = await store.buyNewBox(slot.medicine);
-                    if (!mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(over > 0
-                            ? 'Đã tính lại từ hôm nay, đã trừ $over viên uống trước khi mua.'
-                            : 'Đã tính lại từ hôm nay, viên bắt đầu = 1.'),
-                      ),
-                    );
-                    final recordPurchase = await showDialog<bool>(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        title: const Text('Ghi lần mua này không?'),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context, false),
-                            child: const Text('Để sau'),
-                          ),
-                          FilledButton(
-                            onPressed: () => Navigator.pop(context, true),
-                            child: const Text('Ghi lần mua'),
-                          ),
-                        ],
-                      ),
-                    );
-                    if (recordPurchase == true && mounted) {
-                      await showPurchaseForm(context, store,
-                          medicineId: slot.medicine.id);
-                    }
-                  },
-                ),
-              ),
-            ],
-            if (status == 'taken' || status == 'late') ...[
-              const SizedBox(height: 12),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: OutlinedButton.icon(
-                  icon: const Icon(Icons.undo, size: 18),
+                  icon: const Icon(Icons.undo, size: 17),
                   label: const Text('Hoàn tác'),
-                  style: OutlinedButton.styleFrom(foregroundColor: muted),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: muted,
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  ),
                   onPressed: () async {
                     await store.undoTaken(slot);
                     if (!mounted) return;
@@ -542,106 +858,108 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                           content:
-                              Text('Đã hoàn tác, lần này quay lại chưa uống.')),
+                              Text('Đã hoàn tác, liều quay lại chưa uống.')),
                     );
                   },
                 ),
               ),
-            ],
-            if (status == null) ...[
-              const SizedBox(height: 12),
+            ] else ...[
               if (outOfStock) ...[
-                const Text('Hết thuốc rồi, mua hộp mới trước nhé!'),
-                const SizedBox(height: 8),
-              ],
-              Row(
-                children: [
-                  Expanded(
-                    child: FilledButton(
-                      onPressed: outOfStock
-                          ? null
-                          : () async {
-                              final beforeBadges = store.earnedBadgeIds();
-                              final result = await store.markTaken(slot);
-                              if (!mounted) return;
-                              if (result == 'late') {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                      content: Text(
-                                          'Đã ghi uống trễ, lần sau cố đúng giờ nhé! ⏰')),
-                                );
-                              } else {
-                                setState(() => _showConfetti = true);
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                      content: Text(
-                                          'Giỏi quá! Bạn uống đúng giờ rồi! 🌟')),
-                                );
-                              }
-                              final newBadges = store
-                                  .earnedBadgeIds()
-                                  .difference(beforeBadges);
-                              if (newBadges.isNotEmpty && mounted) {
-                                final badge = allBadges
-                                    .firstWhere((b) => b.id == newBadges.first);
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                      content: Text(
-                                          'Mở khóa danh hiệu mới: ${badge.emoji} ${badge.title}!')),
-                                );
-                              }
-                            },
-                      style: FilledButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 12),
-                      ),
-                      child: const FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Text('Đã uống', softWrap: false),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Hết thuốc rồi, bổ sung trước nhé!',
+                        style: TextStyle(color: scheme.error, fontSize: 12),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: outOfStock
-                          ? null
-                          : () async {
-                              await store.scheduleSnooze(slot.key);
-                              if (!mounted) return;
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                    content: Text(
-                                        'Pip sẽ nhắc lại sau 10 phút nhé!')),
-                              );
-                            },
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 12),
-                      ),
-                      child: const FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Text('Nhắc lại sau', softWrap: false),
+                    OutlinedButton.icon(
+                      icon: const Icon(Icons.add, size: 16),
+                      label: const Text('Bổ sung'),
+                      onPressed: () => _handleRefill(slot.medicine),
+                    ),
+                  ],
+                ),
+              ] else ...[
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: FilledButton.icon(
+                        icon: const Icon(Icons.check, size: 18),
+                        label: const Text('Đã uống',
+                            style: TextStyle(fontWeight: FontWeight.bold)),
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 11),
+                        ),
+                        onPressed: () async {
+                          final beforeBadges = store.earnedBadgeIds();
+                          final result = await store.markTaken(slot);
+                          if (!mounted) return;
+                          if (result == 'late') {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                  content: Text(
+                                      'Đã ghi uống trễ, lần sau cố đúng giờ nhé! ⏰')),
+                            );
+                          } else {
+                            setState(() => _showConfetti = true);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                  content: Text(
+                                      'Giỏi quá! Bạn đã uống đúng giờ! 🌟')),
+                            );
+                          }
+                          final newBadges = store
+                              .earnedBadgeIds()
+                              .difference(beforeBadges);
+                          if (newBadges.isNotEmpty && mounted) {
+                            final badge = allBadges
+                                .firstWhere((b) => b.id == newBadges.first);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                  content: Text(
+                                      'Mở khóa danh hiệu mới: ${badge.emoji} ${badge.title}!')),
+                            );
+                          }
+                        },
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: OutlinedButton(
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 11),
+                        ),
+                        onPressed: () async {
+                          final snoozeMin =
+                              store.settings.remindIntervalMinutes > 0
+                                  ? store.settings.remindIntervalMinutes
+                                  : 15;
+                          await store.scheduleSnooze(slot.key, snoozeMin);
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                                content: Text(
+                                    'Đã hoãn nhắc sau $snoozeMin phút!')),
+                          );
+                        },
+                        child: Text(
+                          'Hoãn ${store.settings.remindIntervalMinutes > 0 ? store.settings.remindIntervalMinutes : 15}p',
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      tooltip: 'Bỏ qua lần này',
+                      icon: const Icon(Icons.close),
+                      color: muted,
                       onPressed: () => _askSkip(slot),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: muted,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 12),
-                      ),
-                      child: const FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Text('Bỏ qua', softWrap: false),
-                      ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
+              ],
             ],
           ],
         ),
@@ -649,50 +967,355 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
-  Widget _badgesSection(ThuocStore store) {
-    final scheme = Theme.of(context).colorScheme;
-    final earned = store.earnedBadgeIds();
-    return Card(
-        child: Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+  /// Dòng tóm tắt cuối trang MediFlow
+  Widget _summaryBanner(ColorScheme scheme, int taken, int total,
+      DoseSlot? nextSlot, bool isViewingToday) {
+    String summary;
+    final hour = DateTime.now().hour;
+    final timeGreeting = hour < 12 ? 'Sáng nay' : (hour < 17 ? 'Chiều nay' : 'Tối nay');
+
+    if (total == 0) {
+      summary = 'Không có lịch uống thuốc trong ngày này.';
+    } else if (taken == total) {
+      summary =
+          '$timeGreeting bạn đã uống đủ $taken/$total liều. Tuyệt vời!';
+    } else if (nextSlot != null) {
+      summary =
+          '$timeGreeting bạn đã uống $taken/$total liều. Còn ${total - taken} liều lúc ${nextSlot.time} — ${nextSlot.medicine.name}.';
+    } else {
+      summary =
+          '$timeGreeting bạn đã uống $taken/$total liều thuốc.';
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: scheme.surfaceAccent.withAlpha(14),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: scheme.surfaceAccent.withAlpha(35)),
+      ),
+      child: Row(
         children: [
-          const Text('Danh hiệu đúng giờ',
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 4),
-          Text(
-              'Chuỗi đúng giờ: ${store.onTimeStreak()} ngày • Tổng lần đúng giờ: ${store.totalOnTime()}',
-              style: TextStyle(color: scheme.onSurfaceVariant)),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: allBadges.map((b) {
-              final got = earned.contains(b.id);
-              return Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                decoration: BoxDecoration(
-                  color:
-                      got ? scheme.surfaceAccent.withAlpha(26) : scheme.surface,
-                  border: Border.all(color: scheme.surfaceAccent.withAlpha(55)),
-                  borderRadius: BorderRadius.circular(100),
-                ),
-                child: Text(
-                  got ? '${b.emoji} ${b.title}' : '🔒 ${b.title}',
-                  style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: got ? FontWeight.bold : FontWeight.normal),
-                ),
-              );
-            }).toList(),
+          Icon(Icons.info_outline, size: 20, color: scheme.surfaceAccent),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              summary,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: scheme.onSurface,
+              ),
+            ),
           ),
         ],
       ),
-    ));
+    );
   }
 
+  // -------------------------------------------------------------
+  // TAB 1: TỦ THUỐC (MEDIFLOW)
+  // -------------------------------------------------------------
+  Widget _cabinetTab() {
+    final store = widget.store;
+    final scheme = Theme.of(context).colorScheme;
+    final now = DateTime.now();
+
+    final allCount = store.medicines.length;
+    final activeCount =
+        store.medicines.where((m) => m.activeOn(now)).length;
+    final lowCount = store.medicines
+        .where((m) => (store.remainingPills(m) ?? 999) <= 6)
+        .length;
+
+    // Lọc theo text search + filter
+    final query = _cabinetQuery.trim().toLowerCase();
+    final filtered = store.medicines.where((m) {
+      if (query.isNotEmpty) {
+        final matchName = m.name.toLowerCase().contains(query);
+        final matchDose = m.dose.toLowerCase().contains(query);
+        final matchNote = m.note.toLowerCase().contains(query);
+        if (!matchName && !matchDose && !matchNote) return false;
+      }
+      if (_cabinetFilter == 'active') {
+        return m.activeOn(now);
+      } else if (_cabinetFilter == 'low') {
+        return (store.remainingPills(m) ?? 999) <= 6;
+      }
+      return true;
+    }).toList();
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 32),
+      children: [
+        // 1. Ô tìm kiếm thuốc
+        TextField(
+          controller: _cabinetSearchController,
+          onChanged: (v) => setState(() => _cabinetQuery = v),
+          decoration: InputDecoration(
+            hintText: 'Tìm kiếm thuốc...',
+            prefixIcon: const Icon(Icons.search),
+            suffixIcon: _cabinetQuery.isNotEmpty
+                ? IconButton(
+                    icon: const Icon(Icons.clear),
+                    onPressed: () {
+                      _cabinetSearchController.clear();
+                      setState(() => _cabinetQuery = '');
+                    },
+                  )
+                : null,
+            border: const OutlineInputBorder(
+              borderRadius: BorderRadius.all(Radius.circular(16)),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // 2. Bộ lọc: Tất cả / Đang dùng / Sắp hết
+        Row(
+          children: [
+            _filterChip('Tất cả ($allCount)', 'all', scheme),
+            const SizedBox(width: 8),
+            _filterChip('Đang dùng ($activeCount)', 'active', scheme),
+            const SizedBox(width: 8),
+            _filterChip('Sắp hết ($lowCount)', 'low', scheme),
+          ],
+        ),
+        const SizedBox(height: 16),
+
+        // 3. Danh sách thẻ thuốc
+        if (filtered.isEmpty) ...[
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                children: [
+                  Icon(Icons.inventory_2_outlined,
+                      size: 48, color: scheme.onSurfaceVariant.withAlpha(120)),
+                  const SizedBox(height: 12),
+                  Text(
+                    _cabinetQuery.isNotEmpty
+                        ? 'Không tìm thấy thuốc phù hợp.'
+                        : (_cabinetFilter == 'low'
+                            ? 'Không có thuốc nào sắp hết. Rất tốt!'
+                            : 'Tủ thuốc đang trống.'),
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 16),
+                  FilledButton.icon(
+                    icon: const Icon(Icons.add),
+                    label: const Text('Thêm thuốc mới'),
+                    onPressed: () => _openAdd(),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ] else ...[
+          ...filtered.map((med) => _medicineCabinetCard(med, scheme)),
+        ],
+
+        const SizedBox(height: 16),
+        SizedBox(
+          width: double.infinity,
+          height: 50,
+          child: FilledButton.icon(
+            icon: const Icon(Icons.add),
+            label: const Text('Thêm thuốc mới',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            onPressed: () => _openAdd(),
+          ),
+        ),
+        const SizedBox(height: 60),
+      ],
+    );
+  }
+
+  Widget _filterChip(String label, String value, ColorScheme scheme) {
+    final selected = _cabinetFilter == value;
+    return ChoiceChip(
+      label: Text(label),
+      selected: selected,
+      selectedColor: scheme.surfaceAccent.withAlpha(30),
+      onSelected: (_) => setState(() => _cabinetFilter = value),
+    );
+  }
+
+  Widget _medicineCabinetCard(Medicine med, ColorScheme scheme) {
+    final store = widget.store;
+    final remaining = store.remainingPills(med);
+    final total = med.totalPills;
+    final days = store.daysSupply(med);
+
+    double pct = 1.0;
+    Color barColor = const Color(0xFF2E7D32);
+    if (total > 0 && remaining != null) {
+      pct = (remaining / total).clamp(0.0, 1.0);
+      if (remaining <= 0) {
+        barColor = scheme.error;
+      } else if (pct <= 0.2 || (days != null && days <= 3)) {
+        barColor = const Color(0xFFFF7A45);
+      } else if (pct <= 0.5) {
+        barColor = const Color(0xFFE5A000);
+      }
+    }
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                HomeTileIcon.emoji(med.formEmoji),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              med.name,
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 16),
+                            ),
+                          ),
+                          Container(
+                            width: 14,
+                            height: 14,
+                            decoration: BoxDecoration(
+                              color: Color(med.color),
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${med.dose} • ${med.times.join(', ')} • ${med.mealLabel}',
+                        style: TextStyle(
+                            fontSize: 12.5, color: scheme.onSurfaceVariant),
+                      ),
+                      if (med.note.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          med.note,
+                          style: TextStyle(
+                              fontSize: 12, color: scheme.onSurfaceVariant),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // Thanh % tồn kho thuốc
+            if (total > 0 && remaining != null) ...[
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    remaining <= 0
+                        ? 'Hết thuốc (0/$total liều)'
+                        : 'Còn $remaining/$total liều${days != null ? ' (đủ $days ngày)' : ''}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: remaining <= 3 ? scheme.error : scheme.onSurface,
+                    ),
+                  ),
+                  Text(
+                    '${(pct * 100).round()}%',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: barColor,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: LinearProgressIndicator(
+                  value: pct,
+                  minHeight: 8,
+                  backgroundColor: scheme.surfaceAccent.withAlpha(24),
+                  color: barColor,
+                ),
+              ),
+            ] else ...[
+              Text(
+                'Chưa theo dõi số lượng (Dài hạn)',
+                style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+              ),
+            ],
+            const Divider(height: 20),
+
+            // Nút thao tác: Bổ sung +10, Sửa, Xóa
+            Row(
+              children: [
+                if (total > 0) ...[
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.add, size: 16),
+                    label: const Text('Bổ sung +10'),
+                    style: OutlinedButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                    ),
+                    onPressed: () => _handleRefill(med),
+                  ),
+                  const Spacer(),
+                ],
+                TextButton.icon(
+                  icon: const Icon(Icons.edit_outlined, size: 16),
+                  label: const Text('Sửa'),
+                  onPressed: () => _openAdd(med),
+                ),
+                TextButton.icon(
+                  icon: Icon(Icons.delete_outline,
+                      size: 16, color: scheme.error),
+                  label: Text('Xóa', style: TextStyle(color: scheme.error)),
+                  onPressed: () async {
+                    final ok = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text('Xóa thuốc này?'),
+                        content: Text('Xóa "${med.name}" khỏi tủ thuốc? Lịch nhắc và lịch sử cũng sẽ bị xóa.'),
+                        actions: [
+                          TextButton(
+                              onPressed: () => Navigator.pop(ctx, false),
+                              child: const Text('Hủy')),
+                          TextButton(
+                              onPressed: () => Navigator.pop(ctx, true),
+                              child: Text('Xóa',
+                                  style: TextStyle(color: scheme.error))),
+                        ],
+                      ),
+                    );
+                    if (ok == true) {
+                      await store.deleteMedicine(med.id);
+                    }
+                  },
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // -------------------------------------------------------------
+  // TAB 3: CÀI ĐẶT
+  // -------------------------------------------------------------
   Widget _settingsTab() {
     final store = widget.store;
     final settings = store.settings;
@@ -719,9 +1342,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(18, 20, 18, 16),
+      padding: const EdgeInsets.fromLTRB(18, 20, 18, 24),
       children: [
-        const HomeSectionLabel('Giao diện'),
+        // 1. Nhóm "Hiển thị & âm thanh"
+        const HomeSectionLabel('HIỂN THỊ & ÂM THANH'),
         Card(
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -737,6 +1361,25 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   onSelected: (index) => store.updateAppTheme(appModes[index]),
                 ),
                 const SizedBox(height: 12),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Âm thanh nhắc'),
+                  value: settings.sound,
+                  onChanged: (v) async {
+                    await store.updateSettings(settings.copyWith(sound: v));
+                  },
+                ),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Rung khi nhắc'),
+                  value: settings.vibration,
+                  onChanged: (v) async {
+                    await store.updateSettings(settings.copyWith(vibration: v));
+                  },
+                ),
+                const Divider(height: 20),
+                const Text('Bảng màu giao diện'),
+                const SizedBox(height: 8),
                 LayoutBuilder(
                   builder: (context, constraints) {
                     final columns = constraints.maxWidth < 270 ? 4 : 5;
@@ -776,71 +1419,94 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           ),
         ),
         const SizedBox(height: 16),
-        const HomeSectionLabel('Độ mờ widget'),
+
+        // 2. Nhóm "Thời gian hoãn nhắc mặc định" (5 / 10 / 15 / 30 phút)
+        const HomeSectionLabel('THỜI GIAN HOÃN NHẮC MẶC ĐỊNH'),
         Card(
-            child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                  'Nền widget trong suốt dần khi kéo xuống, chữ và nút vẫn giữ nguyên. 100% là đặc như hiện tại, 0% là nền biến mất hoàn toàn.',
-                  style: TextStyle(color: muted)),
-              Row(
-                children: [
-                  const Text('Mờ hơn'),
-                  Expanded(
-                    child: Slider(
-                      value: (settings.widgetOpacity / 100).clamp(0.0, 1.0),
-                      min: 0.0,
-                      max: 1.0,
-                      divisions: 10,
-                      label: '${settings.widgetOpacity}%',
-                      onChanged: (v) async {
-                        await store.updateSettings(settings.copyWith(
-                            widgetOpacity: (v * 100).round()));
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Thời gian nhắc lại khi bấm nút "Hoãn" trên thẻ liều thuốc hoặc thông báo:',
+                  style: TextStyle(color: muted, fontSize: 13),
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  children: [5, 10, 15, 30].map((mins) {
+                    final selected = settings.remindIntervalMinutes == mins;
+                    return ChoiceChip(
+                      label: Text('$mins phút'),
+                      selected: selected,
+                      selectedColor: scheme.surfaceAccent.withAlpha(30),
+                      onSelected: (_) async {
+                        await store.updateSettings(
+                            settings.copyWith(remindIntervalMinutes: mins));
                       },
-                    ),
-                  ),
-                  Text('${settings.widgetOpacity}%',
-                      style: const TextStyle(fontWeight: FontWeight.bold)),
-                ],
-              ),
-              const SizedBox(height: 8),
-              const Text('Giao diện widget'),
-              const SizedBox(height: 6),
-              _ThemeModeControl(
-                labels: const ['Theo điện thoại', 'Sáng', 'Tối'],
-                systemIndex: 0,
-                selectedIndex: settings.widgetThemeMode.index,
-                onSelected: (index) =>
-                    store.updateWidgetTheme(WidgetThemeMode.values[index]),
-              ),
-            ],
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
           ),
-        )),
+        ),
         const SizedBox(height: 16),
-        const HomeSectionLabel('Nhắc uống thuốc'),
+
+        // 3. Độ mờ widget
+        const HomeSectionLabel('ĐỘ MỜ WIDGET'),
         Card(
-            child: Column(children: [
-          SwitchListTile(
-            title: const Text('Âm thanh nhắc'),
-            value: settings.sound,
-            onChanged: (v) async {
-              await store.updateSettings(settings.copyWith(sound: v));
-            },
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Nền widget trong suốt dần khi kéo xuống. 100% là đặc như hiện tại, 0% là nền biến mất hoàn toàn.',
+                  style: TextStyle(color: muted),
+                ),
+                Row(
+                  children: [
+                    const Text('Mờ hơn'),
+                    Expanded(
+                      child: Slider(
+                        value: (settings.widgetOpacity / 100).clamp(0.0, 1.0),
+                        min: 0.0,
+                        max: 1.0,
+                        divisions: 10,
+                        label: '${settings.widgetOpacity}%',
+                        onChanged: (v) async {
+                          await store.updateSettings(settings.copyWith(
+                              widgetOpacity: (v * 100).round()));
+                        },
+                      ),
+                    ),
+                    Text('${settings.widgetOpacity}%',
+                        style: const TextStyle(fontWeight: FontWeight.bold)),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                const Text('Giao diện widget'),
+                const SizedBox(height: 6),
+                _ThemeModeControl(
+                  labels: const ['Theo điện thoại', 'Sáng', 'Tối'],
+                  systemIndex: 0,
+                  selectedIndex: settings.widgetThemeMode.index,
+                  onSelected: (index) =>
+                      store.updateWidgetTheme(WidgetThemeMode.values[index]),
+                ),
+              ],
+            ),
           ),
-          const Divider(height: 1, indent: 16, endIndent: 16),
-          SwitchListTile(
-            title: const Text('Rung khi nhắc'),
-            value: settings.vibration,
-            onChanged: (v) async {
-              await store.updateSettings(settings.copyWith(vibration: v));
-            },
-          ),
-          const Divider(height: 1, indent: 16, endIndent: 16),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+        ),
+        const SizedBox(height: 16),
+
+        // 4. Giờ yên lặng
+        const HomeSectionLabel('GIỜ YÊN LẶNG'),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
             child: Column(
               children: [
                 _SettingsField(
@@ -854,34 +1520,30 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   value: settings.quietEnd,
                   onTap: () => pickQuiet(false),
                 ),
+                const SizedBox(height: 8),
+                Text(
+                  'Trong giờ yên lặng, app không lên lịch nhắc mới. Các lần uống vẫn hiện trên lịch hôm nay.',
+                  style: TextStyle(color: muted, fontSize: 12),
+                ),
               ],
             ),
           ),
-        ])),
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Text(
-            'Trong giờ yên lặng, app không lên lịch nhắc mới. Các lần uống vẫn hiện trên lịch hôm nay.',
-            style: TextStyle(color: muted),
-          ),
         ),
         const SizedBox(height: 16),
-        const HomeSectionLabel('Thông báo'),
+
+        // 5. Thông báo & Báo thức
+        const HomeSectionLabel('THÔNG BÁO'),
         Card(
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Text(
-                    'Lịch nhắc dùng báo thức hệ thống. Nếu đã từ chối quyền vĩnh viễn, bật thủ công tại Cài đặt máy > Ứng dụng > Thuốc Vui > Thông báo.',
-                    style: TextStyle(color: muted),
-                  ),
+                Text(
+                  'Lịch nhắc dùng báo thức hệ thống. Nếu đã từ chối quyền vĩnh viễn, bật thủ công tại Cài đặt máy > Ứng dụng > Thuốc Vui > Thông báo.',
+                  style: TextStyle(color: muted, fontSize: 12),
                 ),
-                // Nút thông báo xếp dọc full-width, không chia đôi nữa: chia đôi
-                // làm chữ dài bị wrap 2 dòng, trông xấu và khó bấm.
+                const SizedBox(height: 12),
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(
@@ -895,7 +1557,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                         SnackBar(
                           content: Text(granted
                               ? 'Đã có quyền thông báo, lịch nhắc đã lên lại!'
-                              : 'Chưa có quyền thông báo. Anh bật tay: Cài đặt máy > Ứng dụng > Thuốc Vui > Thông báo.'),
+                              : 'Chưa có quyền thông báo. Hãy bật tay trong Cài đặt máy > Ứng dụng > Thuốc Vui.'),
                         ),
                       );
                     },
@@ -941,8 +1603,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                             content: Text(opened
-                                ? 'Đã mở màn hình miễn tối ưu pin. Bấm "Cho phép" để Thuốc Vui không bị máy cho ngủ, lịch theo giờ mới chạy được.'
-                                : 'Không mở được màn hình pin. Vào Cài đặt máy > Ứng dụng > Thuốc Vui > Pin > Không giới hạn nhé!')),
+                                ? 'Đã mở màn hình miễn tối ưu pin. Bấm "Cho phép" để Thuốc Vui không bị máy cho ngủ.'
+                                : 'Không mở được màn hình pin. Vào Cài đặt máy > Ứng dụng > Thuốc Vui > Pin > Không giới hạn.')),
                       );
                     },
                   ),
@@ -952,38 +1614,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           ),
         ),
         const SizedBox(height: 8),
+
         Card(
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(children: [
-              _SettingsField(
-                label: 'Báo lại sau mỗi',
-                value: '${settings.remindIntervalMinutes} phút',
-                onTap: () async {
-                  final picked = await showDialog<int>(
-                    context: context,
-                    builder: (ctx) => SimpleDialog(
-                      title: const Text('Báo lại sau mỗi'),
-                      children: [
-                        for (final m in [5, 10, 15, 30, 60])
-                          SimpleDialogOption(
-                            onPressed: () => Navigator.pop(ctx, m),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                              child: Text('$m phút',
-                                  style: const TextStyle(fontSize: 16)),
-                            ),
-                          ),
-                      ],
-                    ),
-                  );
-                  if (picked != null) {
-                    await store.updateSettings(
-                        settings.copyWith(remindIntervalMinutes: picked));
-                  }
-                },
-              ),
-              const SizedBox(height: 11),
               _SettingsField(
                 label: 'Số lần báo lại nếu chưa uống',
                 value: settings.remindTimes == 0
@@ -1016,22 +1651,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             ]),
           ),
         ),
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Text(
-            'Sau lần nhắc chính, app tự động báo lại nếu chưa bấm đã uống. Bấm đã uống trong app, trên widget hoặc thông báo sẽ dừng báo lại cho lần đó.',
-            style: TextStyle(color: muted),
-          ),
-        ),
-        const Divider(height: 32),
+        const SizedBox(height: 16),
         Text(
           'Lưu ý: app chỉ nhắc giờ uống và ghi nhận đã uống, không thay thế chỉ định của bác sĩ. Khởi động lại điện thoại xong, mở app một lần để lịch nhắc hoạt động lại.',
-          style: TextStyle(color: muted),
+          style: TextStyle(color: muted, fontSize: 12),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 20),
         Center(
-            child: Text('Thuốc Vui • Phiên bản $_appVersion+$_appBuild',
-                style: TextStyle(color: muted))),
+          child: Text('Thuốc Vui • Phiên bản $_appVersion+$_appBuild',
+              style: TextStyle(color: muted, fontSize: 13)),
+        ),
       ],
     );
   }
@@ -1068,25 +1697,29 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               }),
             ],
             title: HomeAppBarTitle(
-                'Thuốc Vui', ['Hôm nay', 'Lịch sử', 'Cài đặt'][_tab],
-                icon: Icons.medication_outlined),
+              'Thuốc Vui',
+              ['Hôm nay', 'Tủ thuốc', 'Thống kê', 'Cài đặt'][_tab],
+              icon: Icons.medication_outlined,
+            ),
             centerTitle: false,
           ),
           body: _tab == 0
               ? _homeTab()
               : _tab == 1
-                  ? HistoryScreen(store: widget.store)
-                  : Theme(
-                      data: Theme.of(context).copyWith(
-                        cardTheme: Theme.of(context).cardTheme.copyWith(
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              shadowColor: const Color(0x16173E2C),
-                            ),
-                      ),
-                      child: _settingsTab(),
-                    ),
+                  ? _cabinetTab()
+                  : _tab == 2
+                      ? HistoryScreen(store: widget.store)
+                      : Theme(
+                          data: Theme.of(context).copyWith(
+                            cardTheme: Theme.of(context).cardTheme.copyWith(
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  shadowColor: const Color(0x16173E2C),
+                                ),
+                          ),
+                          child: _settingsTab(),
+                        ),
           floatingActionButton: _tab == 0
               ? FloatingActionButton.extended(
                   onPressed: () => _openAdd(),
@@ -1111,19 +1744,29 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               selectedIndex: _tab,
               onDestinationSelected: (i) {
                 setState(() => _tab = i);
-                // Chuyển về tab Hôm nay sau khi bấm nút thông báo / widget:
-                // app đang mở sẵn không có sự kiện resumed, nên phải nạp lại
-                // ở đây thì tiến độ mới hiện, kể cả khi Kotlin vừa ghi log.
                 if (i == 0) widget.store.reload();
               },
               destinations: const [
                 NavigationDestination(
-                    icon: Icon(Icons.today_outlined), label: 'Hôm nay'),
+                  icon: Icon(Icons.today_outlined),
+                  selectedIcon: Icon(Icons.today),
+                  label: 'Hôm nay',
+                ),
                 NavigationDestination(
-                    icon: Icon(Icons.calendar_month_outlined),
-                    label: 'Lịch sử'),
+                  icon: Icon(Icons.medical_services_outlined),
+                  selectedIcon: Icon(Icons.medical_services),
+                  label: 'Tủ thuốc',
+                ),
                 NavigationDestination(
-                    icon: Icon(Icons.settings_outlined), label: 'Cài đặt'),
+                  icon: Icon(Icons.bar_chart_outlined),
+                  selectedIcon: Icon(Icons.bar_chart),
+                  label: 'Thống kê',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.settings_outlined),
+                  selectedIcon: Icon(Icons.settings),
+                  label: 'Cài đặt',
+                ),
               ],
             ),
           ),
@@ -1251,4 +1894,12 @@ class _SettingsField extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Số phút trễ thành "35 phút" / "1 giờ 25 phút" / "2 giờ".
+String _formatLate(int minutes) {
+  if (minutes < 60) return '$minutes phút';
+  final h = minutes ~/ 60;
+  final m = minutes % 60;
+  return m == 0 ? '$h giờ' : '$h giờ $m phút';
 }
