@@ -1,5 +1,9 @@
 # Nhật ký thay đổi
 
+## 1.2.58+61
+
+- Icon app mới theo phong cách PillFlow: nền gradient hero, viên nang trắng, huy hiệu tích xanh tách khỏi viên thuốc.
+
 ## 1.2.57+60
 
 - Thống nhất thứ tự chọn chế độ sáng/tối: cả "Chế độ" và "Giao diện widget" đều là Theo điện thoại / Sáng / Tối.
