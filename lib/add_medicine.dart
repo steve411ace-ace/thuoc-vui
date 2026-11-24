@@ -1,16 +1,23 @@
 import 'package:flutter/material.dart';
 import 'home_style.dart';
 import 'models.dart';
+import 'pillflow_style.dart';
 
-const List<int> _palette = [
-  0xFF2BB3A3,
-  0xFFFF6B9D,
-  0xFFFFB020,
-  0xFF6BCBFF,
-  0xFF95E77E,
-  0xFF9B7EDE,
-  0xFFFF7A45,
-];
+const _palette = {
+  0xFF0D9488: 'Xanh teal',
+  0xFF0EA5E9: 'Xanh da trời',
+  0xFFF97316: 'Cam',
+  0xFF8B5CF6: 'Tím',
+  0xFFEC4899: 'Hồng',
+};
+
+const _meals = {
+  'truoc_an': 'Trước ăn',
+  'trong_bua': 'Trong bữa',
+  'sau_an': 'Sau ăn',
+  'truoc_ngu': 'Trước khi ngủ',
+  'khong': 'Không dặn',
+};
 
 const List<String> _weekdayLabels = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
 
@@ -18,7 +25,7 @@ enum FrequencyMode { daily, alternate, weekly }
 
 class AddMedicineScreen extends StatefulWidget {
   final Medicine? existing;
-  final void Function(Medicine med) onSave;
+  final Future<void> Function(Medicine med) onSave;
   final VoidCallback? onDelete;
 
   const AddMedicineScreen(
@@ -36,13 +43,16 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
   final _startPill = TextEditingController();
   final _pillsPerDose = TextEditingController();
   String _form = 'vien';
-  int _color = _palette[0];
+  String _shape = 'capsule';
+  int _color = 0xFF0D9488;
+  bool _refillWarning = true;
+  bool _saving = false;
   List<String> _times = ['08:00'];
   List<int> _weekdays = [1, 2, 3, 4, 5, 6, 7];
   FrequencyMode _frequency = FrequencyMode.daily;
   DateTime _start = DateTime.now();
   DateTime? _end;
-  String _meal = 'khong';
+  String _meal = 'sau_an';
 
   @override
   void initState() {
@@ -53,8 +63,10 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
       _dose.text = e.dose;
       _note.text = e.note;
       _form = e.form;
+      _shape = e.displayShape;
+      _refillWarning = e.refillWarning;
       _color = e.color;
-      _times = List.of(e.times);
+      if (e.times.isNotEmpty) _times = List.of(e.times);
       _weekdays = List.of(e.weekdays);
       if (_weekdays.length == 7) {
         _frequency = FrequencyMode.daily;
@@ -98,7 +110,7 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
       initialTime:
           TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1])),
     );
-    if (picked == null) return;
+    if (picked == null || !mounted) return;
     setState(() {
       _times[index] =
           '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
@@ -112,7 +124,7 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
       firstDate: DateTime(2020),
       lastDate: DateTime(2100),
     );
-    if (picked == null) return;
+    if (picked == null || !mounted) return;
     setState(() {
       if (isEnd) {
         _end = picked;
@@ -122,7 +134,8 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
     });
   }
 
-  void _save() {
+  Future<void> _save() async {
+    if (_saving) return;
     final name = _name.text.trim();
     if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -142,14 +155,16 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
       );
       return;
     }
-    final sortedTimes = List.of(_times)..sort();
+    final sortedTimes = _times.toSet().toList()..sort();
     final med = Medicine(
       id: widget.existing?.id ??
           stableHash('${DateTime.now().millisecondsSinceEpoch}$name')
               .toString(),
       name: name,
-      dose: _dose.text.trim().isEmpty ? '1 viên' : _dose.text.trim(),
+      dose: _doseLabel,
       form: _form,
+      shape: _shape,
+      refillWarning: _refillWarning,
       color: _color,
       times: sortedTimes,
       weekdays: List.of(_weekdays)..sort(),
@@ -159,10 +174,16 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
       note: _note.text.trim(),
       totalPills: int.tryParse(_totalPills.text.trim()) ?? 0,
       startPill: int.tryParse(_startPill.text.trim()) ?? 1,
-      pillsPerDose: int.tryParse(_pillsPerDose.text.trim()) ?? 1,
+      pillsPerDose: _doseCount,
       stockFrom: widget.existing?.stockFrom ?? '',
+      stockFromAt: widget.existing?.stockFromAt ?? '',
     );
-    widget.onSave(med);
+    setState(() => _saving = true);
+    try {
+      await widget.onSave(med);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   Widget _sectionTitle(String text) => Padding(
@@ -178,10 +199,14 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
     return Padding(
       padding: const EdgeInsets.only(right: 8, bottom: 8),
       child: ChoiceChip(
-        label: Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
+        label: Text(label,
+            style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 12,
+                color:
+                    selected ? Theme.of(context).colorScheme.onPrimary : null)),
         selected: selected,
-        selectedColor:
-            Theme.of(context).colorScheme.surfaceAccent.withAlpha(26),
+        selectedColor: Theme.of(context).colorScheme.primary,
         onSelected: (_) => onTap(),
       ),
     );
@@ -206,42 +231,361 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
     });
   }
 
+  String get _doseLabel {
+    final custom = _dose.text.trim();
+    return custom.isEmpty ? '$_doseCount viên' : custom;
+  }
+
+  int get _doseCount {
+    final count = int.tryParse(_pillsPerDose.text.trim()) ?? 1;
+    return count < 1 ? 1 : count;
+  }
+
+  void _stepDose(int change) {
+    final next = _doseCount + change;
+    if (next < 1) return;
+    setState(() {
+      if (_dose.text.trim() == '$_doseCount viên') _dose.clear();
+      _pillsPerDose.text = '$next';
+    });
+  }
+
+  Widget _preview(ColorScheme scheme) => DecoratedBox(
+        decoration: pillPanel(scheme, radius: 24),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              PillShapeIcon(_shape, color: Color(_color), size: 56),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('XEM TRƯỚC THẺ THUỐC',
+                        style: TextStyle(
+                            fontSize: 10,
+                            color: scheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: .7)),
+                    TextField(
+                      controller: _name,
+                      textCapitalization: TextCapitalization.sentences,
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.bold),
+                      decoration: const InputDecoration(
+                        hintText: 'Nhập tên thuốc…',
+                        isDense: true,
+                        filled: false,
+                        contentPadding: EdgeInsets.symmetric(vertical: 5),
+                        border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                      ),
+                    ),
+                    Text(
+                        '$_doseLabel · ${_meals[_meal]} · ${_times.join(', ')}',
+                        style: TextStyle(
+                            fontSize: 11, color: scheme.onSurfaceVariant)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+
+  Widget _shapePicker(ColorScheme scheme) => Row(
+        children: [
+          for (final (shape, label, form) in const [
+            ('capsule', 'Viên nang', 'vien'),
+            ('tablet', 'Viên nén', 'vien'),
+            ('drop', 'Siro/Giọt', 'nuoc'),
+            ('pack', 'Gói bột', 'khac'),
+          ])
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 3),
+                child: Semantics(
+                  button: true,
+                  selected: _shape == shape,
+                  child: Material(
+                    color: Colors.transparent,
+                    child: Ink(
+                      decoration: _shape == shape
+                          ? BoxDecoration(
+                              gradient: pillGradient(scheme),
+                              borderRadius: BorderRadius.circular(16))
+                          : pillPanel(scheme, radius: 16),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(16),
+                        onTap: () => setState(() {
+                          _shape = shape;
+                          _form = form;
+                        }),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          child: Column(
+                            children: [
+                              PillShapeGlyph(shape,
+                                  color: _shape == shape
+                                      ? Colors.white
+                                      : scheme.onSurfaceVariant),
+                              const SizedBox(height: 4),
+                              Text(label,
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                      fontSize: 10,
+                                      color: _shape == shape
+                                          ? Colors.white
+                                          : scheme.onSurfaceVariant,
+                                      fontWeight: FontWeight.w600)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      );
+
+  Widget _colorPicker(ColorScheme scheme) {
+    final colors = Map.of(_palette);
+    if (!colors.containsKey(_color)) colors[_color] = 'Màu hiện tại';
+    return Wrap(
+      spacing: 2,
+      children: [
+        for (final entry in colors.entries)
+          Semantics(
+            selected: entry.key == _color,
+            child: IconButton(
+              tooltip: entry.value,
+              onPressed: () => setState(() => _color = entry.key),
+              icon: Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: Color(entry.key),
+                  shape: BoxShape.circle,
+                  border: entry.key == _color
+                      ? Border.all(color: scheme.surface, width: 2)
+                      : null,
+                  boxShadow: entry.key == _color
+                      ? [
+                          BoxShadow(color: Color(entry.key), spreadRadius: 1.5),
+                        ]
+                      : null,
+                ),
+                child: entry.key == _color
+                    ? const Icon(Icons.check, size: 18, color: Colors.white)
+                    : null,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _timingCards(ColorScheme scheme) => Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Container(
+              decoration: pillPanel(scheme),
+              padding: const EdgeInsets.fromLTRB(9, 12, 9, 6),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Liều mỗi lần',
+                      style: TextStyle(
+                          fontSize: 11, color: scheme.onSurfaceVariant)),
+                  Row(
+                    children: [
+                      _stepButton(Icons.remove, 'Giảm liều',
+                          _doseCount > 1 ? () => _stepDose(-1) : null),
+                      Expanded(
+                          child: Text('$_doseCount viên',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                  fontSize: 12, fontWeight: FontWeight.bold))),
+                      _stepButton(Icons.add, 'Tăng liều', () => _stepDose(1),
+                          primary: true),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Container(
+              decoration: pillPanel(scheme),
+              padding: const EdgeInsets.fromLTRB(12, 12, 8, 6),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Giờ uống',
+                      style: TextStyle(
+                          fontSize: 11, color: scheme.onSurfaceVariant)),
+                  PopupMenuButton<String>(
+                    tooltip: 'Chọn giờ uống',
+                    onSelected: (value) {
+                      if (value == 'custom') {
+                        _pickTime(0);
+                      } else {
+                        setState(() => _times[0] = value);
+                      }
+                    },
+                    itemBuilder: (_) => const [
+                      PopupMenuItem(
+                          value: '07:30', child: Text('07:30 · Sáng')),
+                      PopupMenuItem(
+                          value: '12:30', child: Text('12:30 · Trưa')),
+                      PopupMenuItem(
+                          value: '18:30', child: Text('18:30 · Chiều')),
+                      PopupMenuItem(value: '21:00', child: Text('21:00 · Tối')),
+                      PopupMenuItem(
+                          value: 'custom', child: Text('Chọn giờ khác…')),
+                    ],
+                    child: SizedBox(
+                      height: 40,
+                      child: Row(
+                        children: [
+                          Expanded(
+                              child: Text(_times.first,
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13))),
+                          const Icon(Icons.keyboard_arrow_down, size: 18),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+
+  Widget _stepButton(IconData icon, String label, VoidCallback? onPressed,
+      {bool primary = false}) {
+    final scheme = Theme.of(context).colorScheme;
+    return IconButton(
+      tooltip: label,
+      onPressed: onPressed,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 32, minHeight: 40),
+      icon: Container(
+        width: 27,
+        height: 27,
+        decoration: BoxDecoration(
+          color: primary ? scheme.primary : scheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(9),
+        ),
+        child: Icon(icon,
+            size: 17,
+            color: onPressed == null
+                ? scheme.onSurfaceVariant
+                : primary
+                    ? scheme.onPrimary
+                    : scheme.onSurface),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final isEdit = widget.existing != null;
     return Scaffold(
       appBar: AppBar(
-        toolbarHeight: 76,
-        flexibleSpace: const HomeHeaderBackground(),
-        title: HomeAppBarTitle(
-          isEdit ? 'Sửa thuốc' : 'Thêm thuốc mới',
-          'Thông tin thuốc và lịch uống',
+        centerTitle: true,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 12),
+          child: Center(
+            child: DecoratedBox(
+              decoration: pillPanel(scheme, radius: 22),
+              child: const BackButton(),
+            ),
+          ),
+        ),
+        title: Text(isEdit ? 'Sửa thuốc' : 'Thêm lịch uống thuốc',
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+      ),
+      bottomNavigationBar: PillGlass(
+        radius: 0,
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: pillGradient(scheme),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16)),
+                  minimumSize: const Size.fromHeight(50),
+                ),
+                onPressed: _saving ? null : _save,
+                child: Text(isEdit ? 'Lưu thay đổi' : '+ Thêm vào lịch hôm nay',
+                    style: const TextStyle(
+                        fontSize: 14, fontWeight: FontWeight.bold)),
+              ),
+            ),
+          ),
         ),
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
         children: [
-          _sectionTitle('Tên thuốc *'),
-          TextField(
-            controller: _name,
-            decoration: const InputDecoration(
-              hintText: 'Ví dụ: Vitamin D3 + K2, Amlodipine...',
-              border: OutlineInputBorder(
-                  borderRadius: BorderRadius.all(Radius.circular(16))),
+          _preview(scheme),
+          _sectionTitle('Dạng thuốc'),
+          _shapePicker(scheme),
+          if (_form == 'tiem' || _form == 'xit')
+            Text('Đang dùng: ${widget.existing!.formLabel}',
+                style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant)),
+          _sectionTitle('Màu nhận diện'),
+          _colorPicker(scheme),
+          const SizedBox(height: 12),
+          _timingCards(scheme),
+          _sectionTitle('Thời điểm dùng'),
+          Wrap(
+            children: [
+              for (final entry in _meals.entries)
+                _chip(
+                    label: entry.value,
+                    selected: _meal == entry.key,
+                    onTap: () => setState(() => _meal = entry.key)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Card(
+            child: SwitchListTile(
+              title: const Text('Cảnh báo sắp hết thuốc'),
+              subtitle: const Text(
+                  'Hiện nhắc mua thêm trên Hôm nay khi còn tối đa 7 ngày'),
+              value: _refillWarning,
+              onChanged: (value) => setState(() => _refillWarning = value),
             ),
           ),
-          _sectionTitle('Liều dùng'),
+          _sectionTitle('Liều dùng chi tiết (tùy chọn)'),
           TextField(
             controller: _dose,
-            decoration: const InputDecoration(
-              hintText: 'Ví dụ: 1 viên nang mềm, 5 ml, 2 viên...',
-              border: OutlineInputBorder(
-                  borderRadius: BorderRadius.all(Radius.circular(16))),
-            ),
+            onChanged: (_) => setState(() {}),
+            decoration:
+                const InputDecoration(hintText: 'Ví dụ: 5 ml, 1 viên nang mềm'),
           ),
-          _sectionTitle('Giờ uống trong ngày *'),
-          ..._times.asMap().entries.map((e) {
+          _sectionTitle('Giờ uống bổ sung'),
+          ..._times.asMap().entries.skip(1).map((e) {
             return Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: Row(
@@ -264,7 +608,11 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
             );
           }),
           TextButton.icon(
-            onPressed: () => setState(() => _times.add('20:00')),
+            onPressed: () async {
+              final index = _times.length;
+              setState(() => _times.add('20:00'));
+              await _pickTime(index);
+            },
             icon: const Icon(Icons.add),
             label: const Text('Thêm giờ uống'),
           ),
@@ -337,63 +685,13 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
           const SizedBox(height: 8),
           TextField(
             controller: _pillsPerDose,
+            onChanged: (_) => setState(() {}),
             keyboardType: TextInputType.number,
             decoration: const InputDecoration(
               hintText: 'Số viên mỗi lần uống, ví dụ: 1',
               border: OutlineInputBorder(
                   borderRadius: BorderRadius.all(Radius.circular(16))),
             ),
-          ),
-          _sectionTitle('Dạng thuốc'),
-          Wrap(
-            children: [
-              _chip(
-                  label: '💊 Viên',
-                  selected: _form == 'vien',
-                  onTap: () => setState(() => _form = 'vien')),
-              _chip(
-                  label: '💧 Nước',
-                  selected: _form == 'nuoc',
-                  onTap: () => setState(() => _form = 'nuoc')),
-              _chip(
-                  label: '💉 Tiêm',
-                  selected: _form == 'tiem',
-                  onTap: () => setState(() => _form = 'tiem')),
-              _chip(
-                  label: '🌬️ Xịt',
-                  selected: _form == 'xit',
-                  onTap: () => setState(() => _form = 'xit')),
-              _chip(
-                  label: '📦 Khác',
-                  selected: _form == 'khac',
-                  onTap: () => setState(() => _form = 'khac')),
-            ],
-          ),
-          _sectionTitle('Màu của thuốc'),
-          Wrap(
-            children: _palette.map((c) {
-              final selected = c == _color;
-              return GestureDetector(
-                onTap: () => setState(() => _color = c),
-                child: Container(
-                  margin: const EdgeInsets.only(right: 10, bottom: 8),
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: Color(c),
-                    shape: BoxShape.circle,
-                    border: selected
-                        ? Border.all(
-                            color: Theme.of(context).colorScheme.surfaceAccent,
-                            width: 3)
-                        : null,
-                  ),
-                  child: selected
-                      ? const Icon(Icons.check, color: Colors.white)
-                      : null,
-                ),
-              );
-            }).toList(),
           ),
           _sectionTitle('Thời gian uống'),
           Row(
@@ -420,23 +718,6 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
               onPressed: () => setState(() => _end = null),
               child: const Text('Đổi thành uống dài hạn'),
             ),
-          _sectionTitle('Uống trước hay sau ăn?'),
-          Wrap(
-            children: [
-              _chip(
-                  label: 'Trước ăn',
-                  selected: _meal == 'truoc_an',
-                  onTap: () => setState(() => _meal = 'truoc_an')),
-              _chip(
-                  label: 'Sau ăn',
-                  selected: _meal == 'sau_an',
-                  onTap: () => setState(() => _meal = 'sau_an')),
-              _chip(
-                  label: 'Không dặn',
-                  selected: _meal == 'khong',
-                  onTap: () => setState(() => _meal = 'khong')),
-            ],
-          ),
           _sectionTitle('Ghi chú'),
           TextField(
             controller: _note,
@@ -448,46 +729,6 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
             ),
           ),
           const SizedBox(height: 28),
-
-          // Nút Lưu thuốc và Hủy theo MediFlow
-          Row(
-            children: [
-              Expanded(
-                child: SizedBox(
-                  height: 52,
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: OutlinedButton.styleFrom(
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16)),
-                    ),
-                    child: const Text('Hủy',
-                        style: TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.w600)),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                flex: 2,
-                child: SizedBox(
-                  height: 52,
-                  child: FilledButton(
-                    onPressed: _save,
-                    style: FilledButton.styleFrom(
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16)),
-                    ),
-                    child: Text(
-                      isEdit ? 'Lưu thay đổi' : 'Lưu thuốc',
-                      style: const TextStyle(
-                          fontSize: 17, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
           if (isEdit && widget.onDelete != null) ...[
             const SizedBox(height: 12),
             SizedBox(

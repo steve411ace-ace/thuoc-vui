@@ -21,13 +21,18 @@ void main() {
     for (final palette in HomePalette.values) {
       final theme = palette.themeWithCustomColor(Colors.pink);
       expect(theme.brightness, Brightness.light);
-      expect(theme.cardTheme.elevation, 2);
+      expect(theme.cardTheme.elevation, 0);
       expect(theme.scaffoldBackgroundColor, Color(palette.background));
       final darkTheme = palette.darkThemeWithCustomColor(Colors.pink);
       expect(darkTheme.brightness, Brightness.dark);
-      expect(darkTheme.colorScheme.primary, theme.colorScheme.primary);
-      expect(darkTheme.scaffoldBackgroundColor, const Color(0xFF12181B));
-      expect(darkTheme.cardTheme.color, const Color(0xFF1C2629));
+      expect(
+        darkTheme.colorScheme.primary,
+        palette == HomePalette.light
+            ? const Color(0xFF2DD4BF)
+            : theme.colorScheme.primary,
+      );
+      expect(darkTheme.scaffoldBackgroundColor, const Color(0xFF0B1117));
+      expect(darkTheme.cardTheme.color, const Color(0xFF131C26));
     }
   });
 
@@ -48,7 +53,7 @@ void main() {
     dispatcher.platformBrightnessTestValue = Brightness.dark;
     final store = ThuocStore()..loaded = true;
     await tester.pumpWidget(ThuocVuiApp(store: store));
-    await tester.tap(find.text('Cài đặt'));
+    await tester.tap(find.byTooltip('Cài đặt'));
     await tester.pumpAndSettle();
 
     final appCard =
@@ -110,7 +115,7 @@ void main() {
 
     final store = ThuocStore()..loaded = true;
     await tester.pumpWidget(ThuocVuiApp(store: store));
-    await tester.tap(find.text('Cài đặt'));
+    await tester.tap(find.byTooltip('Cài đặt'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Ocean'));
     await tester.pumpAndSettle();
@@ -176,9 +181,9 @@ void main() {
           Brightness.light);
     }
 
-    await tester.scrollUntilVisible(find.textContaining('1.2.48+51'), 400);
-    await tester.ensureVisible(find.textContaining('1.2.48+51'));
-    expect(find.textContaining('1.2.48+51'), findsOneWidget);
+    await tester.scrollUntilVisible(find.textContaining('1.2.49+52'), 400);
+    await tester.ensureVisible(find.textContaining('1.2.49+52'));
+    expect(find.textContaining('1.2.49+52'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

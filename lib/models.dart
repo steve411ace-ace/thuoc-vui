@@ -6,6 +6,8 @@ class Medicine {
   final String name;
   final String dose; // ví dụ: "1 viên", "5 ml"
   final String form; // vien, nuoc, tiem, xit, khac
+  final String? shape;
+  final bool refillWarning;
   final int color; // ARGB
   final List<String> times; // ["08:00", "20:00"]
   final List<int> weekdays; // 1=Thứ 2 ... 7=Chủ nhật
@@ -33,6 +35,8 @@ class Medicine {
     required this.name,
     required this.dose,
     required this.form,
+    this.shape,
+    this.refillWarning = true,
     required this.color,
     required this.times,
     required this.weekdays,
@@ -46,6 +50,22 @@ class Medicine {
     this.stockFrom = '',
     this.stockFromAt = '',
   });
+
+  String get displayShape =>
+      shape ??
+      switch (form) {
+        'nuoc' || 'tiem' || 'xit' => 'drop',
+        'khac' => 'pack',
+        _ => 'tablet',
+      };
+
+  String get mealTiming => switch (mealNote) {
+        'truoc_an' => 'Trước ăn',
+        'trong_bua' => 'Trong bữa',
+        'sau_an' => 'Sau ăn',
+        'truoc_ngu' => 'Trước khi ngủ',
+        _ => 'Không dặn',
+      };
 
   String get formEmoji {
     switch (form) {
@@ -85,6 +105,10 @@ class Medicine {
         return 'Uống trước ăn';
       case 'sau_an':
         return 'Uống sau ăn';
+      case 'trong_bua':
+        return 'Uống trong bữa';
+      case 'truoc_ngu':
+        return 'Uống trước khi ngủ';
       default:
         return 'Không dặn trước/sau ăn';
     }
@@ -106,6 +130,8 @@ class Medicine {
         'name': name,
         'dose': dose,
         'form': form,
+        if (shape != null) 'shape': shape,
+        'refillWarning': refillWarning,
         'color': color,
         'times': times,
         'weekdays': weekdays,
@@ -125,9 +151,13 @@ class Medicine {
         name: j['name'] as String,
         dose: j['dose'] as String? ?? '',
         form: j['form'] as String? ?? 'vien',
+        shape: j['shape'] as String?,
+        refillWarning: j['refillWarning'] as bool? ?? true,
         color: j['color'] as int? ?? 0xFF2BB3A3,
         times: (j['times'] as List<dynamic>).map((e) => e.toString()).toList(),
-        weekdays: (j['weekdays'] as List<dynamic>).map((e) => (e as num).toInt()).toList(),
+        weekdays: (j['weekdays'] as List<dynamic>)
+            .map((e) => (e as num).toInt())
+            .toList(),
         startDate: j['startDate'] as String,
         endDate: j['endDate'] as String?,
         mealNote: j['mealNote'] as String? ?? 'khong',
@@ -156,7 +186,8 @@ class DoseSlot {
 
   DateTime get dateTime {
     final parts = time.split(':');
-    return DateTime(day.year, day.month, day.day, int.parse(parts[0]), int.parse(parts[1]));
+    return DateTime(
+        day.year, day.month, day.day, int.parse(parts[0]), int.parse(parts[1]));
   }
 }
 
@@ -168,7 +199,8 @@ class DoseLog {
 
   DoseLog({required this.status, required this.at, this.reason = ''});
 
-  Map<String, dynamic> toJson() => {'status': status, 'at': at, 'reason': reason};
+  Map<String, dynamic> toJson() =>
+      {'status': status, 'at': at, 'reason': reason};
 
   factory DoseLog.fromJson(Map<String, dynamic> j) => DoseLog(
         status: j['status'] as String,
@@ -197,24 +229,55 @@ Map<String, dynamic> decodeJson(String raw) {
   return jsonDecode(raw) as Map<String, dynamic>;
 }
 
-
 /// Một danh hiệu (badge) khi uống thuốc đúng giờ.
 class BadgeInfo {
   final String id;
   final String emoji;
   final String title;
   final String desc;
-  const BadgeInfo({required this.id, required this.emoji, required this.title, required this.desc});
+  const BadgeInfo(
+      {required this.id,
+      required this.emoji,
+      required this.title,
+      required this.desc});
 }
 
 const List<BadgeInfo> allBadges = [
-  BadgeInfo(id: 'first_ontime', emoji: '🌱', title: 'Bước đầu tiên', desc: 'Uống đúng giờ lần đầu tiên'),
-  BadgeInfo(id: 'perfect_day', emoji: '⭐', title: 'Ngày hoàn hảo', desc: '1 ngày uống đủ và đúng giờ hết'),
-  BadgeInfo(id: 'streak_3', emoji: '🔥', title: '3 ngày vàng', desc: '3 ngày liên tiếp đúng giờ'),
-  BadgeInfo(id: 'streak_7', emoji: '👑', title: 'Tuần vàng', desc: '7 ngày liên tiếp đúng giờ'),
-  BadgeInfo(id: 'streak_30', emoji: '💎', title: 'Tháng vàng', desc: '30 ngày liên tiếp đúng giờ'),
-  BadgeInfo(id: 'ontime_50', emoji: '💪', title: 'Bền bỉ', desc: '50 lần uống đúng giờ'),
-  BadgeInfo(id: 'ontime_100', emoji: '🏆', title: 'Bậc thầy đúng giờ', desc: '100 lần uống đúng giờ'),
+  BadgeInfo(
+      id: 'first_ontime',
+      emoji: '🌱',
+      title: 'Bước đầu tiên',
+      desc: 'Uống đúng giờ lần đầu tiên'),
+  BadgeInfo(
+      id: 'perfect_day',
+      emoji: '⭐',
+      title: 'Ngày hoàn hảo',
+      desc: '1 ngày uống đủ và đúng giờ hết'),
+  BadgeInfo(
+      id: 'streak_3',
+      emoji: '🔥',
+      title: '3 ngày vàng',
+      desc: '3 ngày liên tiếp đúng giờ'),
+  BadgeInfo(
+      id: 'streak_7',
+      emoji: '👑',
+      title: 'Tuần vàng',
+      desc: '7 ngày liên tiếp đúng giờ'),
+  BadgeInfo(
+      id: 'streak_30',
+      emoji: '💎',
+      title: 'Tháng vàng',
+      desc: '30 ngày liên tiếp đúng giờ'),
+  BadgeInfo(
+      id: 'ontime_50',
+      emoji: '💪',
+      title: 'Bền bỉ',
+      desc: '50 lần uống đúng giờ'),
+  BadgeInfo(
+      id: 'ontime_100',
+      emoji: '🏆',
+      title: 'Bậc thầy đúng giờ',
+      desc: '100 lần uống đúng giờ'),
 ];
 
 class PurchaseRecord {

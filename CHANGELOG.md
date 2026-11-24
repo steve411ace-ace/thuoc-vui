@@ -1,5 +1,12 @@
 # Nhật ký thay đổi
 
+## 1.2.49+52
+
+- Áp dụng giao diện PillFlow với bảng màu sáng/tối, thẻ bo tròn và thanh điều hướng nổi.
+- Hôm nay có dải lịch 7 ngày, vòng tiến độ, lịch uống chia theo buổi và cảnh báo sắp hết thuốc.
+- Form thêm thuốc có bản xem trước, chọn hình dạng và màu, điều chỉnh liều và thời điểm uống.
+- Thống kê có biểu đồ đúng giờ 7 ngày và tủ thuốc với thanh tồn kho. Lịch tháng và Cài đặt có lối vào riêng.
+
 ## 1.2.48+51
 
 - Redesign giao diện Thuốc Vui theo phong cách MediFlow:

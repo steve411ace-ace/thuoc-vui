@@ -2,8 +2,10 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import 'pillflow_style.dart';
+
 enum HomePalette {
-  light('Sáng', 0xFF0F766E, 0xFFF4F6F8),
+  light('Sáng', 0xFF0F766E, 0xFFF3F6F8),
   ocean('Ocean', 0xFF175A8C, 0xFFEDF5FB),
   warm('Warm', 0xFF9A492B, 0xFFFDF2EC),
   forest('Forest', 0xFF356143, 0xFFF0F5EE),
@@ -37,7 +39,9 @@ enum HomePalette {
 
   ThemeData _theme(Color customColor, Brightness brightness) {
     final dark = brightness == Brightness.dark;
-    final accent = this.accent(customColor);
+    final accent = this == light
+        ? (dark ? pillDarkTeal : pillTeal)
+        : this.accent(customColor);
     final onPrimary = (dark || this == white || this == custom) &&
             accent.computeLuminance() > 0.179
         ? Colors.black
@@ -47,20 +51,26 @@ enum HomePalette {
     final scheme = seededScheme.copyWith(
       primary: accent,
       onPrimary: onPrimary,
-      surface: dark ? const Color(0xFF1C2629) : Colors.white,
-      onSurface: dark ? const Color(0xFFEDEDED) : const Color(0xFF1A2B2E),
+      surface: dark ? const Color(0xFF131C26) : Colors.white,
+      onSurface: dark ? const Color(0xFFF1F5F9) : const Color(0xFF0F172A),
+      outlineVariant: dark ? const Color(0xFF243344) : const Color(0xFFE5EBF0),
+      surfaceContainerHighest:
+          dark ? const Color(0xFF1B2735) : const Color(0xFFEEF2F5),
+      primaryContainer: this == light
+          ? (dark ? pillDarkTeal.withAlpha(36) : const Color(0xFFCCFBF1))
+          : accent.withAlpha(36),
       onSurfaceVariant:
-          dark ? const Color(0xFFB8C4C2) : const Color(0xFF47575B),
+          dark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
     );
     final theme = ThemeData(
       colorScheme: scheme,
       fontFamily: 'Be Vietnam Pro',
       useMaterial3: true,
       scaffoldBackgroundColor:
-          dark ? const Color(0xFF12181B) : Color(background),
+          dark ? const Color(0xFF0B1117) : Color(background),
       appBarTheme: AppBarTheme(
-        backgroundColor: accent,
-        foregroundColor: onPrimary,
+        backgroundColor: dark ? const Color(0xFF0B1117) : Color(background),
+        foregroundColor: scheme.onSurface,
         surfaceTintColor: Colors.transparent,
         centerTitle: false,
       ),
@@ -70,7 +80,7 @@ enum HomePalette {
               style:
                   TextButton.styleFrom(foregroundColor: scheme.surfaceAccent),
             ),
-      dividerColor: dark ? const Color(0xFF344541) : const Color(0xFFE7EEEA),
+      dividerColor: dark ? const Color(0xFF243344) : const Color(0xFFE5EBF0),
       chipTheme: ChipThemeData(
         shape: const StadiumBorder(),
         side: BorderSide(color: scheme.surfaceAccent.withAlpha(60)),
@@ -178,11 +188,13 @@ enum HomePalette {
       cardTheme: theme.cardTheme.copyWith(
         color: scheme.surface,
         surfaceTintColor: Colors.transparent,
-        elevation: 2,
-        shadowColor: const Color(0x29173E2C),
+        elevation: 0,
         margin: EdgeInsets.zero,
         clipBehavior: Clip.antiAlias,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+        shape: RoundedRectangleBorder(
+          side: BorderSide(color: scheme.outlineVariant),
+          borderRadius: BorderRadius.circular(24),
+        ),
       ),
     );
   }
