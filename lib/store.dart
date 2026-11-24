@@ -444,8 +444,8 @@ class ThuocStore extends ChangeNotifier {
     final days = daysSupply(med);
     if (days != null && days <= 3) {
       return tr(
-        'Sắp hết thuốc ${med.name}, còn $remaining viên (đủ $days ngày), nhớ mua trước nhé!',
-        'Low on ${med.name}: $remaining ${enPlural(remaining, 'pill', 'pills')} left ($days ${enPlural(days, 'day', 'days')}), remember to refill!',
+        'Sắp hết thuốc ${med.name}, còn $remaining viên — nhớ mua trước nhé!',
+        'Low on ${med.name}: $remaining ${enPlural(remaining, 'pill', 'pills')} left — remember to refill!',
       );
     }
     if (days != null && days > 7) return null; // Còn nhiều, khỏi nhắc mua.

@@ -7,7 +7,7 @@
     android:orientation="vertical"
     android:background="@drawable/widget_background"
     android:paddingHorizontal="8dp"
-    android:paddingVertical="6dp">
+    android:paddingVertical="4dp">
 
     <!-- Hero Bento Gradient Card (giãn theo chiều cao khung nhờ layout_weight="1") -->
     <FrameLayout
@@ -15,7 +15,7 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:layout_marginBottom="10dp">
+        android:layout_marginBottom="8dp">
 
         <ImageView
             android:id="@+id/widget_hero_bg"
@@ -30,26 +30,26 @@
             android:layout_height="match_parent"
             android:orientation="vertical"
             android:gravity="center_vertical"
-            android:paddingHorizontal="12dp"
-            android:paddingVertical="7dp">
+            android:paddingHorizontal="11dp"
+            android:paddingVertical="6dp">
 
-            <!-- Row 1 inside Hero: Brand icon + App name (19sp) + TextClock pill -->
+            <!-- Row 1 inside Hero: Brand icon + App name (18sp) + TextClock pill -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="4dp"
+                android:layout_marginBottom="2dp"
                 android:orientation="horizontal"
                 android:gravity="center_vertical">
 
                 <FrameLayout
-                    android:layout_width="22dp"
-                    android:layout_height="22dp"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
                     android:background="@drawable/widget_hero_logo_bg">
 
                     <ImageView
                         android:id="@+id/widget_pill"
-                        android:layout_width="14dp"
-                        android:layout_height="14dp"
+                        android:layout_width="13dp"
+                        android:layout_height="13dp"
                         android:layout_gravity="center"
                         android:importantForAccessibility="no"
                         android:src="@drawable/widget_ic_capsule" />
@@ -61,12 +61,13 @@
                     android:layout_width="0dp"
                     android:layout_weight="1"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="7dp"
+                    android:layout_marginStart="6dp"
                     android:layout_marginEnd="6dp"
+                    android:includeFontPadding="false"
                     android:maxLines="1"
                     android:ellipsize="end"
                     android:text="Thuốc Vui"
-                    android:textSize="19sp"
+                    android:textSize="18sp"
                     android:textStyle="bold"
                     android:textColor="#FFFFFF" />
 
@@ -77,7 +78,7 @@
                     android:layout_height="wrap_content"
                     android:background="@drawable/widget_hero_clock_bg"
                     android:paddingHorizontal="7dp"
-                    android:paddingVertical="2dp"
+                    android:paddingVertical="1.5dp"
                     android:singleLine="true"
                     android:textSize="9.5sp"
                     android:textStyle="bold"
@@ -86,7 +87,7 @@
                     android:format12Hour="dd/MM/yyyy • hh:mm:ss" />
             </LinearLayout>
 
-            <!-- Row 2 inside Hero: 56dp Progress Ring (%) + Today Progress + Status Message (2+ lines) -->
+            <!-- Row 2 inside Hero: 48dp Progress Ring (%) + Today Progress + Status Message (up to 4 lines) -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -94,8 +95,8 @@
                 android:gravity="center_vertical">
 
                 <FrameLayout
-                    android:layout_width="56dp"
-                    android:layout_height="56dp">
+                    android:layout_width="48dp"
+                    android:layout_height="48dp">
 
                     <ImageView
                         android:id="@+id/widget_progress_ring"
@@ -112,7 +113,7 @@
                         android:gravity="center"
                         android:maxLines="1"
                         android:text="0%"
-                        android:textSize="14sp"
+                        android:textSize="13sp"
                         android:textStyle="bold"
                         android:textColor="#FFFFFF" />
                 </FrameLayout>
@@ -121,7 +122,7 @@
                     android:layout_width="0dp"
                     android:layout_weight="1"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="11dp"
+                    android:layout_marginStart="10dp"
                     android:orientation="vertical">
 
                     <TextView
@@ -129,9 +130,10 @@
                         android:fontFamily="@font/be_vietnam_pro"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:includeFontPadding="false"
                         android:maxLines="1"
                         android:text="Tiến độ hôm nay"
-                        android:textSize="10sp"
+                        android:textSize="9.5sp"
                         android:textColor="#CCFFFFFF" />
 
                     <TextView
@@ -139,10 +141,12 @@
                         android:fontFamily="@font/be_vietnam_pro"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:layout_marginTop="1dp"
+                        android:includeFontPadding="false"
                         android:maxLines="1"
                         android:ellipsize="end"
                         android:text="Thuốc Vui"
-                        android:textSize="14sp"
+                        android:textSize="13sp"
                         android:textStyle="bold"
                         android:textColor="#FFFFFF" />
 
@@ -155,10 +159,10 @@
 
                         <ImageView
                             android:id="@+id/widget_status_dot"
-                            android:layout_width="7dp"
-                            android:layout_height="7dp"
-                            android:layout_marginTop="5dp"
-                            android:layout_marginEnd="6dp"
+                            android:layout_width="6dp"
+                            android:layout_height="6dp"
+                            android:layout_marginTop="4dp"
+                            android:layout_marginEnd="5dp"
                             android:importantForAccessibility="no"
                             android:src="@drawable/widget_status_dot" />
 
@@ -168,10 +172,11 @@
                             android:layout_width="0dp"
                             android:layout_weight="1"
                             android:layout_height="wrap_content"
-                            android:maxLines="3"
+                            android:includeFontPadding="false"
+                            android:maxLines="4"
                             android:ellipsize="end"
-                            android:lineSpacingExtra="1dp"
-                            android:textSize="12sp"
+                            android:lineSpacingExtra="0dp"
+                            android:textSize="11sp"
                             android:textColor="#F0FFFFFF" />
                     </LinearLayout>
                 </LinearLayout>
@@ -179,24 +184,24 @@
         </LinearLayout>
     </FrameLayout>
 
-    <!-- State 1: Pending Next Dose Bento Card -->
+    <!-- State 1: Pending Next Dose Bento Card (~54-56dp) -->
     <LinearLayout
         android:id="@+id/widget_next_card"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="10dp"
+        android:layout_marginBottom="8dp"
         android:orientation="horizontal"
         android:gravity="center_vertical"
         android:background="@drawable/next_card_light"
         android:paddingHorizontal="10dp"
-        android:paddingVertical="6dp">
+        android:paddingVertical="5dp">
 
-        <!-- 44dp Pill Shape Icon Box (exact widget_ic_capsule.xml) -->
+        <!-- 40dp Pill Shape Icon Box (exact widget_ic_capsule.xml) -->
         <FrameLayout
             android:id="@+id/widget_shape_box"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
-            android:layout_marginEnd="10dp">
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginEnd="9dp">
 
             <ImageView
                 android:id="@+id/widget_shape_box_bg"
@@ -208,8 +213,8 @@
 
             <ImageView
                 android:id="@+id/widget_shape_icon"
-                android:layout_width="24dp"
-                android:layout_height="24dp"
+                android:layout_width="22dp"
+                android:layout_height="22dp"
                 android:layout_gravity="center"
                 android:importantForAccessibility="no"
                 android:src="@drawable/widget_ic_capsule" />
@@ -226,9 +231,10 @@
                 android:fontFamily="@font/be_vietnam_pro"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:includeFontPadding="false"
                 android:maxLines="1"
                 android:text="LẦN UỐNG TIẾP THEO"
-                android:textSize="9.5sp"
+                android:textSize="9sp"
                 android:textStyle="bold"
                 android:letterSpacing="0.04"
                 android:textColor="#64748B" />
@@ -238,10 +244,12 @@
                 android:fontFamily="@font/be_vietnam_pro"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="1dp"
+                android:includeFontPadding="false"
                 android:maxLines="1"
                 android:ellipsize="end"
                 android:text="Mở app để xem lịch hôm nay"
-                android:textSize="13.5sp"
+                android:textSize="13sp"
                 android:textStyle="bold"
                 android:textColor="#0F172A" />
 
@@ -250,18 +258,20 @@
                 android:fontFamily="@font/be_vietnam_pro"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="1dp"
+                android:includeFontPadding="false"
                 android:maxLines="1"
                 android:ellipsize="end"
-                android:textSize="11.5sp"
+                android:textSize="11sp"
                 android:textColor="#64748B" />
         </LinearLayout>
     </LinearLayout>
 
-    <!-- State 1: Check-in Bento CTA Button (52dp height, 16dp corners) -->
+    <!-- State 1: Check-in Bento CTA Button (40dp height, 16dp corners) -->
     <FrameLayout
         android:id="@+id/widget_checkin_row"
         android:layout_width="match_parent"
-        android:layout_height="52dp">
+        android:layout_height="40dp">
 
         <ImageView
             android:id="@+id/widget_checkin_background"
@@ -291,8 +301,8 @@
 
             <ImageView
                 android:id="@+id/widget_checkin_icon"
-                android:layout_width="18dp"
-                android:layout_height="18dp"
+                android:layout_width="15dp"
+                android:layout_height="15dp"
                 android:importantForAccessibility="no"
                 android:src="@drawable/widget_ic_check" />
 
@@ -301,10 +311,10 @@
                 android:fontFamily="@font/be_vietnam_pro"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
+                android:layout_marginStart="7dp"
                 android:maxLines="1"
                 android:text="Đã uống lần này"
-                android:textSize="16sp"
+                android:textSize="14sp"
                 android:textStyle="bold"
                 android:textColor="#FFFFFF" />
         </LinearLayout>
@@ -318,7 +328,7 @@
         android:orientation="vertical"
         android:background="@drawable/done_card_light"
         android:paddingHorizontal="11dp"
-        android:paddingVertical="9dp"
+        android:paddingVertical="8dp"
         android:visibility="gone">
 
         <LinearLayout
@@ -388,7 +398,7 @@
             android:id="@+id/widget_done_item_2"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
+            android:layout_marginTop="5dp"
             android:orientation="vertical"
             android:background="@drawable/done_item_light"
             android:paddingHorizontal="9dp"
@@ -423,7 +433,7 @@
             android:id="@+id/widget_done_item_3"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
+            android:layout_marginTop="5dp"
             android:orientation="vertical"
             android:background="@drawable/done_item_light"
             android:paddingHorizontal="9dp"

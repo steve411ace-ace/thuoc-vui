@@ -163,7 +163,7 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
           else -> PILL_AMBER
         }
         setInt(R.id.widget_status_dot, "setColorFilter", statusDotColor)
-        setInt(R.id.widget_pip, "setMaxLines", if (isTall) 4 else 3)
+        setInt(R.id.widget_pip, "setMaxLines", if (isTall) 5 else 4)
         val rawPip = if (hasMoodPrefix) pipMessage.substringAfter(' ') else pipMessage
         setTextViewText(R.id.widget_pip, rawPip.replace(" 🛒 ", "\n🛒 "))
 
@@ -448,10 +448,10 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
     return bitmap
   }
 
-  /** Vòng tròn tiến độ 56dp viền trắng bo tròn đầu (chỉ vẽ vòng; % hiển thị bằng TextView Be Vietnam Pro ở giữa). */
+  /** Vòng tròn tiến độ 48dp viền trắng bo tròn đầu (chỉ vẽ vòng; % hiển thị bằng TextView Be Vietnam Pro ở giữa). */
   private fun progressRingBitmap(context: Context, percent: Int): Bitmap {
     val density = context.resources.displayMetrics.density
-    val size = (56f * density).roundToInt().coerceIn(112, 196)
+    val size = (48f * density).roundToInt().coerceIn(96, 168)
     val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
     val cx = size / 2f

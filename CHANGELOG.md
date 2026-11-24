@@ -1,5 +1,11 @@
 # Nhật ký thay đổi
 
+## 1.2.56+59
+
+- Sửa lỗi chữ trạng thái bị cắt ở thẻ hero trên widget 4×2: chữ 11sp tối đa 4 dòng, vòng tiến độ 48dp, thẻ hero có thêm chỗ.
+- Rút gọn câu cảnh báo sắp hết thuốc trong thẻ tiến độ.
+- Thu nhỏ nút check-in "Đã uống lần này" (48dp → 40dp).
+
 ## 1.2.55+58
 
 - Widget to hơn, lấp đầy khung 4×2: thẻ hero tự giãn theo chiều cao, vòng tiến độ 56dp, nút check-in 52dp.
