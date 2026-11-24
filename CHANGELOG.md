@@ -1,5 +1,10 @@
 # Nhật ký thay đổi
 
+## 1.2.54+57
+
+- Widget vừa gọn trong 4×2: bỏ hàng header riêng, tên app + giờ vào trong thẻ hero, vòng tiến độ 42dp.
+- Căn giữa nút thêm mới (+) trong thanh điều hướng.
+
 ## 1.2.53+56
 
 - Xóa vòng tròn avatar "TV" ở thanh trên cùng màn Hôm nay.

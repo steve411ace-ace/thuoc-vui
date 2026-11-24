@@ -1763,9 +1763,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 ),
               ),
               Positioned.fill(
-                top: 2,
                 child: Align(
-                  alignment: Alignment.topCenter,
+                  alignment: Alignment.center,
                   child: Container(
                     width: 44,
                     height: 44,

@@ -7,62 +7,14 @@
     android:orientation="vertical"
     android:background="@drawable/widget_background"
     android:paddingHorizontal="6dp"
-    android:paddingVertical="13dp">
+    android:paddingVertical="5dp">
 
-    <!-- Header: Brand badge + Title + TextClock pill -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="10dp"
-        android:paddingHorizontal="2dp"
-        android:orientation="horizontal"
-        android:gravity="center_vertical">
-
-        <ImageView
-            android:id="@+id/widget_pill"
-            android:layout_width="26dp"
-            android:layout_height="26dp"
-            android:importantForAccessibility="no"
-            android:scaleType="fitXY"
-            android:src="@drawable/widget_hero_mask" />
-
-        <TextView
-            android:id="@+id/widget_title"
-            android:fontFamily="@font/be_vietnam_pro"
-            android:layout_width="0dp"
-            android:layout_weight="1"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:layout_marginEnd="6dp"
-            android:maxLines="1"
-            android:ellipsize="end"
-            android:text="Thuốc Vui"
-            android:textSize="14.5sp"
-            android:textStyle="bold"
-            android:textColor="#0F172A" />
-
-        <TextClock
-            android:id="@+id/widget_datetime"
-            android:fontFamily="@font/be_vietnam_pro"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:background="@drawable/widget_clock_bg_light"
-            android:paddingHorizontal="8dp"
-            android:paddingVertical="3dp"
-            android:singleLine="true"
-            android:textSize="9.5sp"
-            android:textStyle="bold"
-            android:textColor="#64748B"
-            android:format24Hour="dd/MM/yyyy • HH:mm:ss"
-            android:format12Hour="dd/MM/yyyy • hh:mm:ss" />
-    </LinearLayout>
-
-    <!-- Hero Bento Gradient Card: 76dp Progress Ring (%) + Today Progress + Status Message -->
+    <!-- Hero Bento Gradient Card (Header: App name + TextClock merged inside top row) -->
     <FrameLayout
         android:id="@+id/widget_hero_card"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="10dp">
+        android:layout_marginBottom="4dp">
 
         <ImageView
             android:id="@+id/widget_hero_bg"
@@ -75,94 +27,149 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:paddingHorizontal="10dp"
-            android:paddingVertical="12dp">
+            android:orientation="vertical"
+            android:paddingHorizontal="9dp"
+            android:paddingVertical="5dp">
 
-            <!-- 76dp Progress Ring (only % in center, no Pip face) -->
-            <FrameLayout
-                android:layout_width="76dp"
-                android:layout_height="76dp">
-
-                <ImageView
-                    android:id="@+id/widget_progress_ring"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:importantForAccessibility="no"
-                    android:scaleType="fitCenter" />
-
-                <TextView
-                    android:id="@+id/widget_ring_pct"
-                    android:fontFamily="@font/be_vietnam_pro"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:gravity="center"
-                    android:maxLines="1"
-                    android:text="0%"
-                    android:textSize="15sp"
-                    android:textStyle="bold"
-                    android:textColor="#FFFFFF" />
-            </FrameLayout>
-
+            <!-- Row 1 inside Hero: Brand icon + App name + TextClock pill -->
             <LinearLayout
-                android:layout_width="0dp"
-                android:layout_weight="1"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="13dp"
-                android:orientation="vertical">
+                android:layout_marginBottom="3dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
 
-                <TextView
-                    android:id="@+id/widget_hero_kicker"
-                    android:fontFamily="@font/be_vietnam_pro"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="2dp"
-                    android:maxLines="1"
-                    android:text="Tiến độ hôm nay"
-                    android:textSize="10.5sp"
-                    android:textColor="#CCFFFFFF" />
-
-                <TextView
-                    android:id="@+id/widget_progress"
-                    android:fontFamily="@font/be_vietnam_pro"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="5dp"
-                    android:maxLines="3"
-                    android:ellipsize="end"
-                    android:lineSpacingExtra="1dp"
-                    android:text="Thuốc Vui"
-                    android:textSize="13sp"
-                    android:textStyle="bold"
-                    android:textColor="#FFFFFF" />
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="top">
+                <FrameLayout
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:background="@drawable/widget_hero_logo_bg">
 
                     <ImageView
-                        android:id="@+id/widget_status_dot"
-                        android:layout_width="7dp"
-                        android:layout_height="7dp"
-                        android:layout_marginTop="4dp"
-                        android:layout_marginEnd="6dp"
+                        android:id="@+id/widget_pill"
+                        android:layout_width="11dp"
+                        android:layout_height="11dp"
+                        android:layout_gravity="center"
                         android:importantForAccessibility="no"
-                        android:src="@drawable/widget_status_dot" />
+                        android:src="@drawable/widget_ic_capsule" />
+                </FrameLayout>
+
+                <TextView
+                    android:id="@+id/widget_title"
+                    android:fontFamily="@font/be_vietnam_pro"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="5dp"
+                    android:layout_marginEnd="6dp"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:text="Thuốc Vui"
+                    android:textSize="10.5sp"
+                    android:textStyle="bold"
+                    android:textColor="#FFFFFF" />
+
+                <TextClock
+                    android:id="@+id/widget_datetime"
+                    android:fontFamily="@font/be_vietnam_pro"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/widget_hero_clock_bg"
+                    android:paddingHorizontal="6dp"
+                    android:paddingVertical="1dp"
+                    android:singleLine="true"
+                    android:textSize="8.5sp"
+                    android:textStyle="bold"
+                    android:textColor="#F5FFFFFF"
+                    android:format24Hour="dd/MM/yyyy • HH:mm:ss"
+                    android:format12Hour="dd/MM/yyyy • hh:mm:ss" />
+            </LinearLayout>
+
+            <!-- Row 2 inside Hero: 42dp Progress Ring (%) + Today Progress + Status Message -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <FrameLayout
+                    android:layout_width="42dp"
+                    android:layout_height="42dp">
+
+                    <ImageView
+                        android:id="@+id/widget_progress_ring"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:importantForAccessibility="no"
+                        android:scaleType="fitCenter" />
 
                     <TextView
-                        android:id="@+id/widget_pip"
+                        android:id="@+id/widget_ring_pct"
                         android:fontFamily="@font/be_vietnam_pro"
-                        android:layout_width="0dp"
-                        android:layout_weight="1"
-                        android:layout_height="wrap_content"
-                        android:maxLines="4"
-                        android:ellipsize="end"
-                        android:lineSpacingExtra="1dp"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:gravity="center"
+                        android:maxLines="1"
+                        android:text="0%"
                         android:textSize="11sp"
-                        android:textColor="#F0FFFFFF" />
+                        android:textStyle="bold"
+                        android:textColor="#FFFFFF" />
+                </FrameLayout>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="9dp"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/widget_hero_kicker"
+                        android:fontFamily="@font/be_vietnam_pro"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:maxLines="1"
+                        android:text="Tiến độ hôm nay"
+                        android:textSize="8.5sp"
+                        android:textColor="#CCFFFFFF" />
+
+                    <TextView
+                        android:id="@+id/widget_progress"
+                        android:fontFamily="@font/be_vietnam_pro"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:maxLines="1"
+                        android:ellipsize="end"
+                        android:text="Thuốc Vui"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        android:textColor="#FFFFFF" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="1dp"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <ImageView
+                            android:id="@+id/widget_status_dot"
+                            android:layout_width="6dp"
+                            android:layout_height="6dp"
+                            android:layout_marginEnd="5dp"
+                            android:importantForAccessibility="no"
+                            android:src="@drawable/widget_status_dot" />
+
+                        <TextView
+                            android:id="@+id/widget_pip"
+                            android:fontFamily="@font/be_vietnam_pro"
+                            android:layout_width="0dp"
+                            android:layout_weight="1"
+                            android:layout_height="wrap_content"
+                            android:maxLines="1"
+                            android:ellipsize="end"
+                            android:textSize="9.5sp"
+                            android:textColor="#F0FFFFFF" />
+                    </LinearLayout>
                 </LinearLayout>
             </LinearLayout>
         </LinearLayout>
@@ -173,19 +180,19 @@
         android:id="@+id/widget_next_card"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="10dp"
+        android:layout_marginBottom="4dp"
         android:orientation="horizontal"
         android:gravity="center_vertical"
         android:background="@drawable/next_card_light"
-        android:paddingHorizontal="12dp"
-        android:paddingVertical="10dp">
+        android:paddingHorizontal="8dp"
+        android:paddingVertical="4dp">
 
-        <!-- 42dp Pill Shape Icon Box -->
+        <!-- 30dp Pill Shape Icon Box (exact widget_ic_capsule.xml) -->
         <FrameLayout
             android:id="@+id/widget_shape_box"
-            android:layout_width="42dp"
-            android:layout_height="42dp"
-            android:layout_marginEnd="11dp">
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:layout_marginEnd="8dp">
 
             <ImageView
                 android:id="@+id/widget_shape_box_bg"
@@ -197,8 +204,8 @@
 
             <ImageView
                 android:id="@+id/widget_shape_icon"
-                android:layout_width="22dp"
-                android:layout_height="22dp"
+                android:layout_width="18dp"
+                android:layout_height="18dp"
                 android:layout_gravity="center"
                 android:importantForAccessibility="no"
                 android:src="@drawable/widget_ic_capsule" />
@@ -215,10 +222,9 @@
                 android:fontFamily="@font/be_vietnam_pro"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="2dp"
                 android:maxLines="1"
                 android:text="LẦN UỐNG TIẾP THEO"
-                android:textSize="9.5sp"
+                android:textSize="8sp"
                 android:textStyle="bold"
                 android:letterSpacing="0.04"
                 android:textColor="#64748B" />
@@ -231,7 +237,7 @@
                 android:maxLines="1"
                 android:ellipsize="end"
                 android:text="Mở app để xem lịch hôm nay"
-                android:textSize="13sp"
+                android:textSize="11sp"
                 android:textStyle="bold"
                 android:textColor="#0F172A" />
 
@@ -240,10 +246,9 @@
                 android:fontFamily="@font/be_vietnam_pro"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:maxLines="2"
+                android:maxLines="1"
                 android:ellipsize="end"
-                android:textSize="11sp"
+                android:textSize="9.5sp"
                 android:textColor="#64748B" />
         </LinearLayout>
     </LinearLayout>
@@ -252,7 +257,7 @@
     <FrameLayout
         android:id="@+id/widget_checkin_row"
         android:layout_width="match_parent"
-        android:layout_height="44dp">
+        android:layout_height="32dp">
 
         <ImageView
             android:id="@+id/widget_checkin_background"
@@ -278,12 +283,12 @@
             android:orientation="horizontal"
             android:gravity="center"
             android:background="?android:attr/selectableItemBackground"
-            android:paddingHorizontal="14dp">
+            android:paddingHorizontal="12dp">
 
             <ImageView
                 android:id="@+id/widget_checkin_icon"
-                android:layout_width="16dp"
-                android:layout_height="16dp"
+                android:layout_width="14dp"
+                android:layout_height="14dp"
                 android:importantForAccessibility="no"
                 android:src="@drawable/widget_ic_check" />
 
@@ -292,10 +297,10 @@
                 android:fontFamily="@font/be_vietnam_pro"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="7dp"
+                android:layout_marginStart="6dp"
                 android:maxLines="1"
                 android:text="Đã uống lần này"
-                android:textSize="12.5sp"
+                android:textSize="11.5sp"
                 android:textStyle="bold"
                 android:textColor="#FFFFFF" />
         </LinearLayout>
@@ -308,20 +313,20 @@
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:background="@drawable/done_card_light"
-        android:paddingHorizontal="13dp"
-        android:paddingVertical="12dp"
+        android:paddingHorizontal="9dp"
+        android:paddingVertical="6dp"
         android:visibility="gone">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="8dp"
+            android:layout_marginBottom="4dp"
             android:orientation="horizontal"
             android:gravity="center_vertical">
 
             <ImageView
-                android:layout_width="24dp"
-                android:layout_height="24dp"
+                android:layout_width="18dp"
+                android:layout_height="18dp"
                 android:importantForAccessibility="no"
                 android:src="@drawable/widget_ic_done_circle" />
 
@@ -331,9 +336,11 @@
                 android:layout_width="0dp"
                 android:layout_weight="1"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
+                android:layout_marginStart="6dp"
+                android:maxLines="1"
+                android:ellipsize="end"
                 android:text="🎉 Đã xong hôm nay!"
-                android:textSize="13sp"
+                android:textSize="11.5sp"
                 android:textStyle="bold"
                 android:textColor="#0F172A" />
         </LinearLayout>
@@ -345,8 +352,8 @@
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:background="@drawable/done_item_light"
-            android:paddingHorizontal="9dp"
-            android:paddingVertical="7dp"
+            android:paddingHorizontal="8dp"
+            android:paddingVertical="4dp"
             android:visibility="gone">
 
             <TextView
@@ -354,9 +361,9 @@
                 android:fontFamily="@font/be_vietnam_pro"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:maxLines="2"
+                android:maxLines="1"
                 android:ellipsize="end"
-                android:textSize="11sp"
+                android:textSize="10sp"
                 android:textStyle="bold"
                 android:textColor="#0F172A" />
 
@@ -365,23 +372,23 @@
                 android:fontFamily="@font/be_vietnam_pro"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:maxLines="2"
+                android:layout_marginTop="1dp"
+                android:maxLines="1"
                 android:ellipsize="end"
-                android:textSize="10.5sp"
+                android:textSize="9.5sp"
                 android:textColor="#64748B" />
         </LinearLayout>
 
-        <!-- Done dose item 2 -->
+        <!-- Done dose item 2 (shown when resized to 4x3+) -->
         <LinearLayout
             android:id="@+id/widget_done_item_2"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="7dp"
+            android:layout_marginTop="5dp"
             android:orientation="vertical"
             android:background="@drawable/done_item_light"
-            android:paddingHorizontal="9dp"
-            android:paddingVertical="7dp"
+            android:paddingHorizontal="8dp"
+            android:paddingVertical="4dp"
             android:visibility="gone">
 
             <TextView
@@ -389,9 +396,9 @@
                 android:fontFamily="@font/be_vietnam_pro"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:maxLines="2"
+                android:maxLines="1"
                 android:ellipsize="end"
-                android:textSize="11sp"
+                android:textSize="10sp"
                 android:textStyle="bold"
                 android:textColor="#0F172A" />
 
@@ -400,23 +407,23 @@
                 android:fontFamily="@font/be_vietnam_pro"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:maxLines="2"
+                android:layout_marginTop="1dp"
+                android:maxLines="1"
                 android:ellipsize="end"
-                android:textSize="10.5sp"
+                android:textSize="9.5sp"
                 android:textColor="#64748B" />
         </LinearLayout>
 
-        <!-- Done dose item 3 -->
+        <!-- Done dose item 3 (shown when resized to 4x3+) -->
         <LinearLayout
             android:id="@+id/widget_done_item_3"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="7dp"
+            android:layout_marginTop="5dp"
             android:orientation="vertical"
             android:background="@drawable/done_item_light"
-            android:paddingHorizontal="9dp"
-            android:paddingVertical="7dp"
+            android:paddingHorizontal="8dp"
+            android:paddingVertical="4dp"
             android:visibility="gone">
 
             <TextView
@@ -424,9 +431,9 @@
                 android:fontFamily="@font/be_vietnam_pro"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:maxLines="2"
+                android:maxLines="1"
                 android:ellipsize="end"
-                android:textSize="11sp"
+                android:textSize="10sp"
                 android:textStyle="bold"
                 android:textColor="#0F172A" />
 
@@ -435,10 +442,10 @@
                 android:fontFamily="@font/be_vietnam_pro"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:maxLines="2"
+                android:layout_marginTop="1dp"
+                android:maxLines="1"
                 android:ellipsize="end"
-                android:textSize="10.5sp"
+                android:textSize="9.5sp"
                 android:textColor="#64748B" />
         </LinearLayout>
 
@@ -447,8 +454,10 @@
             android:fontFamily="@font/be_vietnam_pro"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:textSize="10.5sp"
+            android:layout_marginTop="3dp"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:textSize="9.5sp"
             android:textColor="#64748B"
             android:visibility="gone" />
     </LinearLayout>

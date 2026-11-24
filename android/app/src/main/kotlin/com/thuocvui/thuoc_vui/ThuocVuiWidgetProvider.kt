@@ -16,6 +16,7 @@ import android.graphics.Path
 import android.graphics.RectF
 import android.graphics.Shader
 import android.os.Build
+import android.os.Bundle
 import android.view.View
 import android.widget.RemoteViews
 import android.widget.Toast
@@ -70,6 +71,9 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
     }
     val langEn = WidgetLang.isEn(context)
     appWidgetIds.forEach { widgetId ->
+      val minHeightDp = appWidgetManager.getAppWidgetOptions(widgetId)
+          .getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 0)
+      val isTall = minHeightDp >= 210
       val views = RemoteViews(context.packageName, R.layout.thuoc_vui_widget).apply {
         val themeMode = widgetData.getString("widget_theme", "system")
         val isDark = themeMode == "dark" || (themeMode == "system" &&
@@ -131,25 +135,20 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
         val mainText = if (isDark) COLOR_TEXT_DARK else COLOR_TEXT_LIGHT
         val mutedText = if (isDark) COLOR_MUTED_DARK else COLOR_MUTED_LIGHT
 
-        // Header: logo badge gradient + tên app + đồng hồ TextClock bo pill.
-        setImageViewBitmap(R.id.widget_pill, logoBadgeBitmap(context, heroColors))
-        setTextColor(R.id.widget_title, mainText)
-        setTextColor(R.id.widget_datetime, mutedText)
-        setInt(
-            R.id.widget_datetime,
-            "setBackgroundResource",
-            if (isDark) R.drawable.widget_clock_bg_dark else R.drawable.widget_clock_bg_light,
-        )
-
         val openIntent = HomeWidgetLaunchIntent.getActivity(context, MainActivity::class.java)
         setOnClickPendingIntent(R.id.widget_container, openIntent)
 
-        // Hero Bento Gradient Card + vòng tròn tiến độ 76dp chỉ hiện % (không mặt Pip).
+        // Hero Bento Gradient Card (gộp tên app + đồng hồ TextClock ở dòng đầu)
+        // + vòng tròn tiến độ 42dp chỉ hiện % (không mặt Pip).
         val pct = (widgetData.getString("progress_pct", null)?.toIntOrNull() ?: 0).coerceIn(0, 100)
         val allDone = widgetData.getString("all_done", null) == "1"
         setImageViewBitmap(R.id.widget_hero_bg, heroBackgroundBitmap(heroColors))
         setImageViewBitmap(R.id.widget_progress_ring, progressRingBitmap(context, pct))
         setTextViewText(R.id.widget_ring_pct, "$pct%")
+        setTextViewText(
+            R.id.widget_hero_kicker,
+            WidgetLang.tr("Tiến độ hôm nay", "Today's progress", langEn),
+        )
         setTextViewText(R.id.widget_progress, widgetData.getString("progress", null) ?: "Thuốc Vui")
 
         val pipMessage = widgetData.getString("pip_message", null) ?: WidgetLang.tr("😊 Pip đang nhắc bạn uống thuốc đúng giờ nhé!", "😊 Pip is reminding you to take your medicine on time!", langEn)
@@ -164,6 +163,7 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
           else -> PILL_AMBER
         }
         setInt(R.id.widget_status_dot, "setColorFilter", statusDotColor)
+        setInt(R.id.widget_pip, "setMaxLines", if (isTall) 3 else 1)
         setTextViewText(R.id.widget_pip, if (hasMoodPrefix) pipMessage.substringAfter(' ') else pipMessage)
 
         if (allDone) {
@@ -175,6 +175,10 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
               "setBackgroundResource",
               if (isDark) R.drawable.done_card_dark else R.drawable.done_card_light,
           )
+          setTextViewText(
+              R.id.widget_done,
+              WidgetLang.tr("🎉 Đã xong hôm nay!", "🎉 All done for today!", langEn),
+          )
           setTextColor(R.id.widget_done, mainText)
           bindDoneItems(
               this,
@@ -182,6 +186,8 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
               isDark,
               mainText,
               mutedText,
+              maxItems = if (isTall) 3 else 1,
+              langEn = langEn,
           )
         } else {
           setViewVisibility(R.id.widget_done_card, View.GONE)
@@ -227,6 +233,7 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
           val nextTime = widgetData.getString("next_time", null) ?: ""
           setTextViewText(R.id.widget_next, nextText)
           setTextColor(R.id.widget_next, mainText)
+          setInt(R.id.widget_next_time, "setMaxLines", if (isTall) 2 else 1)
           setTextViewText(R.id.widget_next_time, nextTime)
           setTextColor(R.id.widget_next_time, mutedText)
           setViewVisibility(R.id.widget_next_time, if (nextTime.isEmpty()) View.GONE else View.VISIBLE)
@@ -242,6 +249,10 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
               if (isOutOfStock) R.drawable.widget_ic_lock else R.drawable.widget_ic_check,
           )
           setInt(R.id.widget_checkin_icon, "setColorFilter", onAccent)
+          setTextViewText(
+              R.id.widget_checkin_label,
+              WidgetLang.tr("Đã uống lần này", "Mark as taken", langEn),
+          )
           setTextColor(R.id.widget_checkin_label, onAccent)
 
           // 1.2.33: hết thuốc thì khóa + làm mờ nút check-in (alpha 0.4),
@@ -275,24 +286,37 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
     }
   }
 
+  override fun onAppWidgetOptionsChanged(
+      context: Context,
+      appWidgetManager: AppWidgetManager,
+      appWidgetId: Int,
+      newOptions: Bundle,
+  ) {
+    super.onAppWidgetOptionsChanged(context, appWidgetManager, appWidgetId, newOptions)
+    val prefs = context.getSharedPreferences("HomeWidgetPreferences", Context.MODE_PRIVATE)
+    onUpdate(context, appWidgetManager, intArrayOf(appWidgetId), prefs)
+  }
+
   private fun bindDoneItems(
       views: RemoteViews,
       doneDetail: String,
       isDark: Boolean,
       mainText: Int,
       mutedText: Int,
+      maxItems: Int,
+      langEn: Boolean,
   ) {
     val rawLines = doneDetail
         .split("\n")
         .map { it.trim() }
         .filter { it.isNotEmpty() }
     val pairs = mutableListOf<Pair<String, String>>()
-    var moreText = ""
+    var overflowLine = ""
     var idx = 0
     while (idx < rawLines.size) {
       val line = rawLines[idx]
       if (line.startsWith("…") || pairs.size >= 3) {
-        moreText = rawLines.subList(idx, rawLines.size).joinToString("\n")
+        overflowLine = rawLines.subList(idx, rawLines.size).joinToString("\n")
         break
       }
       val nextLine = if (idx + 1 < rawLines.size && !rawLines[idx + 1].startsWith("…")) {
@@ -305,6 +329,14 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
       pairs.add(Pair(line, nextLine))
     }
 
+    val visibleCount = pairs.size.coerceAtMost(maxItems.coerceIn(1, 3))
+    val hiddenPairs = (pairs.size - visibleCount).coerceAtLeast(0)
+    val moreText = when {
+      hiddenPairs > 0 && overflowLine.isNotEmpty() -> overflowLine
+      hiddenPairs > 0 -> if (langEn) "… and $hiddenPairs more" else "… và $hiddenPairs lần nữa"
+      else -> overflowLine
+    }
+
     val itemBg = if (isDark) R.drawable.done_item_dark else R.drawable.done_item_light
     val itemSpecs = arrayOf(
         Triple(R.id.widget_done_item_1, R.id.widget_done_1_line1, R.id.widget_done_1_line2),
@@ -313,7 +345,7 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
     )
     for (i in itemSpecs.indices) {
       val (boxId, line1Id, line2Id) = itemSpecs[i]
-      if (i < pairs.size) {
+      if (i < visibleCount) {
         val (line1, line2) = pairs[i]
         views.setViewVisibility(boxId, View.VISIBLE)
         views.setInt(boxId, "setBackgroundResource", itemBg)
@@ -382,50 +414,11 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
     return intArrayOf(c1, middle, c3)
   }
 
-  /** Badge logo 26dp góc bo 9dp: nền hero gradient + icon viên nang trắng sắc nét. */
-  private fun logoBadgeBitmap(context: Context, heroColors: IntArray): Bitmap {
-    val density = context.resources.displayMetrics.density
-    val size = (26f * density).roundToInt().coerceIn(52, 104)
-    val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
-    val canvas = Canvas(bitmap)
-    val radius = size * (9f / 26f)
-    val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-      shader = LinearGradient(
-          0f,
-          0f,
-          size.toFloat(),
-          size.toFloat(),
-          heroColors,
-          floatArrayOf(0f, 0.5f, 1f),
-          Shader.TileMode.CLAMP,
-      )
-    }
-    canvas.drawRoundRect(0f, 0f, size.toFloat(), size.toFloat(), radius, radius, bgPaint)
-
-    val iconScale = (size * (15f / 26f)) / 24f
-    val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-      style = Paint.Style.STROKE
-      color = Color.WHITE
-      strokeWidth = 2.3f * iconScale
-      strokeCap = Paint.Cap.ROUND
-      strokeJoin = Paint.Join.ROUND
-    }
-    canvas.save()
-    canvas.translate(size / 2f, size / 2f)
-    canvas.rotate(-45f)
-    val halfW = 9.0f * iconScale
-    val halfH = 4.5f * iconScale
-    canvas.drawRoundRect(-halfW, -halfH, halfW, halfH, halfH, halfH, strokePaint)
-    canvas.drawLine(0f, -halfH, 0f, halfH, strokePaint)
-    canvas.restore()
-    return bitmap
-  }
-
-  /** Nền thẻ Hero Bento bo 20dp: gradient 135° theo pillGradient() + vòng sáng trang trí góc phải trên. */
+  /** Nền thẻ Hero Bento bo 18dp: gradient 135° theo pillGradient() + vòng sáng trang trí góc phải trên. */
   private fun heroBackgroundBitmap(heroColors: IntArray): Bitmap {
     val width = 360
-    val height = 116
-    val radius = 22f
+    val height = 84
+    val radius = 20f
     val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
     val rect = RectF(0f, 0f, width.toFloat(), height.toFloat())
@@ -449,15 +442,15 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
     val orbPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
       color = 0x1CFFFFFF // rgba(255, 255, 255, 0.11)
     }
-    canvas.drawCircle(width - 26f, 24f, 54f, orbPaint)
+    canvas.drawCircle(width - 22f, 16f, 44f, orbPaint)
     canvas.restore()
     return bitmap
   }
 
-  /** Vòng tròn tiến độ 76dp viền trắng bo tròn đầu (chỉ vẽ vòng; % hiển thị bằng TextView Be Vietnam Pro ở giữa). */
+  /** Vòng tròn tiến độ 42dp viền trắng bo tròn đầu (chỉ vẽ vòng; % hiển thị bằng TextView Be Vietnam Pro ở giữa). */
   private fun progressRingBitmap(context: Context, percent: Int): Bitmap {
     val density = context.resources.displayMetrics.density
-    val size = (76f * density).roundToInt().coerceIn(152, 228)
+    val size = (42f * density).roundToInt().coerceIn(84, 168)
     val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
     val cx = size / 2f
