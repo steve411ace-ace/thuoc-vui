@@ -1,5 +1,9 @@
 # Nhật ký thay đổi
 
+## 1.2.53+56
+
+- Xóa vòng tròn avatar "TV" ở thanh trên cùng màn Hôm nay.
+
 ## 1.2.52+55
 
 - Nới rộng widget cho hiện đủ chữ, thêm ngôn ngữ Tiếng Việt/English trong Cài đặt, bỏ lịch tháng trùng ở Thống kê, bấm ngày đổi màn Hôm nay.

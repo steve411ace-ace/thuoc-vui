@@ -294,19 +294,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                               : const Color(0xFF92400E))),
                 ),
               ),
-              const SizedBox(width: 8),
-              Container(
-                width: 36,
-                height: 36,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                    shape: BoxShape.circle, gradient: pillGradient(scheme)),
-                child: const Text('TV',
-                    style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold)),
-              ),
               IconButton(
                 tooltip: tr('Cài đặt', 'Settings'),
                 onPressed: _openSettings,
