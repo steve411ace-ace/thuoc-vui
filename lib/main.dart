@@ -12,8 +12,8 @@ import 'purchases.dart';
 import 'store.dart';
 import 'widget_service.dart';
 
-const _appVersion = '1.2.49';
-const _appBuild = '52';
+const _appVersion = '1.2.50';
+const _appBuild = '53';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -60,6 +60,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   int _tab = 0;
   final _pendingSlots = <String>{};
   final _pendingRefills = <String>{};
+  final _dismissedReminders = <String>{};
+  final _snoozedReminders = <String, DateTime>{};
+  Timer? _reminderTimer;
   Timer? _toastTimer;
   String? _toastMessage;
 
@@ -78,6 +81,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _cabinetSearchController.dispose();
+    _reminderTimer?.cancel();
     _toastTimer?.cancel();
     super.dispose();
   }
@@ -179,20 +183,33 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Widget _homeTab() {
     final store = widget.store;
     final scheme = Theme.of(context).colorScheme;
-    final today = DateUtils.dateOnly(DateTime.now());
+    final now = DateTime.now();
+    final today = DateUtils.dateOnly(now);
     final slots = store.slotsForDay(today);
     final taken = slots.where((slot) => pillTaken(store.statusOf(slot))).length;
     DoseSlot? next;
+    DoseSlot? reminder;
+    var refreshAt = DateTime(today.year, today.month, today.day + 1);
     for (final slot in slots) {
-      if (store.statusOf(slot) == null &&
-          (store.remainingPills(slot.medicine) ?? 1) > 0) {
+      if (store.statusOf(slot) != null) continue;
+      if (next == null && (store.remainingPills(slot.medicine) ?? 1) > 0) {
         next = slot;
-        break;
+      }
+      if (_dismissedReminders.contains(slot.key)) continue;
+      final remindAt = _snoozedReminders[slot.key] ?? slot.dateTime;
+      if (remindAt.isAfter(now)) {
+        if (remindAt.isBefore(refreshAt)) refreshAt = remindAt;
+      } else {
+        reminder ??= slot;
       }
     }
+    _reminderTimer?.cancel();
+    _reminderTimer = Timer(refreshAt.difference(now), () {
+      if (mounted && _tab == 0) setState(() {});
+    });
     final total = slots.length;
     final progress = total == 0 ? 0.0 : taken / total;
-    final hour = DateTime.now().hour;
+    final hour = now.hour;
     final greeting = hour < 11
         ? 'Chào buổi sáng!'
         : hour < 14
@@ -269,6 +286,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             ],
           ),
           const SizedBox(height: 16),
+          if (reminder != null) ...[
+            _doseReminderBanner(reminder),
+            const SizedBox(height: 16),
+          ],
           _weekSelectorStrip(scheme, today),
           const SizedBox(height: 16),
           Container(
@@ -396,6 +417,154 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         ],
       ),
     );
+  }
+
+  Widget _doseReminderBanner(DoseSlot slot) {
+    final scheme = Theme.of(context).colorScheme;
+    final store = widget.store;
+    final med = slot.medicine;
+    final locked = (store.remainingPills(med) ?? 1) <= 0;
+    final busy = _pendingSlots.contains(slot.key);
+
+    return PillGlass(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xFF0F766E), pillTeal, pillSky],
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: const PillShapeGlyph('capsule', color: Colors.white),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'PILLFLOW · BÂY GIỜ',
+                        style: TextStyle(
+                          color: scheme.brightness == Brightness.dark
+                              ? pillDarkTeal
+                              : const Color(0xFF0F766E),
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.4,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Đến giờ uống ${med.name}',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        '${slot.time} · ${med.dose} · ${med.formLabel} · ${med.mealTiming}',
+                        style: TextStyle(
+                          color: scheme.onSurfaceVariant,
+                          fontSize: 12,
+                        ),
+                      ),
+                      if (locked)
+                        Text(
+                          'Hết thuốc',
+                          style: TextStyle(color: scheme.error, fontSize: 12),
+                        ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Đóng thông báo',
+                  onPressed: busy
+                      ? null
+                      : () => setState(() => _dismissedReminders.add(slot.key)),
+                  icon: const Icon(Icons.close, size: 16),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: scheme.surfaceContainerHighest,
+                      foregroundColor: scheme.onSurface,
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    onPressed: busy ? null : () => _snoozeReminder(slot),
+                    child: const Text(
+                      'Nhắc lại 15p',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 12),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: FilledButton(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF047857),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    onPressed: locked || busy
+                        ? null
+                        : () {
+                            if (store.statusOf(slot) != null) return;
+                            _toggleDose(slot);
+                          },
+                    child: const Text(
+                      '✓ Đánh dấu đã uống',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 12),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _snoozeReminder(DoseSlot slot) async {
+    if (!_pendingSlots.add(slot.key)) return;
+    setState(() {});
+    try {
+      await widget.store.scheduleSnooze(slot.key, 15);
+      if (!mounted) return;
+      _snoozedReminders[slot.key] = DateTime.now().add(
+        const Duration(minutes: 15),
+      );
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Đã hoãn nhắc sau 15 phút!')),
+      );
+    } finally {
+      _pendingSlots.remove(slot.key);
+      if (mounted) setState(() {});
+    }
   }
 
   Widget _weekSelectorStrip(ColorScheme scheme, DateTime today) => Row(

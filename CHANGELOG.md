@@ -1,5 +1,9 @@
 # Nhật ký thay đổi
 
+## 1.2.50+53
+
+- Thêm banner nhắc uống thuốc trong tab Hôm nay cho liều đã đến giờ, với tùy chọn nhắc lại sau 15 phút, đánh dấu đã uống hoặc đóng thông báo.
+
 ## 1.2.49+52
 
 - Áp dụng giao diện PillFlow với bảng màu sáng/tối, thẻ bo tròn và thanh điều hướng nổi.
