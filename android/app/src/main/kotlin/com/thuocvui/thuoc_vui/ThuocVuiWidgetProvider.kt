@@ -4,13 +4,17 @@ import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
+import android.content.Intent
+import android.content.SharedPreferences
 import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.LinearGradient
 import android.graphics.Paint
-import android.content.Intent
-import android.content.SharedPreferences
+import android.graphics.Path
+import android.graphics.RectF
+import android.graphics.Shader
 import android.os.Build
 import android.view.View
 import android.widget.RemoteViews
@@ -23,10 +27,28 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import kotlin.math.roundToInt
 
 class ThuocVuiWidgetProvider : HomeWidgetProvider() {
   companion object {
     const val ACTION_CHECKIN = "com.thuocvui.thuoc_vui.ACTION_CHECKIN"
+
+    private const val PILL_TEAL = 0xFF0D9488.toInt()
+    private const val PILL_TEAL_DARK = 0xFF0F766E.toInt()
+    private const val PILL_DARK_TEAL = 0xFF2DD4BF.toInt()
+    private const val PILL_SKY = 0xFF0EA5E9.toInt()
+    private const val PILL_ORANGE = 0xFFF97316.toInt()
+    private const val PILL_AMBER = 0xFFFBBF24.toInt()
+    private const val PILL_OVERDUE_DOT = 0xFFFDBA74.toInt()
+    private const val PILL_EMERALD_SOFT = 0xFF6EE7B7.toInt()
+
+    private const val COLOR_TEXT_LIGHT = 0xFF0F172A.toInt()
+    private const val COLOR_TEXT_DARK = 0xFFF1F5F9.toInt()
+    private const val COLOR_MUTED_LIGHT = 0xFF64748B.toInt()
+    private const val COLOR_MUTED_DARK = 0xFF94A3B8.toInt()
+    private const val COLOR_SLATE_300 = 0xFFCBD5E1.toInt()
+    private const val COLOR_OUT_TAG_LIGHT = 0xFFEA580C.toInt()
+    private const val COLOR_OUT_TAG_DARK = 0xFFFB923C.toInt()
   }
 
   override fun onUpdate(
@@ -52,27 +74,38 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
         val isDark = themeMode == "dark" || (themeMode == "system" &&
             (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
                 Configuration.UI_MODE_NIGHT_YES)
-        val accent = try {
+
+        // Màu chủ đạo từ HomePalette + Custom (widget_accent) đồng bộ công thức
+        // pillGradient() trong lib/pillflow_style.dart và HomePalette._theme().
+        val rawAccent = try {
           Color.parseColor(widgetData.getString("widget_accent", null) ?: "#0F766E")
         } catch (_: IllegalArgumentException) {
-          0xFF0F766E.toInt()
+          PILL_TEAL_DARK
         }
-        val luminance = 0.2126 * linearChannel(Color.red(accent)) +
-            0.7152 * linearChannel(Color.green(accent)) +
-            0.0722 * linearChannel(Color.blue(accent))
-        val lightAccent = luminance > 0.55
-        setInt(R.id.widget_pill, "setColorFilter", accent)
-        setInt(
-            R.id.widget_pill, "setBackgroundColor",
-            if (lightAccent) 0xFF47575B.toInt() else Color.TRANSPARENT,
-        )
-        setTextColor(R.id.widget_checkin, if (luminance > 0.179) Color.BLACK else Color.WHITE)
-        setInt(R.id.widget_checkin_background, "setColorFilter", accent)
+        val isDefaultTeal = rawAccent == PILL_TEAL_DARK ||
+            rawAccent == PILL_TEAL ||
+            rawAccent == PILL_DARK_TEAL
+        val resolvedAccent = if (isDefaultTeal) {
+          if (isDark) PILL_DARK_TEAL else PILL_TEAL
+        } else {
+          rawAccent
+        }
+        val heroColors = computeHeroGradientColors(rawAccent, isDefaultTeal)
+        val accentLuminance = luminanceOf(resolvedAccent)
+        val darkOnAccent = if (isDefaultTeal && !isDark) false else accentLuminance > 0.179
+        val onAccent = if (darkOnAccent) COLOR_TEXT_LIGHT else Color.WHITE
+        val lightButtonOutline = accentLuminance > 0.8 && !isDark
+        val shapeAccent = when {
+          !isDark && accentLuminance > 0.8 -> COLOR_TEXT_LIGHT
+          isDark && accentLuminance < 0.04 -> COLOR_SLATE_300
+          else -> resolvedAccent
+        }
+
         // Độ mờ widget (1.2.18, mở rộng 0-100% ở 1.2.26): Dart lưu
         // widget_opacity (%) vào HomeWidgetPreferences, mặc định 100.
         // Drawable có đủ các mức 0/10/.../100 nên làm tròn về mức 10%
-        // gần nhất; nền khối lần uống tiếp theo giữ đặc để chữ còn
-        // đọc được khi nền mờ.
+        // gần nhất; thẻ Hero & thẻ lần uống tiếp theo giữ nền đặc để
+        // chữ luôn rõ trên mọi hình nền.
         val opacityRaw = widgetData.getString("widget_opacity", null)?.toIntOrNull() ?: 100
         val opacity = when {
           opacityRaw < 0 -> 0
@@ -93,56 +126,133 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
           else -> if (isDark) R.drawable.widget_background_dark_0 else R.drawable.widget_background_0
         }
         setInt(R.id.widget_container, "setBackgroundResource", bgRes)
-        // Thanh tiến độ hôm nay (1.2.18): Dart/Kotlin đều lưu progress_pct.
-        val pct = widgetData.getString("progress_pct", null)?.toIntOrNull() ?: 0
-        val track = if (lightAccent) 0xFF748384.toInt() else 0xFFD9E8E5.toInt()
-        setImageViewBitmap(R.id.widget_progress_bar, progressBitmap(pct, accent, track))
-        setInt(R.id.widget_next_card, "setBackgroundResource",
-            if (isDark) R.drawable.next_card_dark else R.drawable.next_card_light)
-        val mainText = if (isDark) 0xFFEDEDED.toInt() else 0xFF333333.toInt()
-        val subText = if (isDark) 0xFFB8C4C2.toInt() else 0xFF666666.toInt()
+
+        val mainText = if (isDark) COLOR_TEXT_DARK else COLOR_TEXT_LIGHT
+        val mutedText = if (isDark) COLOR_MUTED_DARK else COLOR_MUTED_LIGHT
+
+        // Header: logo badge gradient + tên app + đồng hồ TextClock bo pill.
+        setImageViewBitmap(R.id.widget_pill, logoBadgeBitmap(context, heroColors))
         setTextColor(R.id.widget_title, mainText)
-        setTextColor(R.id.widget_datetime, mainText)
-        setTextColor(R.id.widget_pip, mainText)
-        setTextColor(R.id.widget_progress, mainText)
-        setTextColor(R.id.widget_next, mainText)
-        setTextColor(R.id.widget_next_time, subText)
-        setTextColor(R.id.widget_done, mainText)
-        setTextColor(R.id.widget_done_detail, if (isDark) subText else mainText)
-        setTextViewText(R.id.widget_done_detail, widgetData.getString("done_detail", null) ?: "")
+        setTextColor(R.id.widget_datetime, mutedText)
+        setInt(
+            R.id.widget_datetime,
+            "setBackgroundResource",
+            if (isDark) R.drawable.widget_clock_bg_dark else R.drawable.widget_clock_bg_light,
+        )
+
         val openIntent = HomeWidgetLaunchIntent.getActivity(context, MainActivity::class.java)
         setOnClickPendingIntent(R.id.widget_container, openIntent)
-        val pipMessage = widgetData.getString("pip_message", null) ?: "😊 Pip đang nhắc bạn uống thuốc đúng giờ nhé!"
-        val pipFace = when {
-          pipMessage.startsWith("🥳 ") -> R.drawable.widget_pip_celebrate
-          pipMessage.startsWith("😟 ") -> R.drawable.widget_pip_worried
-          pipMessage.startsWith("😊 ") -> R.drawable.widget_pip_happy
-          else -> null
-        }
-        setViewVisibility(R.id.widget_pip_face, if (pipFace == null) View.GONE else View.VISIBLE)
-        if (pipFace != null) setImageViewResource(R.id.widget_pip_face, pipFace)
-        setTextViewText(R.id.widget_pip, if (pipFace == null) pipMessage else pipMessage.substringAfter(' '))
-        setTextViewText(R.id.widget_progress, widgetData.getString("progress", null) ?: "Thuốc Vui")
-        setTextViewText(R.id.widget_next, widgetData.getString("next_text", null) ?: "Mở app để xem lịch hôm nay")
-        setTextViewText(R.id.widget_next_time, widgetData.getString("next_time", null) ?: "")
+
+        // Hero Bento Gradient Card + vòng tròn tiến độ 76dp chỉ hiện % (không mặt Pip).
+        val pct = (widgetData.getString("progress_pct", null)?.toIntOrNull() ?: 0).coerceIn(0, 100)
         val allDone = widgetData.getString("all_done", null) == "1"
+        setImageViewBitmap(R.id.widget_hero_bg, heroBackgroundBitmap(heroColors))
+        setImageViewBitmap(R.id.widget_progress_ring, progressRingBitmap(context, pct))
+        setTextViewText(R.id.widget_ring_pct, "$pct%")
+        setTextViewText(R.id.widget_progress, widgetData.getString("progress", null) ?: "Thuốc Vui")
+
+        val pipMessage = widgetData.getString("pip_message", null) ?: "😊 Pip đang nhắc bạn uống thuốc đúng giờ nhé!"
+        val hasMoodPrefix = pipMessage.startsWith("🥳 ") ||
+            pipMessage.startsWith("😟 ") ||
+            pipMessage.startsWith("😊 ")
+        val statusDotColor = when {
+          pipMessage.startsWith("🥳 ") -> PILL_EMERALD_SOFT
+          pipMessage.startsWith("😟 ") -> PILL_OVERDUE_DOT
+          pipMessage.startsWith("😊 ") -> PILL_AMBER
+          allDone -> PILL_EMERALD_SOFT
+          else -> PILL_AMBER
+        }
+        setInt(R.id.widget_status_dot, "setColorFilter", statusDotColor)
+        setTextViewText(R.id.widget_pip, if (hasMoodPrefix) pipMessage.substringAfter(' ') else pipMessage)
+
         if (allDone) {
-          setViewVisibility(R.id.widget_checkin_row, View.GONE)
-          setViewVisibility(R.id.widget_done, View.VISIBLE)
-          setViewVisibility(R.id.widget_done_detail, View.VISIBLE)
-          // Trước đây cả widget_next ("🎉 Đã xong hôm nay!" từ dữ liệu
-          // next_text) và widget_done đều hiện cùng lúc nên bị trùng 2 dòng.
-          // Khi đã xong thì chỉ hiện widget_done, ẩn 2 dòng next đi.
           setViewVisibility(R.id.widget_next_card, View.GONE)
-          setViewVisibility(R.id.widget_next, View.GONE)
-          setViewVisibility(R.id.widget_next_time, View.GONE)
+          setViewVisibility(R.id.widget_checkin_row, View.GONE)
+          setViewVisibility(R.id.widget_done_card, View.VISIBLE)
+          setInt(
+              R.id.widget_done_card,
+              "setBackgroundResource",
+              if (isDark) R.drawable.done_card_dark else R.drawable.done_card_light,
+          )
+          setTextColor(R.id.widget_done, mainText)
+          bindDoneItems(
+              this,
+              widgetData.getString("done_detail", null) ?: "",
+              isDark,
+              mainText,
+              mutedText,
+          )
         } else {
-          setViewVisibility(R.id.widget_checkin_row, View.VISIBLE)
-          setViewVisibility(R.id.widget_done, View.GONE)
-          setViewVisibility(R.id.widget_done_detail, View.GONE)
+          setViewVisibility(R.id.widget_done_card, View.GONE)
           setViewVisibility(R.id.widget_next_card, View.VISIBLE)
-          setViewVisibility(R.id.widget_next, View.VISIBLE)
-          setViewVisibility(R.id.widget_next_time, View.VISIBLE)
+          setViewVisibility(R.id.widget_checkin_row, View.VISIBLE)
+
+          val isOutOfStock = widgetData.getString("next_out_of_stock", null) == "1"
+          setInt(
+              R.id.widget_next_card,
+              "setBackgroundResource",
+              if (isOutOfStock) {
+                if (isDark) R.drawable.next_card_out_dark else R.drawable.next_card_out_light
+              } else {
+                if (isDark) R.drawable.next_card_dark else R.drawable.next_card_light
+              },
+          )
+
+          // Ô icon viên thuốc 42dp (đổi sang cam san hô #F97316 khi hết thuốc 0 viên).
+          val boxColor = if (isOutOfStock) PILL_ORANGE else shapeAccent
+          val boxAlpha = if (isOutOfStock) 0.14f else if (isDark) 0.20f else 0.14f
+          setInt(R.id.widget_shape_box_bg, "setColorFilter", boxColor)
+          setFloat(R.id.widget_shape_box_bg, "setAlpha", boxAlpha)
+          setInt(R.id.widget_shape_icon, "setColorFilter", boxColor)
+
+          if (isOutOfStock) {
+            setTextViewText(R.id.widget_next_tag, "HẾT THUỐC · 0 VIÊN")
+            setTextColor(
+                R.id.widget_next_tag,
+                if (isDark) COLOR_OUT_TAG_DARK else COLOR_OUT_TAG_LIGHT,
+            )
+            setInt(R.id.widget_next_tag, "setBackgroundResource", R.drawable.widget_out_tag_bg)
+            val padH = dpToPx(context, 7f)
+            val padV = dpToPx(context, 2f)
+            setViewPadding(R.id.widget_next_tag, padH, padV, padH, padV)
+          } else {
+            setTextViewText(R.id.widget_next_tag, "LẦN UỐNG TIẾP THEO")
+            setTextColor(R.id.widget_next_tag, mutedText)
+            setInt(R.id.widget_next_tag, "setBackgroundResource", 0)
+            setViewPadding(R.id.widget_next_tag, 0, 0, 0, 0)
+          }
+
+          val nextText = widgetData.getString("next_text", null) ?: "Mở app để xem lịch hôm nay"
+          val nextTime = widgetData.getString("next_time", null) ?: ""
+          setTextViewText(R.id.widget_next, nextText)
+          setTextColor(R.id.widget_next, mainText)
+          setTextViewText(R.id.widget_next_time, nextTime)
+          setTextColor(R.id.widget_next_time, mutedText)
+          setViewVisibility(R.id.widget_next_time, if (nextTime.isEmpty()) View.GONE else View.VISIBLE)
+
+          // Nút check-in bo Bento 16dp: icon tích (hoặc khóa khi hết thuốc) + "Đã uống lần này".
+          setInt(R.id.widget_checkin_background, "setColorFilter", resolvedAccent)
+          setViewVisibility(
+              R.id.widget_checkin_border,
+              if (lightButtonOutline) View.VISIBLE else View.GONE,
+          )
+          setImageViewResource(
+              R.id.widget_checkin_icon,
+              if (isOutOfStock) R.drawable.widget_ic_lock else R.drawable.widget_ic_check,
+          )
+          setInt(R.id.widget_checkin_icon, "setColorFilter", onAccent)
+          setTextColor(R.id.widget_checkin_label, onAccent)
+
+          // 1.2.33: hết thuốc thì khóa + làm mờ nút check-in (alpha 0.4),
+          // mở lại khi mua hộp mới (luôn set cả 2 chiều vì RemoteViews giữ
+          // trạng thái cũ). Vẫn gắn PendingIntent để khi người dùng bấm vào
+          // nút đã khóa, checkinNextDose() chặn ghi log và hiện Toast
+          // "Hết thuốc rồi, mua hộp mới nhé!".
+          val checkinAlpha = if (isOutOfStock) 0.4f else 1.0f
+          setFloat(R.id.widget_checkin, "setAlpha", checkinAlpha)
+          setFloat(R.id.widget_checkin_background, "setAlpha", checkinAlpha)
+          setFloat(R.id.widget_checkin_border, "setAlpha", checkinAlpha)
+
           // Bấm trực tiếp trên widget: gửi broadcast về receiver riêng
           // WidgetCheckinReceiver, receiver tự ghi check-in bằng Kotlin
           // (không qua Dart background engine / JobIntentService của plugin,
@@ -158,20 +268,79 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
               if (Build.VERSION.SDK_INT >= 23) PendingIntent.FLAG_IMMUTABLE else 0
           val pending = PendingIntent.getBroadcast(context, widgetId, checkinIntent, flags)
           setOnClickPendingIntent(R.id.widget_checkin, pending)
-          // 1.2.33: hết thuốc thì mờ nút check-in đi (mở lại khi mua hộp
-          // mới — luôn set cả 2 chiều vì RemoteViews giữ trạng thái cũ).
-          setBoolean(R.id.widget_checkin, "setEnabled", widgetData.getString("next_out_of_stock", null) != "1")
-          // Màu nền nút đặt riêng nên setEnabled(false)
-          // không làm mờ màu — chỉnh thêm độ trong suốt (mờ khi hết thuốc,
-          // đậm lại khi có thuốc; luôn set cả 2 chiều).
-          val checkinAlpha = if (widgetData.getString("next_out_of_stock", null) == "1") 0.4f else 1.0f
-          setFloat(R.id.widget_checkin, "setAlpha", checkinAlpha)
-          setFloat(R.id.widget_checkin_background, "setAlpha", checkinAlpha)
         }
       }
       appWidgetManager.updateAppWidget(widgetId, views)
     }
   }
+
+  private fun bindDoneItems(
+      views: RemoteViews,
+      doneDetail: String,
+      isDark: Boolean,
+      mainText: Int,
+      mutedText: Int,
+  ) {
+    val rawLines = doneDetail
+        .split("\n")
+        .map { it.trim() }
+        .filter { it.isNotEmpty() }
+    val pairs = mutableListOf<Pair<String, String>>()
+    var moreText = ""
+    var idx = 0
+    while (idx < rawLines.size) {
+      val line = rawLines[idx]
+      if (line.startsWith("…") || pairs.size >= 3) {
+        moreText = rawLines.subList(idx, rawLines.size).joinToString("\n")
+        break
+      }
+      val nextLine = if (idx + 1 < rawLines.size && !rawLines[idx + 1].startsWith("…")) {
+        idx += 2
+        rawLines[idx - 1]
+      } else {
+        idx += 1
+        ""
+      }
+      pairs.add(Pair(line, nextLine))
+    }
+
+    val itemBg = if (isDark) R.drawable.done_item_dark else R.drawable.done_item_light
+    val itemSpecs = arrayOf(
+        Triple(R.id.widget_done_item_1, R.id.widget_done_1_line1, R.id.widget_done_1_line2),
+        Triple(R.id.widget_done_item_2, R.id.widget_done_2_line1, R.id.widget_done_2_line2),
+        Triple(R.id.widget_done_item_3, R.id.widget_done_3_line1, R.id.widget_done_3_line2),
+    )
+    for (i in itemSpecs.indices) {
+      val (boxId, line1Id, line2Id) = itemSpecs[i]
+      if (i < pairs.size) {
+        val (line1, line2) = pairs[i]
+        views.setViewVisibility(boxId, View.VISIBLE)
+        views.setInt(boxId, "setBackgroundResource", itemBg)
+        views.setTextViewText(line1Id, line1)
+        views.setTextColor(line1Id, mainText)
+        if (line2.isNotEmpty()) {
+          views.setViewVisibility(line2Id, View.VISIBLE)
+          views.setTextViewText(line2Id, line2)
+          views.setTextColor(line2Id, mutedText)
+        } else {
+          views.setViewVisibility(line2Id, View.GONE)
+        }
+      } else {
+        views.setViewVisibility(boxId, View.GONE)
+      }
+    }
+
+    if (moreText.isNotEmpty()) {
+      views.setViewVisibility(R.id.widget_done_more, View.VISIBLE)
+      views.setTextViewText(R.id.widget_done_more, moreText)
+      views.setTextColor(R.id.widget_done_more, mutedText)
+    } else {
+      views.setViewVisibility(R.id.widget_done_more, View.GONE)
+    }
+  }
+
+  private fun dpToPx(context: Context, dp: Float): Int =
+      (dp * context.resources.displayMetrics.density).roundToInt()
 
   private fun linearChannel(channel: Int): Double {
     val value = channel / 255.0
@@ -179,19 +348,140 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
     else Math.pow((value + 0.055) / 1.055, 2.4)
   }
 
-  // RemoteViews can display the same colored track on pre-Android 12 launchers.
-  private fun progressBitmap(percent: Int, accent: Int, track: Int): Bitmap {
-    val width = 300
-    val height = 6
-    val radius = height / 2f
+  private fun luminanceOf(color: Int): Double =
+      0.2126 * linearChannel(Color.red(color)) +
+          0.7152 * linearChannel(Color.green(color)) +
+          0.0722 * linearChannel(Color.blue(color))
+
+  private fun alphaBlendBlack(color: Int, blackAlpha: Int): Int {
+    val keep = (255 - blackAlpha.coerceIn(0, 255)) / 255.0
+    return Color.rgb(
+        (Color.red(color) * keep).roundToInt().coerceIn(0, 255),
+        (Color.green(color) * keep).roundToInt().coerceIn(0, 255),
+        (Color.blue(color) * keep).roundToInt().coerceIn(0, 255),
+    )
+  }
+
+  private fun lerpColor(colorA: Int, colorB: Int, t: Float): Int {
+    val r = (Color.red(colorA) + (Color.red(colorB) - Color.red(colorA)) * t).roundToInt().coerceIn(0, 255)
+    val g = (Color.green(colorA) + (Color.green(colorB) - Color.green(colorA)) * t).roundToInt().coerceIn(0, 255)
+    val b = (Color.blue(colorA) + (Color.blue(colorB) - Color.blue(colorA)) * t).roundToInt().coerceIn(0, 255)
+    return Color.rgb(r, g, b)
+  }
+
+  /** Khớp công thức pillGradient() trong lib/pillflow_style.dart. */
+  private fun computeHeroGradientColors(rawAccent: Int, isDefaultTeal: Boolean): IntArray {
+    if (isDefaultTeal) {
+      return intArrayOf(PILL_TEAL_DARK, PILL_TEAL, PILL_SKY)
+    }
+    val brandLum = luminanceOf(rawAccent)
+    val middle = if (brandLum > 0.45) alphaBlendBlack(rawAccent, 110) else rawAccent
+    val c1 = alphaBlendBlack(middle, 66) // Colors.black26
+    val c3 = lerpColor(middle, PILL_SKY, 0.4f)
+    return intArrayOf(c1, middle, c3)
+  }
+
+  /** Badge logo 26dp góc bo 9dp: nền hero gradient + icon viên nang trắng sắc nét. */
+  private fun logoBadgeBitmap(context: Context, heroColors: IntArray): Bitmap {
+    val density = context.resources.displayMetrics.density
+    val size = (26f * density).roundToInt().coerceIn(52, 104)
+    val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+    val radius = size * (9f / 26f)
+    val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+      shader = LinearGradient(
+          0f,
+          0f,
+          size.toFloat(),
+          size.toFloat(),
+          heroColors,
+          floatArrayOf(0f, 0.5f, 1f),
+          Shader.TileMode.CLAMP,
+      )
+    }
+    canvas.drawRoundRect(0f, 0f, size.toFloat(), size.toFloat(), radius, radius, bgPaint)
+
+    val iconScale = (size * (15f / 26f)) / 24f
+    val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+      style = Paint.Style.STROKE
+      color = Color.WHITE
+      strokeWidth = 2.3f * iconScale
+      strokeCap = Paint.Cap.ROUND
+      strokeJoin = Paint.Join.ROUND
+    }
+    canvas.save()
+    canvas.translate(size / 2f, size / 2f)
+    canvas.rotate(-45f)
+    val halfW = 9.0f * iconScale
+    val halfH = 4.5f * iconScale
+    canvas.drawRoundRect(-halfW, -halfH, halfW, halfH, halfH, halfH, strokePaint)
+    canvas.drawLine(0f, -halfH, 0f, halfH, strokePaint)
+    canvas.restore()
+    return bitmap
+  }
+
+  /** Nền thẻ Hero Bento bo 20dp: gradient 135° theo pillGradient() + vòng sáng trang trí góc phải trên. */
+  private fun heroBackgroundBitmap(heroColors: IntArray): Bitmap {
+    val width = 360
+    val height = 116
+    val radius = 22f
     val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
-    val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = track }
-    canvas.drawRoundRect(0f, 0f, width.toFloat(), height.toFloat(), radius, radius, paint)
-    val filledWidth = width * (percent.coerceIn(0, 100) / 100f)
-    if (filledWidth > 0) {
-      paint.color = accent
-      canvas.drawRoundRect(0f, 0f, filledWidth, height.toFloat(), radius, radius, paint)
+    val rect = RectF(0f, 0f, width.toFloat(), height.toFloat())
+    val clipPath = Path().apply {
+      addRoundRect(rect, radius, radius, Path.Direction.CW)
+    }
+    canvas.save()
+    canvas.clipPath(clipPath)
+    val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+      shader = LinearGradient(
+          0f,
+          0f,
+          width.toFloat(),
+          height.toFloat(),
+          heroColors,
+          floatArrayOf(0f, 0.5f, 1f),
+          Shader.TileMode.CLAMP,
+      )
+    }
+    canvas.drawRect(rect, bgPaint)
+    val orbPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+      color = 0x1CFFFFFF // rgba(255, 255, 255, 0.11)
+    }
+    canvas.drawCircle(width - 26f, 24f, 54f, orbPaint)
+    canvas.restore()
+    return bitmap
+  }
+
+  /** Vòng tròn tiến độ 76dp viền trắng bo tròn đầu (chỉ vẽ vòng; % hiển thị bằng TextView Be Vietnam Pro ở giữa). */
+  private fun progressRingBitmap(context: Context, percent: Int): Bitmap {
+    val density = context.resources.displayMetrics.density
+    val size = (76f * density).roundToInt().coerceIn(152, 228)
+    val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+    val cx = size / 2f
+    val cy = size / 2f
+    val strokeWidth = size * (7.5f / 80f)
+    val radius = size * (32f / 80f)
+    val oval = RectF(cx - radius, cy - radius, cx + radius, cy + radius)
+
+    val trackPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+      style = Paint.Style.STROKE
+      this.strokeWidth = strokeWidth
+      color = 0x3DFFFFFF // rgba(255, 255, 255, 0.24)
+    }
+    canvas.drawCircle(cx, cy, radius, trackPaint)
+
+    val clamped = percent.coerceIn(0, 100)
+    if (clamped > 0) {
+      val progressPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        this.strokeWidth = strokeWidth
+        color = Color.WHITE
+        strokeCap = Paint.Cap.ROUND
+      }
+      val sweep = 360f * (clamped / 100f)
+      canvas.drawArc(oval, -90f, sweep, false, progressPaint)
     }
     return bitmap
   }
@@ -443,8 +733,10 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
       widgetPrefs.putString("next_text", if (slots.isEmpty()) "Thêm thuốc để Pip nhắc bạn nhé!" else "🎉 Đã xong hôm nay!")
       widgetPrefs.putString("next_time", "")
     } else {
+      val nextRem = remainingFor(following.med, logs)
+      val nextRemStr = if (nextRem != null) " • Còn $nextRem viên" else ""
       widgetPrefs.putString("next_text", "${formEmoji(following.med.optString("form"))} ${following.med.optString("name")} — ${following.med.optString("dose")}")
-      widgetPrefs.putString("next_time", "Lúc ${following.time} • ${mealLabel(following.med.optString("mealNote"))}")
+      widgetPrefs.putString("next_time", "Lúc ${following.time} • ${mealLabel(following.med.optString("mealNote"))}$nextRemStr")
     }
     widgetPrefs.putString("progress_pct", if (slots.isEmpty()) "0" else ((completed * 100) / slots.size).toString())
     widgetPrefs.putString("all_done", if (following == null && slots.isNotEmpty()) "1" else "0")
@@ -605,8 +897,10 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
       widgetPrefs.putString("next_text", if (slots.isEmpty()) "Thêm thuốc để Pip nhắc bạn nhé!" else "🎉 Đã xong hôm nay!")
       widgetPrefs.putString("next_time", "")
     } else {
+      val nextRem = remainingFor(following.med, logs)
+      val nextRemStr = if (nextRem != null) " • Còn $nextRem viên" else ""
       widgetPrefs.putString("next_text", "${formEmoji(following.med.optString("form"))} ${following.med.optString("name")} — ${following.med.optString("dose")}")
-      widgetPrefs.putString("next_time", "Lúc ${following.time} • ${mealLabel(following.med.optString("mealNote"))}")
+      widgetPrefs.putString("next_time", "Lúc ${following.time} • ${mealLabel(following.med.optString("mealNote"))}$nextRemStr")
     }
     widgetPrefs.putString("progress_pct", if (slots.isEmpty()) "0" else ((completed * 100) / slots.size).toString())
     widgetPrefs.putString("all_done", if (following == null && slots.isNotEmpty()) "1" else "0")
