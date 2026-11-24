@@ -1,5 +1,9 @@
 # Nhật ký thay đổi
 
+## 1.2.57+60
+
+- Thống nhất thứ tự chọn chế độ sáng/tối: cả "Chế độ" và "Giao diện widget" đều là Theo điện thoại / Sáng / Tối.
+
 ## 1.2.56+59
 
 - Sửa lỗi chữ trạng thái bị cắt ở thẻ hero trên widget 4×2: chữ 11sp tối đa 4 dòng, vòng tiến độ 48dp, thẻ hero có thêm chỗ.

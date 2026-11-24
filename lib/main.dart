@@ -1283,7 +1283,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final settings = store.settings;
     final scheme = Theme.of(context).colorScheme;
     final muted = scheme.onSurfaceVariant;
-    const appModes = [ThemeMode.light, ThemeMode.dark, ThemeMode.system];
+    const appModes = [ThemeMode.system, ThemeMode.light, ThemeMode.dark];
 
     Future<void> pickQuiet(bool isStart) async {
       final parts =
@@ -1337,11 +1337,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 const SizedBox(height: 6),
                 _ThemeModeControl(
                   labels: [
+                    tr('Theo điện thoại', 'System'),
                     tr('Sáng', 'Light'),
-                    tr('Tối', 'Dark'),
-                    tr('Theo điện thoại', 'System')
+                    tr('Tối', 'Dark')
                   ],
-                  systemIndex: 2,
+                  systemIndex: 0,
                   selectedIndex: appModes.indexOf(settings.appThemeMode),
                   onSelected: (index) => store.updateAppTheme(appModes[index]),
                 ),
