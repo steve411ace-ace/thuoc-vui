@@ -4,6 +4,7 @@ import 'package:home_widget/home_widget.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'models.dart';
 import 'store.dart';
+import 'strings.dart';
 
 /// Callback chạy nền khi bấm nút trên widget màn hình chính.
 /// Không dùng ThuocStore ở đây để tránh khởi tạo notification plugin trong isolate nền:
@@ -54,6 +55,9 @@ Future<void> widgetInteractivityCallback(Uri? uri) async {
       }),
     );
 
+    final settings = AppSettings.fromJson(data['settings'] as Map<String, dynamic>?);
+    Lang.current = settings.language;
+
     final completed = slots.where((s) {
       final st = logs[s.key]?.status;
       return st == 'taken' || st == 'late';
@@ -71,29 +75,52 @@ Future<void> widgetInteractivityCallback(Uri? uri) async {
     final overdue = slots.any((s) => logs[s.key]?.status == null && s.dateTime.isBefore(DateTime.now()));
     final String pipMessage;
     if (completed == slots.length && onTime == slots.length) {
-      pipMessage = '🥳 Hôm nay uống đủ và đúng giờ hết rồi, tuyệt vời!';
+      pipMessage = tr(
+        '🥳 Hôm nay uống đủ và đúng giờ hết rồi, tuyệt vời!',
+        '🥳 All doses taken on time today — awesome!',
+      );
     } else if (completed == slots.length) {
-      pipMessage = '😊 Hôm nay uống đủ hết rồi, có ${completed - onTime} lần trễ, lần sau cố đúng giờ nhé!';
+      final lateCount = completed - onTime;
+      pipMessage = tr(
+        '😊 Hôm nay uống đủ hết rồi, có $lateCount lần trễ, lần sau cố đúng giờ nhé!',
+        '😊 All doses done today, $lateCount late — try to be on time next time!',
+      );
     } else if (overdue) {
-      pipMessage = '😟 Ơ, có lần uống quá giờ chưa thấy bạn bấm, uống bù nhé?';
+      pipMessage = tr(
+        '😟 Ơ, có lần uống quá giờ chưa thấy bạn bấm, uống bù nhé?',
+        '😟 A dose is overdue and not checked in — take it now?',
+      );
     } else if (skipped > 0) {
-      pipMessage = '😟 Hôm nay bạn bỏ qua $skipped lần, mai cố nhé?';
+      pipMessage = tr(
+        '😟 Hôm nay bạn bỏ qua $skipped lần, mai cố nhé?',
+        '😟 You skipped $skipped ${enPlural(skipped, 'dose', 'doses')} today — try again tomorrow?',
+      );
     } else {
-      pipMessage = '😊 Hôm nay còn ${slots.length - completed} lần nữa là xong, cố lên nhé!';
+      final left = slots.length - completed;
+      pipMessage = tr(
+        '😊 Hôm nay còn $left lần nữa là xong, cố lên nhé!',
+        '😊 $left ${enPlural(left, 'dose', 'doses')} left today — you\'ve got this!',
+      );
     }
     await HomeWidget.saveWidgetData<String>('pip_message', pipMessage);
     await HomeWidget.saveWidgetData<String>(
-        'progress', 'Hôm nay: $completed/${slots.length} lần • đúng giờ $onTime lần');
+        'progress',
+        tr(
+          'Hôm nay: $completed/${slots.length} lần • đúng giờ $onTime lần',
+          'Today: $completed/${slots.length} doses • $onTime on time',
+        ));
     await HomeWidget.saveWidgetData<String>(
         'next_text',
         following == null
-            ? '🎉 Đã xong hôm nay!'
+            ? tr('🎉 Đã xong hôm nay!', '🎉 All done for today!')
             : '${following.medicine.formEmoji} ${following.medicine.name} — ${following.medicine.dose}');
     await HomeWidget.saveWidgetData<String>(
-        'next_time', following == null ? '' : 'Lúc ${following.time} • ${following.medicine.mealLabel}');
+        'next_time',
+        following == null
+            ? ''
+            : '${tr('Lúc', 'At')} ${following.time} • ${following.medicine.mealLabel}');
     await HomeWidget.saveWidgetData<String>('all_done', following == null ? '1' : '0');
-    await AppSettings.fromJson(data['settings'] as Map<String, dynamic>?)
-        .saveWidgetAppearance();
+    await settings.saveWidgetAppearance();
     await HomeWidget.updateWidget(
         name: 'ThuocVuiWidgetProvider', androidName: 'ThuocVuiWidgetProvider');
   } catch (_) {}

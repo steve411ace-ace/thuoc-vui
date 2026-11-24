@@ -178,7 +178,7 @@ class ReReminderReceiver : BroadcastReceiver() {
             intent.getIntExtra("id", 0),
             ACTION_SNOOZE_REMIND,
             trigger,
-            intent.getStringExtra("title") ?: "Nhắc lại: đến giờ uống thuốc!",
+            intent.getStringExtra("title") ?: WidgetLang.tr("Nhắc lại: đến giờ uống thuốc!", "Reminder: time to take your medicine!", WidgetLang.isEn(context)),
             intent.getStringExtra("body") ?: "",
             intent.getStringExtra("medId") ?: "",
             intent.getStringExtra("slotTime") ?: "",
@@ -291,8 +291,8 @@ class ReReminderReceiver : BroadcastReceiver() {
         // sẽ không có tác dụng (hệ thống giữ kênh cũ).
         try { manager.deleteNotificationChannel(CHANNEL_ID) } catch (_: Exception) {}
         val channel = NotificationChannel(
-            CHANNEL_ID, "Nhắc uống thuốc", NotificationManager.IMPORTANCE_HIGH)
-        channel.description = "Nhắc uống thuốc đúng giờ mỗi ngày"
+            CHANNEL_ID, WidgetLang.tr("Nhắc uống thuốc", "Medicine reminders", WidgetLang.isEn(context)), NotificationManager.IMPORTANCE_HIGH)
+        channel.description = WidgetLang.tr("Nhắc uống thuốc đúng giờ mỗi ngày", "Reminders to take your medicine on time every day", WidgetLang.isEn(context))
         channel.enableVibration(vibration)
         if (vibration) {
           channel.vibrationPattern = longArrayOf(0L, 500L, 250L, 500L)
@@ -307,7 +307,7 @@ class ReReminderReceiver : BroadcastReceiver() {
       val medId = intent.getStringExtra("medId") ?: ""
       val slotTime = intent.getStringExtra("slotTime") ?: ""
       val slotKey = "$medId|${todayStr()}|$slotTime"
-      val title = intent.getStringExtra("title") ?: "Nhắc lại: đến giờ uống thuốc!"
+      val title = intent.getStringExtra("title") ?: WidgetLang.tr("Nhắc lại: đến giờ uống thuốc!", "Reminder: time to take your medicine!", WidgetLang.isEn(context))
       val body = intent.getStringExtra("body") ?: ""
       val interval = intent.getIntExtra("intervalMinutes", 10)
 
@@ -354,8 +354,8 @@ class ReReminderReceiver : BroadcastReceiver() {
           .setStyle(Notification.BigTextStyle().bigText(body))
           .setContentIntent(openPending)
           .setAutoCancel(true)
-          .addAction(R.drawable.ic_stat_pip, "Đã uống", checkinPending)
-          .addAction(R.drawable.ic_stat_pip, "Nhắc lại sau", snoozePending)
+          .addAction(R.drawable.ic_stat_pip, WidgetLang.tr("Đã uống", "Taken", WidgetLang.isEn(context)), checkinPending)
+          .addAction(R.drawable.ic_stat_pip, WidgetLang.tr("Nhắc lại sau", "Remind me later", WidgetLang.isEn(context)), snoozePending)
       manager.notify(id, builder.build())
     } catch (_: Exception) {
     }

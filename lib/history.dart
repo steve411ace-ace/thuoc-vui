@@ -4,6 +4,7 @@ import 'models.dart';
 import 'purchases.dart';
 import 'pillflow_style.dart';
 import 'store.dart';
+import 'strings.dart';
 
 /// Thống kê, lịch uống theo tháng và chi tiết liều theo ngày.
 class HistoryScreen extends StatefulWidget {
@@ -43,7 +44,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
       return ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 104),
         children: [
-          const HomeSectionLabel('LỊCH UỐNG THEO THÁNG'),
+          HomeSectionLabel(tr('LỊCH UỐNG THEO THÁNG', 'MONTHLY INTAKE CALENDAR')),
           _calendarCard(store),
           if (_selectedDay case final day?)
             ..._daySection(store, day)
@@ -75,12 +76,12 @@ class _HistoryScreenState extends State<HistoryScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Báo cáo sức khỏe',
+                  Text(tr('Báo cáo sức khỏe', 'Health report'),
                       style: TextStyle(
                           fontSize: 12, color: scheme.onSurfaceVariant)),
-                  const Text('Thống kê & Tủ thuốc',
-                      style:
-                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  Text(tr('Thống kê & Tủ thuốc', 'Statistics & Cabinet'),
+                      style: const TextStyle(
+                          fontSize: 18, fontWeight: FontWeight.bold)),
                 ],
               ),
             ),
@@ -93,7 +94,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       (percent >= 80 ? pillEmerald : pillAmber).withAlpha(38),
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: Text(percent >= 80 ? 'Tốt $percent%' : '$percent%',
+                child: Text(
+                    percent >= 80
+                        ? tr('Tốt $percent%', 'Good $percent%')
+                        : '$percent%',
                     style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
@@ -107,21 +111,26 @@ class _HistoryScreenState extends State<HistoryScreen> {
           children: [
             Expanded(
                 child: _kpi(
-              'Tuân thủ tuần này',
+              tr('Tuân thủ tuần này', 'Adherence this week'),
               '$percent%',
               current.total == 0
-                  ? 'Chưa có liều đến giờ'
+                  ? tr('Chưa có liều đến giờ', 'No doses due yet')
                   : previous.total == 0
-                      ? 'Chưa có dữ liệu tuần trước'
-                      : '${delta >= 0 ? '+' : '−'}${delta.abs()} điểm % so với tuần trước',
+                      ? tr('Chưa có dữ liệu tuần trước',
+                          'No data for last week yet')
+                      : tr(
+                          '${delta >= 0 ? '+' : '−'}${delta.abs()} điểm % so với tuần trước',
+                          '${delta >= 0 ? '+' : '−'}${delta.abs()} pts vs. last week'),
               scheme.surfaceAccent,
             )),
             const SizedBox(width: 10),
             Expanded(
                 child: _kpi(
-              'Uống đúng giờ',
+              tr('Uống đúng giờ', 'Taken on time'),
               '${current.onTime}/${current.total}',
-              '${current.taken - current.onTime} lần uống trễ',
+              tr(
+                  '${current.taken - current.onTime} lần uống trễ',
+                  '${current.taken - current.onTime} late ${enPlural(current.taken - current.onTime, 'dose', 'doses')}'),
               scheme.onSurface,
             )),
           ],
@@ -136,7 +145,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
         // 3. Chi tiết % uống đúng giờ từng thuốc
         if (medStats.isNotEmpty) ...[
-          const HomeSectionLabel('CHI TIẾT THEO THUỐC (30 NGÀY)'),
+          HomeSectionLabel(tr('CHI TIẾT THEO THUỐC (30 NGÀY)', 'DETAILS BY MEDICINE (30 DAYS)')),
           ...medStats.map((stat) {
             final pct = (stat.onTimeRate * 100).round();
             return Card(
@@ -161,7 +170,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                     fontWeight: FontWeight.w600, fontSize: 15),
                               ),
                               Text(
-                                '${stat.onTimeDoses}/${stat.totalDoses} lần đúng giờ',
+                                tr('${stat.onTimeDoses}/${stat.totalDoses} lần đúng giờ',
+                                    '${stat.onTimeDoses}/${stat.totalDoses} on time'),
                                 style: TextStyle(
                                     fontSize: 12,
                                     color: scheme.onSurfaceVariant),
@@ -209,26 +219,20 @@ class _HistoryScreenState extends State<HistoryScreen> {
         _badgesSection(store),
         const SizedBox(height: 20),
 
-        // 5. Lịch uống theo tháng (tính năng cốt lõi Thuốc Vui)
-        const HomeSectionLabel('LỊCH UỐNG THEO THÁNG'),
-        _calendarCard(store),
-        if (_selectedDay case final day?) ..._daySection(store, day),
-        const SizedBox(height: 20),
-
-        // 6. Mua thuốc
-        const HomeSectionLabel('MUA THUỐC'),
+        // 5. Mua thuốc
+        HomeSectionLabel(tr('MUA THUỐC', 'BUY MEDICINE')),
         Card(
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Lịch sử mua thuốc',
-                    style:
-                        TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+                Text(tr('Lịch sử mua thuốc', 'Purchase history'),
+                    style: const TextStyle(
+                        fontSize: 17, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 6),
                 Text('${firstPurchaseLabel(store)} • '
-                    'Tổng ${store.totalPurchasedBoxes} vỉ • '
+                    '${tr('Tổng ${store.totalPurchasedBoxes} vỉ', 'Total ${store.totalPurchasedBoxes} ${enPlural(store.totalPurchasedBoxes, 'strip', 'strips')}')} • '
                     '${formatPurchaseMoney(store.totalPurchaseCost)}'),
                 const SizedBox(height: 8),
                 Align(
@@ -240,7 +244,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         builder: (_) => PurchaseHistoryScreen(store: store),
                       ),
                     ),
-                    label: const Text('Xem & ghi lần mua'),
+                    label: Text(tr('Xem & ghi lần mua', 'View & log purchases')),
                   ),
                 ),
               ],
@@ -305,12 +309,12 @@ class _HistoryScreenState extends State<HistoryScreen> {
           children: [
             Row(
               children: [
-                const Expanded(
-                    child: Text('Lịch sử 7 ngày qua',
-                        style: TextStyle(
+                Expanded(
+                    child: Text(tr('Lịch sử 7 ngày qua', 'Last 7 days'),
+                        style: const TextStyle(
                             fontSize: 12, fontWeight: FontWeight.bold))),
                 Text(
-                    '${first.day}/${first.month} – ${today.day}/${today.month}',
+                    '${monthDayLabel(first)} – ${monthDayLabel(today)}',
                     style: TextStyle(
                         fontSize: 11, color: scheme.onSurfaceVariant)),
               ],
@@ -381,7 +385,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   List<Widget> _daySection(ThuocStore store, DateTime day) => [
         const SizedBox(height: 16),
-        HomeSectionLabel('Chi tiết ngày ${formatDateVn(day)}'),
+        HomeSectionLabel(tr('Chi tiết ngày ${formatDateLocal(day)}',
+            'Details for ${formatDateLocal(day)}')),
         ..._dayDetails(store, day),
       ];
 
@@ -400,18 +405,20 @@ class _HistoryScreenState extends State<HistoryScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               IconButton(
-                tooltip: 'Tháng trước',
+                tooltip: tr('Tháng trước', 'Previous month'),
                 onPressed: () => _changeMonth(-1),
                 icon: const Icon(Icons.chevron_left),
               ),
               Expanded(
-                child: Text('Tháng ${_month.month}/${_month.year}',
+                child: Text(
+                    tr('Tháng ${_month.month}/${_month.year}',
+                        '${_enMonthNames[_month.month - 1]} ${_month.year}'),
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                         fontSize: 16, fontWeight: FontWeight.bold)),
               ),
               IconButton(
-                tooltip: 'Tháng sau',
+                tooltip: tr('Tháng sau', 'Next month'),
                 onPressed: () => _changeMonth(1),
                 icon: const Icon(Icons.chevron_right),
               ),
@@ -424,10 +431,14 @@ class _HistoryScreenState extends State<HistoryScreen> {
             spacing: 10,
             runSpacing: 6,
             children: [
-              const _LegendDot(color: pillEmerald, label: 'Đủ đúng giờ'),
-              const _LegendDot(color: pillAmber, label: 'Có trễ'),
-              const _LegendDot(color: pillSlate, label: 'Thiếu'),
-              _LegendDot(color: scheme.outlineVariant, label: 'Không có thuốc'),
+              _LegendDot(
+                  color: pillEmerald,
+                  label: tr('Đủ đúng giờ', 'All on time')),
+              _LegendDot(color: pillAmber, label: tr('Có trễ', 'Some late')),
+              _LegendDot(color: pillSlate, label: tr('Thiếu', 'Missed')),
+              _LegendDot(
+                  color: scheme.outlineVariant,
+                  label: tr('Không có thuốc', 'No medicine')),
             ],
           ),
         ]),
@@ -438,17 +449,22 @@ class _HistoryScreenState extends State<HistoryScreen> {
   Widget _badgesSection(ThuocStore store) {
     final scheme = Theme.of(context).colorScheme;
     final earned = store.earnedBadgeIds();
+    final streak = store.onTimeStreak();
+    final totalOnTime = store.totalOnTime();
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Danh hiệu đúng giờ',
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+            Text(tr('Danh hiệu đúng giờ', 'On-time badges'),
+                style: const TextStyle(
+                    fontSize: 17, fontWeight: FontWeight.bold)),
             const SizedBox(height: 4),
             Text(
-              'Chuỗi đúng giờ: ${store.onTimeStreak()} ngày • Tổng lần đúng giờ: ${store.totalOnTime()}',
+              tr(
+                  'Chuỗi đúng giờ: $streak ngày • Tổng lần đúng giờ: $totalOnTime',
+                  'On-time streak: $streak ${enPlural(streak, 'day', 'days')} • Total on-time doses: $totalOnTime'),
               style: TextStyle(color: scheme.onSurfaceVariant),
             ),
             const SizedBox(height: 12),
@@ -491,7 +507,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final daysInMonth = DateTime(_month.year, _month.month + 1, 0).day;
     final startWeekday = firstDay.weekday; // 1 = Thứ 2
     final cells = <Widget>[];
-    for (final label in ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN']) {
+    for (final label in [for (var d = 1; d <= 7; d++) weekdayShort(d)]) {
       cells.add(Center(
           child: Text(label,
               style: TextStyle(fontWeight: FontWeight.bold, color: muted))));
@@ -561,19 +577,22 @@ class _HistoryScreenState extends State<HistoryScreen> {
   List<Widget> _dayDetails(ThuocStore store, DateTime day) {
     final slots = store.slotsForDay(day);
     if (slots.isEmpty) {
-      return [const Text('Ngày này không có thuốc nào cần uống.')];
+      return [
+        Text(tr('Ngày này không có thuốc nào cần uống.',
+            'No medicine to take on this day.'))
+      ];
     }
     return slots.map((slot) {
       final remaining = store.remainingPills(slot.medicine);
       final log = store.logs[slot.key];
       final status = log?.status;
       final label = status == 'taken'
-          ? 'Đã uống đúng giờ'
+          ? tr('Đã uống đúng giờ', 'Taken on time')
           : status == 'late'
-              ? 'Đã uống trễ'
+              ? tr('Đã uống trễ', 'Taken late')
               : status == 'skipped'
-                  ? 'Đã bỏ qua'
-                  : 'Chưa uống';
+                  ? tr('Đã bỏ qua', 'Skipped')
+                  : tr('Chưa uống', 'Not taken');
       String? takenAt;
       String? lateText;
       if ((status == 'taken' || status == 'late') &&
@@ -585,7 +604,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
               '${at.hour.toString().padLeft(2, '0')}:${at.minute.toString().padLeft(2, '0')}';
           if (status == 'late') {
             final lateMin = at.difference(slot.dateTime).inMinutes;
-            if (lateMin > 0) lateText = 'Trễ ${_formatLate(lateMin)}';
+            if (lateMin > 0) lateText = tr('Trễ ${_formatLate(lateMin)}',
+                'Late by ${_formatLate(lateMin)}');
           }
         }
       }
@@ -616,11 +636,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         style: const TextStyle(
                             fontWeight: FontWeight.w600, fontSize: 16)),
                     const SizedBox(height: 2),
-                    Text('Hẹn ${slot.time}'),
-                    if (takenAt != null) Text('Uống lúc $takenAt'),
+                    Text(tr('Hẹn ${slot.time}', 'Scheduled ${slot.time}')),
+                    if (takenAt != null) Text(tr('Uống lúc $takenAt', 'Taken at $takenAt')),
                     if (lateText != null)
                       Text(lateText, style: TextStyle(color: ink)),
-                    if (remaining != null) Text('Còn lại: $remaining viên'),
+                    if (remaining != null)
+                      Text(tr('Còn lại: $remaining viên',
+                          'Remaining: $remaining ${enPlural(remaining, 'pill', 'pills')}')),
                     const SizedBox(height: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(
@@ -649,11 +671,28 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
 /// 1.2.36: số phút trễ thành "35 phút" / "1 giờ 25 phút" / "2 giờ".
 String _formatLate(int minutes) {
-  if (minutes < 60) return '$minutes phút';
+  if (minutes < 60) return tr('$minutes phút', '$minutes min');
   final h = minutes ~/ 60;
   final m = minutes % 60;
-  return m == 0 ? '$h giờ' : '$h giờ $m phút';
+  return m == 0
+      ? tr('$h giờ', '$h h')
+      : tr('$h giờ $m phút', '$h h $m min');
 }
+
+List<String> get _enMonthNames => const [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
 
 class _LegendDot extends StatelessWidget {
   final Color color;

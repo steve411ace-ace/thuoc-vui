@@ -80,7 +80,7 @@ class MainActivity : FlutterActivity() {
               else -> result.notImplemented()
             }
           } catch (_: Exception) {
-            result.error("REMINDER_ERROR", "Không đặt được báo lại", null)
+            result.error("REMINDER_ERROR", WidgetLang.tr("Không đặt được báo lại", "Could not schedule reminders", WidgetLang.isEn(this)), null)
           }
         }
   }

@@ -3,24 +3,33 @@ import 'package:flutter/material.dart';
 import 'home_style.dart';
 import 'models.dart';
 import 'store.dart';
+import 'strings.dart';
 
 String formatPurchaseMoney(int amount) => '${amount.toString().replaceAllMapped(
       RegExp(r'\d(?=(\d{3})+$)'),
       (match) => '${match[0]}.',
-    )} đ';
+    )} ${tr('đ', 'VND')}';
 
 String _purchaseDateKey(DateTime date) => todayKey(date).padLeft(10, '0');
 
-String _formatPurchaseDate(String date) => date.split('-').reversed.join('/');
+String _formatPurchaseDate(String date) {
+  final parsed = DateTime.tryParse(date);
+  return parsed == null
+      ? date.split('-').reversed.join('/')
+      : formatDateLocal(parsed);
+}
+
+String _boxesLabel(int n) => '$n ${tr('vỉ', enPlural(n, 'box', 'boxes'))}';
 
 String firstPurchaseLabel(ThuocStore store) {
   final first = store.firstPurchaseDate;
   return first == null
-      ? 'Chưa có lần mua nào'
-      : 'Mua đầu tiên: ${_formatPurchaseDate(first)}';
+      ? tr('Chưa có lần mua nào', 'No purchases yet')
+      : tr('Mua đầu tiên: ${_formatPurchaseDate(first)}',
+          'First purchase: ${_formatPurchaseDate(first)}');
 }
 
-const _deletedMedicineLabel = 'Thuốc đã xóa';
+String get _deletedMedicineLabel => tr('Thuốc đã xóa', 'Deleted medicine');
 
 class PurchaseHistoryScreen extends StatelessWidget {
   final ThuocStore store;
@@ -34,15 +43,15 @@ class PurchaseHistoryScreen extends StatelessWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Xóa lần mua này?'),
+        title: Text(tr('Xóa lần mua này?', 'Delete this purchase?')),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Hủy'),
+            child: Text(tr('Hủy', 'Cancel')),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Xóa'),
+            child: Text(tr('Xóa', 'Delete')),
           ),
         ],
       ),
@@ -76,7 +85,7 @@ class PurchaseHistoryScreen extends StatelessWidget {
   }
 
   String _cardMoney(int amount) =>
-      formatPurchaseMoney(amount).replaceFirst(' đ', '\u00A0đ');
+      formatPurchaseMoney(amount).replaceFirst(' ', '\u00A0');
 
   Widget _periodCard(
     String label,
@@ -95,7 +104,7 @@ class PurchaseHistoryScreen extends StatelessWidget {
                 alignment: WrapAlignment.end,
                 spacing: 4,
                 children: [
-                  Text('${stats.boxes} vỉ •'),
+                  Text('${_boxesLabel(stats.boxes)} •'),
                   Text(_cardMoney(stats.cost), style: _valueStyle),
                 ],
               ),
@@ -126,17 +135,20 @@ class PurchaseHistoryScreen extends StatelessWidget {
 
         return Scaffold(
           appBar: AppBar(
-            title: const HomeAppBarTitle('Mua thuốc', 'Chi phí và các lần mua'),
+            title: HomeAppBarTitle(
+              tr('Mua thuốc', 'Medicine purchases'),
+              tr('Chi phí và các lần mua', 'Costs and purchases'),
+            ),
           ),
           floatingActionButton: FloatingActionButton(
-            tooltip: 'Ghi lần mua',
+            tooltip: tr('Ghi lần mua', 'Add purchase'),
             onPressed: () => showPurchaseForm(context, store),
             child: const Icon(Icons.add),
           ),
           body: ListView(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
             children: [
-              const HomeSectionLabel('Tổng quan'),
+              HomeSectionLabel(tr('Tổng quan', 'Overview')),
               _card(
                 Padding(
                   padding: const EdgeInsets.all(16),
@@ -146,35 +158,36 @@ class PurchaseHistoryScreen extends StatelessWidget {
                     children: [
                       _summaryValue(
                         context,
-                        'Mua đầu tiên',
+                        tr('Mua đầu tiên', 'First purchase'),
                         firstPurchase == null
-                            ? 'Chưa có lần mua nào'
+                            ? tr('Chưa có lần mua nào', 'No purchases yet')
                             : _formatPurchaseDate(firstPurchase),
                       ),
                       _summaryValue(
                         context,
-                        'Tổng số vỉ',
+                        tr('Tổng số vỉ', 'Total boxes'),
                         store.totalPurchasedBoxes.toString(),
                       ),
                       _summaryValue(
                         context,
-                        'Tổng tiền',
+                        tr('Tổng tiền', 'Total cost'),
                         _cardMoney(store.totalPurchaseCost),
                       ),
                     ],
                   ),
                 ),
               ),
-              if (monthKeys.isNotEmpty) const HomeSectionLabel('Theo tháng'),
+              if (monthKeys.isNotEmpty) HomeSectionLabel(tr('Theo tháng', 'By month')),
               for (final month in monthKeys)
                 _periodCard(
-                  'Tháng ${month.split('-').reversed.join('/')}',
+                  tr('Tháng ${month.split('-').reversed.join('/')}',
+                      'Month ${month.split('-').reversed.join('/')}'),
                   months[month]!,
                 ),
-              if (yearKeys.isNotEmpty) const HomeSectionLabel('Theo năm'),
+              if (yearKeys.isNotEmpty) HomeSectionLabel(tr('Theo năm', 'By year')),
               for (final year in yearKeys)
-                _periodCard('Năm $year', years[year]!),
-              if (purchases.isNotEmpty) const HomeSectionLabel('Các lần mua'),
+                _periodCard(tr('Năm $year', 'Year $year'), years[year]!),
+              if (purchases.isNotEmpty) HomeSectionLabel(tr('Các lần mua', 'Purchases')),
               for (final purchase in purchases)
                 _card(
                   ListTile(
@@ -189,7 +202,7 @@ class PurchaseHistoryScreen extends StatelessWidget {
                       children: [
                         Text(_formatPurchaseDate(purchase.date)),
                         Text(
-                          '${purchase.boxes} vỉ × ${_cardMoney(purchase.pricePerBox)}',
+                          '${_boxesLabel(purchase.boxes)} × ${_cardMoney(purchase.pricePerBox)}',
                         ),
                         Text(_cardMoney(purchase.total), style: _valueStyle),
                       ],
@@ -197,7 +210,7 @@ class PurchaseHistoryScreen extends StatelessWidget {
                     onTap: () =>
                         showPurchaseForm(context, store, purchase: purchase),
                     trailing: IconButton(
-                      tooltip: 'Xóa lần mua',
+                      tooltip: tr('Xóa lần mua', 'Delete purchase'),
                       icon: const Icon(Icons.delete_outline),
                       onPressed: () => _confirmDelete(context, purchase),
                     ),
@@ -227,11 +240,12 @@ Future<void> showPurchaseForm(
     await showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
-        content: const Text('Hãy thêm thuốc trước khi ghi lần mua.'),
+        content: Text(tr('Hãy thêm thuốc trước khi ghi lần mua.',
+            'Add a medicine before recording a purchase.')),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Đóng'),
+            child: Text(tr('Đóng', 'Close')),
           ),
         ],
       ),
@@ -252,7 +266,9 @@ Future<void> showPurchaseForm(
     context: context,
     builder: (context) => StatefulBuilder(
       builder: (context, setState) => AlertDialog(
-        title: Text(purchase == null ? 'Ghi lần mua' : 'Sửa lần mua'),
+        title: Text(purchase == null
+            ? tr('Ghi lần mua', 'Add purchase')
+            : tr('Sửa lần mua', 'Edit purchase')),
         scrollable: true,
         content: Form(
           key: formKey,
@@ -278,7 +294,7 @@ Future<void> showPurchaseForm(
               DropdownButtonFormField<String>(
                 value: selectedMedicine,
                 isExpanded: true,
-                decoration: const InputDecoration(labelText: 'Thuốc'),
+                decoration: InputDecoration(labelText: tr('Thuốc', 'Medicine')),
                 items: [
                   for (final medicine in medicines.entries)
                     DropdownMenuItem(
@@ -290,15 +306,15 @@ Future<void> showPurchaseForm(
                 onChanged: (value) => selectedMedicine = value!,
               ),
               _numberField(
-                  'Số vỉ', boxes.toString(), 1, (value) => boxes = value),
+                  tr('Số vỉ', 'Number of boxes'), boxes.toString(), 1, (value) => boxes = value),
               _numberField(
-                'Đơn giá mỗi vỉ (đ)',
+                tr('Đơn giá mỗi vỉ (đ)', 'Price per box (VND)'),
                 purchase?.pricePerBox.toString(),
                 0,
                 (value) => price = value,
               ),
               _numberField(
-                'Số viên mỗi vỉ',
+                tr('Số viên mỗi vỉ', 'Pills per box'),
                 pills.toString(),
                 1,
                 (value) => pills = value,
@@ -309,7 +325,7 @@ Future<void> showPurchaseForm(
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Hủy'),
+            child: Text(tr('Hủy', 'Cancel')),
           ),
           FilledButton(
             onPressed: () {
@@ -329,7 +345,7 @@ Future<void> showPurchaseForm(
                 ),
               );
             },
-            child: const Text('Lưu'),
+            child: Text(tr('Lưu', 'Save')),
           ),
         ],
       ),
@@ -355,7 +371,7 @@ Widget _numberField(
     keyboardType: TextInputType.number,
     validator: (value) {
       final number = int.tryParse(value?.trim() ?? '', radix: 10);
-      return number == null || number < min ? 'Nhập số nguyên ≥ $min' : null;
+      return number == null || number < min ? tr('Nhập số nguyên ≥ $min', 'Enter an integer ≥ $min') : null;
     },
     onSaved: (value) => onSaved(int.parse(value!.trim(), radix: 10)),
   );

@@ -2,6 +2,8 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
+import 'strings.dart';
+
 const pillEmerald = Color(0xFF10B981);
 const pillSky = Color(0xFF0EA5E9);
 const pillOrange = Color(0xFFF97316);
@@ -62,8 +64,7 @@ class PillGlass extends StatelessWidget {
   }
 }
 
-String pillWeekday(DateTime date) =>
-    date.weekday == DateTime.sunday ? 'CN' : 'T${date.weekday + 1}';
+String pillWeekday(DateTime date) => weekdayShort(date.weekday);
 
 bool pillTaken(String? status) => status == 'taken' || status == 'late';
 

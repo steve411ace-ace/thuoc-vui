@@ -68,6 +68,7 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
       val refreshed = try { updateWidgetFromCurrentLogs(context) } catch (_: Exception) { false }
       if (refreshed) return
     }
+    val langEn = WidgetLang.isEn(context)
     appWidgetIds.forEach { widgetId ->
       val views = RemoteViews(context.packageName, R.layout.thuoc_vui_widget).apply {
         val themeMode = widgetData.getString("widget_theme", "system")
@@ -151,7 +152,7 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
         setTextViewText(R.id.widget_ring_pct, "$pct%")
         setTextViewText(R.id.widget_progress, widgetData.getString("progress", null) ?: "Thuốc Vui")
 
-        val pipMessage = widgetData.getString("pip_message", null) ?: "😊 Pip đang nhắc bạn uống thuốc đúng giờ nhé!"
+        val pipMessage = widgetData.getString("pip_message", null) ?: WidgetLang.tr("😊 Pip đang nhắc bạn uống thuốc đúng giờ nhé!", "😊 Pip is reminding you to take your medicine on time!", langEn)
         val hasMoodPrefix = pipMessage.startsWith("🥳 ") ||
             pipMessage.startsWith("😟 ") ||
             pipMessage.startsWith("😊 ")
@@ -206,7 +207,7 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
           setInt(R.id.widget_shape_icon, "setColorFilter", boxColor)
 
           if (isOutOfStock) {
-            setTextViewText(R.id.widget_next_tag, "HẾT THUỐC · 0 VIÊN")
+            setTextViewText(R.id.widget_next_tag, WidgetLang.tr("HẾT THUỐC · 0 VIÊN", "OUT OF STOCK · 0 LEFT", langEn))
             setTextColor(
                 R.id.widget_next_tag,
                 if (isDark) COLOR_OUT_TAG_DARK else COLOR_OUT_TAG_LIGHT,
@@ -216,13 +217,13 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
             val padV = dpToPx(context, 2f)
             setViewPadding(R.id.widget_next_tag, padH, padV, padH, padV)
           } else {
-            setTextViewText(R.id.widget_next_tag, "LẦN UỐNG TIẾP THEO")
+            setTextViewText(R.id.widget_next_tag, WidgetLang.tr("LẦN UỐNG TIẾP THEO", "NEXT DOSE", langEn))
             setTextColor(R.id.widget_next_tag, mutedText)
             setInt(R.id.widget_next_tag, "setBackgroundResource", 0)
             setViewPadding(R.id.widget_next_tag, 0, 0, 0, 0)
           }
 
-          val nextText = widgetData.getString("next_text", null) ?: "Mở app để xem lịch hôm nay"
+          val nextText = widgetData.getString("next_text", null) ?: WidgetLang.tr("Mở app để xem lịch hôm nay", "Open the app to see today's schedule", langEn)
           val nextTime = widgetData.getString("next_time", null) ?: ""
           setTextViewText(R.id.widget_next, nextText)
           setTextColor(R.id.widget_next, mainText)
@@ -515,10 +516,12 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
     else -> "\uD83D\uDC8A"
   }
 
-  private fun mealLabel(mealNote: String): String = when (mealNote) {
-    "truoc_an" -> "Uống trước ăn"
-    "sau_an" -> "Uống sau ăn"
-    else -> "Không dặn trước/sau ăn"
+  private fun mealLabel(mealNote: String, langEn: Boolean = false): String = when (mealNote) {
+    "truoc_an" -> WidgetLang.tr("Uống trước ăn", "Take before meals", langEn)
+    "sau_an" -> WidgetLang.tr("Uống sau ăn", "Take after meals", langEn)
+    "trong_bua" -> WidgetLang.tr("Uống trong bữa", "Take with meals", langEn)
+    "truoc_ngu" -> WidgetLang.tr("Uống trước khi ngủ", "Take before bed", langEn)
+    else -> WidgetLang.tr("Không dặn trước/sau ăn", "No meal instruction", langEn)
   }
 
   /** So sánh thời điểm tới giây: cắt phần lẻ giây của chuỗi ISO vì
@@ -634,7 +637,7 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
     // tận gốc cho mọi đường bấm nút widget, kể cả khi giao diện chưa
     // kịp làm mờ nút.
     if (remainingFor(next.med, logs) == 0) {
-      Toast.makeText(context, "Hết thuốc rồi, mua hộp mới nhé!", Toast.LENGTH_SHORT).show()
+      Toast.makeText(context, WidgetLang.tr("Hết thuốc rồi, mua hộp mới nhé!", "Out of stock — time to buy a new box!", WidgetLang.isEn(flutterPrefs)), Toast.LENGTH_SHORT).show()
       return null
     }
 
@@ -671,13 +674,14 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
       if (st == "skipped") skipped++
       if (st != "taken" && st != "late" && st != "skipped" && s.dateTime.before(now)) overdue = true
     }
+    val langEn = WidgetLang.isEn(flutterPrefs)
     val pipMessage = when {
-      slots.isEmpty() -> "😊 Thêm thuốc để Pip nhắc bạn nhé!"
-      onTime == slots.size -> "🥳 Hôm nay uống đủ và đúng giờ hết rồi, tuyệt vời!"
-      completed == slots.size -> "😊 Hôm nay uống đủ hết rồi, có ${completed - onTime} lần trễ, lần sau cố đúng giờ nhé!"
-      overdue -> "😟 Ơ, có lần uống quá giờ chưa thấy bạn bấm, uống bù nhé?"
-      skipped > 0 -> "😟 Hôm nay bạn bỏ qua $skipped lần, mai cố nhé?"
-      else -> "😊 Hôm nay còn ${slots.size - completed} lần nữa là xong, cố lên nhé!"
+      slots.isEmpty() -> if (langEn) "😊 Add a medicine so Pip can remind you!" else "😊 Thêm thuốc để Pip nhắc bạn nhé!"
+      onTime == slots.size -> if (langEn) "🥳 All doses taken on time today — awesome!" else "🥳 Hôm nay uống đủ và đúng giờ hết rồi, tuyệt vời!"
+      completed == slots.size -> if (langEn) "😊 All doses done today, ${completed - onTime} late — try to be on time next time!" else "😊 Hôm nay uống đủ hết rồi, có ${completed - onTime} lần trễ, lần sau cố đúng giờ nhé!"
+      overdue -> if (langEn) "😟 A dose is overdue and not checked in — take it now?" else "😟 Ơ, có lần uống quá giờ chưa thấy bạn bấm, uống bù nhé?"
+      skipped > 0 -> if (langEn) "😟 You skipped ${WidgetLang.doses(skipped)} today — try again tomorrow?" else "😟 Hôm nay bạn bỏ qua $skipped lần, mai cố nhé?"
+      else -> if (langEn) "😊 ${WidgetLang.doses(slots.size - completed)} left today — you've got this!" else "😊 Hôm nay còn ${slots.size - completed} lần nữa là xong, cố lên nhé!"
     }
     // Chi tiết lịch hôm nay sau khi đã xong (1.2.15), giống Dart
     // updateHomeWidget(): mỗi lần đã uống một khối 2 dòng, tối đa 3.
@@ -688,7 +692,7 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
       val st = logObj.optString("status")
       val atRaw = logObj.optString("at")
       val atStr = if (atRaw.length >= 16) atRaw.substring(11, 16) else ""
-      val takenStr = if (st == "late") "Đã uống trễ lúc $atStr" else "Đã uống đúng giờ lúc $atStr"
+      val takenStr = if (langEn) { if (st == "late") "Taken late at $atStr" else "Taken on time at $atStr" } else { if (st == "late") "Đã uống trễ lúc $atStr" else "Đã uống đúng giờ lúc $atStr" }
       val med = s.med
       var remStr = ""
       val total = med.optInt("totalPills", 0)
@@ -717,26 +721,31 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
         var rem = total - (startPill - 1) - takenCount * perDose
         if (rem < 0) rem = 0
         val perDay = (med.optJSONArray("times")?.length() ?: 0) * perDose
-        val daysStr = if (perDay > 0) " (đủ ${rem / perDay} ngày)" else ""
-        remStr = " • Còn $rem viên$daysStr"
+        val daysStr = if (perDay > 0) { if (langEn) " (enough for ${WidgetLang.days(rem / perDay)})" else " (đủ ${rem / perDay} ngày)" } else ""
+        remStr = if (langEn) " • ${WidgetLang.pills(rem)} left$daysStr" else " • Còn $rem viên$daysStr"
       }
-      doneLines.add("${formEmoji(med.optString("form"))} ${med.optString("name")} — ${med.optString("dose")} • Lúc ${s.time} • ${mealLabel(med.optString("mealNote"))}\n$takenStr$remStr")
+      doneLines.add("${formEmoji(med.optString("form"))} ${med.optString("name")} — ${med.optString("dose")} • ${WidgetLang.tr("Lúc", "At", langEn)} ${s.time} • ${mealLabel(med.optString("mealNote"), langEn)}\n$takenStr$remStr")
     }
-    if (completedSlots.size > 3) doneLines.add("… và ${completedSlots.size - 3} lần nữa")
+    if (completedSlots.size > 3) doneLines.add(if (langEn) "… and ${completedSlots.size - 3} more" else "… và ${completedSlots.size - 3} lần nữa")
     widgetPrefs.putString("done_detail", doneLines.joinToString("\n"))
     widgetPrefs.putString("pip_message", pipMessage)
     widgetPrefs.putString(
         "progress",
-        if (slots.isEmpty()) "Chưa có thuốc hôm nay"
-        else "Hôm nay: $completed/${slots.size} lần • đúng giờ $onTime lần")
+        if (langEn) {
+          if (slots.isEmpty()) "No medicines today"
+          else "Today: $completed/${slots.size} doses • $onTime on time"
+        } else {
+          if (slots.isEmpty()) "Chưa có thuốc hôm nay"
+          else "Hôm nay: $completed/${slots.size} lần • đúng giờ $onTime lần"
+        })
     if (following == null) {
-      widgetPrefs.putString("next_text", if (slots.isEmpty()) "Thêm thuốc để Pip nhắc bạn nhé!" else "🎉 Đã xong hôm nay!")
+      widgetPrefs.putString("next_text", if (langEn) { if (slots.isEmpty()) "Add a medicine so Pip can remind you!" else "🎉 All done for today!" } else { if (slots.isEmpty()) "Thêm thuốc để Pip nhắc bạn nhé!" else "🎉 Đã xong hôm nay!" })
       widgetPrefs.putString("next_time", "")
     } else {
       val nextRem = remainingFor(following.med, logs)
-      val nextRemStr = if (nextRem != null) " • Còn $nextRem viên" else ""
+      val nextRemStr = if (nextRem != null) { if (langEn) " • ${WidgetLang.pills(nextRem)} left" else " • Còn $nextRem viên" } else ""
       widgetPrefs.putString("next_text", "${formEmoji(following.med.optString("form"))} ${following.med.optString("name")} — ${following.med.optString("dose")}")
-      widgetPrefs.putString("next_time", "Lúc ${following.time} • ${mealLabel(following.med.optString("mealNote"))}$nextRemStr")
+      widgetPrefs.putString("next_time", "${WidgetLang.tr("Lúc", "At", langEn)} ${following.time} • ${mealLabel(following.med.optString("mealNote"), langEn)}$nextRemStr")
     }
     widgetPrefs.putString("progress_pct", if (slots.isEmpty()) "0" else ((completed * 100) / slots.size).toString())
     widgetPrefs.putString("all_done", if (following == null && slots.isNotEmpty()) "1" else "0")
@@ -834,13 +843,14 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
       if (st == "skipped") skipped++
       if (st != "taken" && st != "late" && st != "skipped" && slot.dateTime.before(now)) overdue = true
     }
+    val langEn = WidgetLang.isEn(flutterPrefs)
     val pipMessage = when {
-      slots.isEmpty() -> "😊 Thêm thuốc để Pip nhắc bạn nhé!"
-      onTime == slots.size -> "🥳 Hôm nay uống đủ và đúng giờ hết rồi, tuyệt vời!"
-      completed == slots.size -> "😊 Hôm nay uống đủ hết rồi, có ${completed - onTime} lần trễ, lần sau cố đúng giờ nhé!"
-      overdue -> "😟 Ơ, có lần uống quá giờ chưa thấy bạn bấm, uống bù nhé?"
-      skipped > 0 -> "😟 Hôm nay bạn bỏ qua $skipped lần, mai cố nhé?"
-      else -> "😊 Hôm nay còn ${slots.size - completed} lần nữa là xong, cố lên nhé!"
+      slots.isEmpty() -> if (langEn) "😊 Add a medicine so Pip can remind you!" else "😊 Thêm thuốc để Pip nhắc bạn nhé!"
+      onTime == slots.size -> if (langEn) "🥳 All doses taken on time today — awesome!" else "🥳 Hôm nay uống đủ và đúng giờ hết rồi, tuyệt vời!"
+      completed == slots.size -> if (langEn) "😊 All doses done today, ${completed - onTime} late — try to be on time next time!" else "😊 Hôm nay uống đủ hết rồi, có ${completed - onTime} lần trễ, lần sau cố đúng giờ nhé!"
+      overdue -> if (langEn) "😟 A dose is overdue and not checked in — take it now?" else "😟 Ơ, có lần uống quá giờ chưa thấy bạn bấm, uống bù nhé?"
+      skipped > 0 -> if (langEn) "😟 You skipped ${WidgetLang.doses(skipped)} today — try again tomorrow?" else "😟 Hôm nay bạn bỏ qua $skipped lần, mai cố nhé?"
+      else -> if (langEn) "😊 ${WidgetLang.doses(slots.size - completed)} left today — you've got this!" else "😊 Hôm nay còn ${slots.size - completed} lần nữa là xong, cố lên nhé!"
     }
     val widgetPrefs = context.getSharedPreferences("HomeWidgetPreferences", Context.MODE_PRIVATE).edit()
     // Chi tiết lịch hôm nay sau khi đã xong (1.2.15), giống Dart
@@ -852,7 +862,7 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
       val st = logObj.optString("status")
       val atRaw = logObj.optString("at")
       val atStr = if (atRaw.length >= 16) atRaw.substring(11, 16) else ""
-      val takenStr = if (st == "late") "Đã uống trễ lúc $atStr" else "Đã uống đúng giờ lúc $atStr"
+      val takenStr = if (langEn) { if (st == "late") "Taken late at $atStr" else "Taken on time at $atStr" } else { if (st == "late") "Đã uống trễ lúc $atStr" else "Đã uống đúng giờ lúc $atStr" }
       val med = s.med
       var remStr = ""
       val total = med.optInt("totalPills", 0)
@@ -881,26 +891,31 @@ class ThuocVuiWidgetProvider : HomeWidgetProvider() {
         var rem = total - (startPill - 1) - takenCount * perDose
         if (rem < 0) rem = 0
         val perDay = (med.optJSONArray("times")?.length() ?: 0) * perDose
-        val daysStr = if (perDay > 0) " (đủ ${rem / perDay} ngày)" else ""
-        remStr = " • Còn $rem viên$daysStr"
+        val daysStr = if (perDay > 0) { if (langEn) " (enough for ${WidgetLang.days(rem / perDay)})" else " (đủ ${rem / perDay} ngày)" } else ""
+        remStr = if (langEn) " • ${WidgetLang.pills(rem)} left$daysStr" else " • Còn $rem viên$daysStr"
       }
-      doneLines.add("${formEmoji(med.optString("form"))} ${med.optString("name")} — ${med.optString("dose")} • Lúc ${s.time} • ${mealLabel(med.optString("mealNote"))}\n$takenStr$remStr")
+      doneLines.add("${formEmoji(med.optString("form"))} ${med.optString("name")} — ${med.optString("dose")} • ${WidgetLang.tr("Lúc", "At", langEn)} ${s.time} • ${mealLabel(med.optString("mealNote"), langEn)}\n$takenStr$remStr")
     }
-    if (completedSlots.size > 3) doneLines.add("… và ${completedSlots.size - 3} lần nữa")
+    if (completedSlots.size > 3) doneLines.add(if (langEn) "… and ${completedSlots.size - 3} more" else "… và ${completedSlots.size - 3} lần nữa")
     widgetPrefs.putString("done_detail", doneLines.joinToString("\n"))
     widgetPrefs.putString("pip_message", pipMessage)
     widgetPrefs.putString(
         "progress",
-        if (slots.isEmpty()) "Chưa có thuốc hôm nay"
-        else "Hôm nay: $completed/${slots.size} lần • đúng giờ $onTime lần")
+        if (langEn) {
+          if (slots.isEmpty()) "No medicines today"
+          else "Today: $completed/${slots.size} doses • $onTime on time"
+        } else {
+          if (slots.isEmpty()) "Chưa có thuốc hôm nay"
+          else "Hôm nay: $completed/${slots.size} lần • đúng giờ $onTime lần"
+        })
     if (following == null) {
-      widgetPrefs.putString("next_text", if (slots.isEmpty()) "Thêm thuốc để Pip nhắc bạn nhé!" else "🎉 Đã xong hôm nay!")
+      widgetPrefs.putString("next_text", if (langEn) { if (slots.isEmpty()) "Add a medicine so Pip can remind you!" else "🎉 All done for today!" } else { if (slots.isEmpty()) "Thêm thuốc để Pip nhắc bạn nhé!" else "🎉 Đã xong hôm nay!" })
       widgetPrefs.putString("next_time", "")
     } else {
       val nextRem = remainingFor(following.med, logs)
-      val nextRemStr = if (nextRem != null) " • Còn $nextRem viên" else ""
+      val nextRemStr = if (nextRem != null) { if (langEn) " • ${WidgetLang.pills(nextRem)} left" else " • Còn $nextRem viên" } else ""
       widgetPrefs.putString("next_text", "${formEmoji(following.med.optString("form"))} ${following.med.optString("name")} — ${following.med.optString("dose")}")
-      widgetPrefs.putString("next_time", "Lúc ${following.time} • ${mealLabel(following.med.optString("mealNote"))}$nextRemStr")
+      widgetPrefs.putString("next_time", "${WidgetLang.tr("Lúc", "At", langEn)} ${following.time} • ${mealLabel(following.med.optString("mealNote"), langEn)}$nextRemStr")
     }
     widgetPrefs.putString("progress_pct", if (slots.isEmpty()) "0" else ((completed * 100) / slots.size).toString())
     widgetPrefs.putString("all_done", if (following == null && slots.isNotEmpty()) "1" else "0")

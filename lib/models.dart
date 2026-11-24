@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'strings.dart';
+
 /// Một loại thuốc người dùng cần uống.
 class Medicine {
   final String id;
@@ -60,11 +62,11 @@ class Medicine {
       };
 
   String get mealTiming => switch (mealNote) {
-        'truoc_an' => 'Trước ăn',
-        'trong_bua' => 'Trong bữa',
-        'sau_an' => 'Sau ăn',
-        'truoc_ngu' => 'Trước khi ngủ',
-        _ => 'Không dặn',
+        'truoc_an' => tr('Trước ăn', 'Before meal'),
+        'trong_bua' => tr('Trong bữa', 'With meal'),
+        'sau_an' => tr('Sau ăn', 'After meal'),
+        'truoc_ngu' => tr('Trước khi ngủ', 'Before bed'),
+        _ => tr('Không dặn', 'Anytime'),
       };
 
   String get formEmoji {
@@ -86,31 +88,31 @@ class Medicine {
   String get formLabel {
     switch (form) {
       case 'nuoc':
-        return 'Thuốc nước';
+        return tr('Thuốc nước', 'Liquid');
       case 'tiem':
-        return 'Thuốc tiêm';
+        return tr('Thuốc tiêm', 'Injection');
       case 'xit':
-        return 'Thuốc xịt';
+        return tr('Thuốc xịt', 'Spray');
       case 'khac':
-        return 'Thuốc khác';
+        return tr('Thuốc khác', 'Other');
       case 'vien':
       default:
-        return 'Thuốc viên';
+        return tr('Thuốc viên', 'Tablet / Pill');
     }
   }
 
   String get mealLabel {
     switch (mealNote) {
       case 'truoc_an':
-        return 'Uống trước ăn';
+        return tr('Uống trước ăn', 'Take before meal');
       case 'sau_an':
-        return 'Uống sau ăn';
+        return tr('Uống sau ăn', 'Take after meal');
       case 'trong_bua':
-        return 'Uống trong bữa';
+        return tr('Uống trong bữa', 'Take with meal');
       case 'truoc_ngu':
-        return 'Uống trước khi ngủ';
+        return tr('Uống trước khi ngủ', 'Take before bed');
       default:
-        return 'Không dặn trước/sau ăn';
+        return tr('Không dặn trước/sau ăn', 'No meal restriction');
     }
   }
 
@@ -233,51 +235,73 @@ Map<String, dynamic> decodeJson(String raw) {
 class BadgeInfo {
   final String id;
   final String emoji;
-  final String title;
-  final String desc;
-  const BadgeInfo(
-      {required this.id,
-      required this.emoji,
-      required this.title,
-      required this.desc});
+  final String titleVi;
+  final String titleEn;
+  final String descVi;
+  final String descEn;
+  const BadgeInfo({
+    required this.id,
+    required this.emoji,
+    required this.titleVi,
+    required this.titleEn,
+    required this.descVi,
+    required this.descEn,
+  });
+
+  String get title => tr(titleVi, titleEn);
+  String get desc => tr(descVi, descEn);
 }
 
 const List<BadgeInfo> allBadges = [
   BadgeInfo(
       id: 'first_ontime',
       emoji: '🌱',
-      title: 'Bước đầu tiên',
-      desc: 'Uống đúng giờ lần đầu tiên'),
+      titleVi: 'Bước đầu tiên',
+      titleEn: 'First step',
+      descVi: 'Uống đúng giờ lần đầu tiên',
+      descEn: 'First dose taken on time'),
   BadgeInfo(
       id: 'perfect_day',
       emoji: '⭐',
-      title: 'Ngày hoàn hảo',
-      desc: '1 ngày uống đủ và đúng giờ hết'),
+      titleVi: 'Ngày hoàn hảo',
+      titleEn: 'Perfect day',
+      descVi: '1 ngày uống đủ và đúng giờ hết',
+      descEn: 'All doses taken on time for a full day'),
   BadgeInfo(
       id: 'streak_3',
       emoji: '🔥',
-      title: '3 ngày vàng',
-      desc: '3 ngày liên tiếp đúng giờ'),
+      titleVi: '3 ngày vàng',
+      titleEn: '3-day streak',
+      descVi: '3 ngày liên tiếp đúng giờ',
+      descEn: '3 consecutive days on time'),
   BadgeInfo(
       id: 'streak_7',
       emoji: '👑',
-      title: 'Tuần vàng',
-      desc: '7 ngày liên tiếp đúng giờ'),
+      titleVi: 'Tuần vàng',
+      titleEn: 'Golden week',
+      descVi: '7 ngày liên tiếp đúng giờ',
+      descEn: '7 consecutive days on time'),
   BadgeInfo(
       id: 'streak_30',
       emoji: '💎',
-      title: 'Tháng vàng',
-      desc: '30 ngày liên tiếp đúng giờ'),
+      titleVi: 'Tháng vàng',
+      titleEn: 'Golden month',
+      descVi: '30 ngày liên tiếp đúng giờ',
+      descEn: '30 consecutive days on time'),
   BadgeInfo(
       id: 'ontime_50',
       emoji: '💪',
-      title: 'Bền bỉ',
-      desc: '50 lần uống đúng giờ'),
+      titleVi: 'Bền bỉ',
+      titleEn: 'Steady',
+      descVi: '50 lần uống đúng giờ',
+      descEn: '50 doses taken on time'),
   BadgeInfo(
       id: 'ontime_100',
       emoji: '🏆',
-      title: 'Bậc thầy đúng giờ',
-      desc: '100 lần uống đúng giờ'),
+      titleVi: 'Bậc thầy đúng giờ',
+      titleEn: 'On-time master',
+      descVi: '100 lần uống đúng giờ',
+      descEn: '100 doses taken on time'),
 ];
 
 class PurchaseRecord {

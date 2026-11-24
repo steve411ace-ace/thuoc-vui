@@ -1,5 +1,9 @@
 # Nhật ký thay đổi
 
+## 1.2.52+55
+
+- Nới rộng widget cho hiện đủ chữ, thêm ngôn ngữ Tiếng Việt/English trong Cài đặt, bỏ lịch tháng trùng ở Thống kê, bấm ngày đổi màn Hôm nay.
+
 ## 1.2.51+54
 
 - Widget hiện đại theo giao diện PillFlow: bỏ mặt Pip, vòng tiến độ 76px, màu theo 10 bảng màu + Custom, nút check-in bo 16dp.

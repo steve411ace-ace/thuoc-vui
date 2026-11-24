@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import 'pillflow_style.dart';
+import 'strings.dart';
 
 enum HomePalette {
   light('Sáng', 0xFF0F766E, 0xFFF3F6F8),
@@ -20,6 +21,8 @@ enum HomePalette {
   final String label;
   final int primary;
   final int background;
+
+  String get displayLabel => this == light ? tr('Sáng', 'Light') : label;
 
   static const defaultCustomColor = Color(0xFF0F766E);
 
@@ -424,7 +427,7 @@ class HomePaletteSwatch extends StatelessWidget {
                       : null,
                 ),
               ),
-              Text(palette.label,
+              Text(palette.displayLabel,
                   style: Theme.of(context).textTheme.labelSmall),
               Text('#$hex',
                   style: TextStyle(

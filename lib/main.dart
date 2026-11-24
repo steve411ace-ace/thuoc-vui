@@ -10,6 +10,7 @@ import 'models.dart';
 import 'pillflow_style.dart';
 import 'purchases.dart';
 import 'store.dart';
+import 'strings.dart';
 import 'widget_service.dart';
 
 const _appVersion = '1.2.50';
@@ -58,6 +59,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   int _tab = 0;
+  DateTime? _selectedHomeDay;
   final _pendingSlots = <String>{};
   final _pendingRefills = <String>{};
   final _dismissedReminders = <String>{};
@@ -128,14 +130,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final reason = await showDialog<String>(
       context: context,
       builder: (ctx) => SimpleDialog(
-        title: const Text('Bỏ qua lần uống này?'),
+        title: Text(tr('Bỏ qua lần uống này?', 'Skip this dose?')),
         children: [
           for (final r in ['Quên', 'Hết thuốc', 'Khó chịu', 'Khác'])
             SimpleDialogOption(
               onPressed: () => Navigator.pop(ctx, r),
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Text(r, style: const TextStyle(fontSize: 16)),
+                child: Text(skipReasonLabel(r),
+                    style: const TextStyle(fontSize: 16)),
               ),
             ),
         ],
@@ -152,22 +155,25 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       final over = await widget.store.replenishMedicine(med, 10);
       if (!mounted) return;
       _toast(over > 0
-          ? 'Đã bổ sung 10 viên cho ${med.name} (đã trừ $over viên uống trước).'
-          : 'Đã bổ sung 10 viên cho ${med.name}.');
+          ? tr('Đã bổ sung 10 viên cho ${med.name} (đã trừ $over viên uống trước).',
+              'Added 10 pills for ${med.name} ($over pills taken earlier were deducted).')
+          : tr('Đã bổ sung 10 viên cho ${med.name}.',
+              'Added 10 pills for ${med.name}.'));
       final recordPurchase = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('Ghi lần mua này không?'),
-          content: Text(
-              'Bạn vừa bổ sung 10 viên ${med.name}. Có muốn ghi vào lịch sử mua thuốc không?'),
+          title: Text(tr('Ghi lần mua này không?', 'Record this purchase?')),
+          content: Text(tr(
+              'Bạn vừa bổ sung 10 viên ${med.name}. Có muốn ghi vào lịch sử mua thuốc không?',
+              'You just added 10 pills of ${med.name}. Add it to your purchase history?')),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('Để sau'),
+              child: Text(tr('Để sau', 'Later')),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('Ghi lần mua'),
+              child: Text(tr('Ghi lần mua', 'Record purchase')),
             ),
           ],
         ),
@@ -185,16 +191,28 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final scheme = Theme.of(context).colorScheme;
     final now = DateTime.now();
     final today = DateUtils.dateOnly(now);
-    final slots = store.slotsForDay(today);
+    final selected = _selectedHomeDay;
+    final viewingDay = selected != null &&
+            !selected.isAfter(today) &&
+            today.difference(selected).inDays <= 6
+        ? selected
+        : today;
+    final isViewingToday = DateUtils.isSameDay(viewingDay, today);
+    final slots = store.slotsForDay(viewingDay);
+    final todaySlots = isViewingToday ? slots : store.slotsForDay(today);
     final taken = slots.where((slot) => pillTaken(store.statusOf(slot))).length;
     DoseSlot? next;
-    DoseSlot? reminder;
-    var refreshAt = DateTime(today.year, today.month, today.day + 1);
     for (final slot in slots) {
       if (store.statusOf(slot) != null) continue;
-      if (next == null && (store.remainingPills(slot.medicine) ?? 1) > 0) {
+      if ((store.remainingPills(slot.medicine) ?? 1) > 0) {
         next = slot;
+        break;
       }
+    }
+    DoseSlot? reminder;
+    var refreshAt = DateTime(today.year, today.month, today.day + 1);
+    for (final slot in todaySlots) {
+      if (store.statusOf(slot) != null) continue;
       if (_dismissedReminders.contains(slot.key)) continue;
       final remindAt = _snoozedReminders[slot.key] ?? slot.dateTime;
       if (remindAt.isAfter(now)) {
@@ -211,22 +229,32 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final progress = total == 0 ? 0.0 : taken / total;
     final hour = now.hour;
     final greeting = hour < 11
-        ? 'Chào buổi sáng!'
+        ? tr('Chào buổi sáng!', 'Good morning!')
         : hour < 14
-            ? 'Chào buổi trưa!'
+            ? tr('Chào buổi trưa!', 'Good midday!')
             : hour < 18
-                ? 'Chào buổi chiều!'
-                : 'Chào buổi tối!';
-    final weekday = today.weekday == DateTime.sunday
-        ? 'Chủ Nhật'
-        : 'Thứ ${['Hai', 'Ba', 'Tư', 'Năm', 'Sáu', 'Bảy'][today.weekday - 1]}';
-    final hint = next != null
-        ? 'Tiếp theo: ${next.time} · ${next.medicine.name}'
-        : total == 0
-            ? 'Chưa có lịch uống thuốc'
+                ? tr('Chào buổi chiều!', 'Good afternoon!')
+                : tr('Chào buổi tối!', 'Good evening!');
+    final weekday = weekdayFull(viewingDay.weekday);
+    final left = total - taken;
+    final hint = isViewingToday
+        ? (next != null
+            ? tr('Tiếp theo: ${next.time} · ${next.medicine.name}',
+                'Next: ${next.time} · ${next.medicine.name}')
+            : total == 0
+                ? tr('Chưa có lịch uống thuốc', 'No medication scheduled')
+                : taken == total
+                    ? tr('Tuyệt vời! Bạn đã hoàn thành hôm nay 🎉',
+                        'Great! You are all done for today 🎉')
+                    : tr('Còn $left liều chưa uống',
+                        '$left ${enPlural(left, 'dose', 'doses')} not taken yet'))
+        : (total == 0
+            ? tr('Chưa có lịch uống thuốc', 'No medication scheduled')
             : taken == total
-                ? 'Tuyệt vời! Bạn đã hoàn thành hôm nay 🎉'
-                : 'Còn ${total - taken} liều chưa uống';
+                ? tr('Tuyệt vời! Bạn đã uống đủ ngày này 🎉',
+                    'Great! All doses taken on this day 🎉')
+                : tr('Còn $left liều chưa uống',
+                    '$left ${enPlural(left, 'dose', 'doses')} not taken'));
 
     return SafeArea(
       bottom: false,
@@ -239,7 +267,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('$weekday, ${today.day} Thg ${today.month}',
+                    Text('$weekday, ${monthDayLabel(viewingDay)}',
                         style: TextStyle(
                             fontSize: 12, color: scheme.onSurfaceVariant)),
                     Text(greeting,
@@ -256,7 +284,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 child: Padding(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                  child: Text('🔥 ${store.currentStreak()} ngày',
+                  child: Text(
+                      '🔥 ${tr('${store.currentStreak()} ngày', '${store.currentStreak()}-day streak')}',
                       style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
@@ -279,7 +308,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                         fontWeight: FontWeight.bold)),
               ),
               IconButton(
-                tooltip: 'Cài đặt',
+                tooltip: tr('Cài đặt', 'Settings'),
                 onPressed: _openSettings,
                 icon: const Icon(Icons.settings_outlined, size: 20),
               ),
@@ -290,7 +319,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             _doseReminderBanner(reminder),
             const SizedBox(height: 16),
           ],
-          _weekSelectorStrip(scheme, today),
+          _weekSelectorStrip(scheme, today, viewingDay),
           const SizedBox(height: 16),
           Container(
             clipBehavior: Clip.antiAlias,
@@ -356,10 +385,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Tiến độ hôm nay',
-                                style: TextStyle(
+                            Text(
+                                isViewingToday
+                                    ? tr('Tiến độ hôm nay', "Today's progress")
+                                    : tr(
+                                        'Tiến độ ${monthDayLabel(viewingDay)}',
+                                        'Progress · ${monthDayLabel(viewingDay)}'),
+                                style: const TextStyle(
                                     color: Colors.white70, fontSize: 12)),
-                            Text('$taken/$total liều đã uống',
+                            Text(
+                                tr('$taken/$total liều đã uống',
+                                    '$taken/$total ${enPlural(total, 'dose', 'doses')} taken'),
                                 style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 20,
@@ -391,9 +427,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           ),
           const SizedBox(height: 20),
           for (final (label, from, until) in [
-            ('Sáng', 0, 11),
-            ('Trưa', 11, 17),
-            ('Tối', 17, 24),
+            (tr('Sáng', 'Morning'), 0, 11),
+            (tr('Trưa', 'Afternoon'), 11, 17),
+            (tr('Tối', 'Evening'), 17, 24),
           ])
             ..._doseGroup(
                 label,
@@ -403,17 +439,18 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                         slot.dateTime.hour < until)
                     .toList(),
                 next),
-          if (slots.isEmpty)
+          if (slots.isEmpty && isViewingToday)
             Padding(
               padding: const EdgeInsets.only(bottom: 16),
               child: FilledButton.icon(
                 onPressed: () => _openAdd(),
                 icon: const Icon(Icons.add),
-                label: const Text('Thêm thuốc mới'),
+                label: Text(tr('Thêm thuốc mới', 'Add medicine')),
               ),
             ),
           _lowStockAlertBanner(store, scheme),
-          _summaryBanner(scheme, taken, total, next),
+          _summaryBanner(scheme, taken, total, next,
+              viewingDay: viewingDay, isToday: isViewingToday),
         ],
       ),
     );
@@ -454,7 +491,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'PILLFLOW · BÂY GIỜ',
+                        tr('PILLFLOW · BÂY GIỜ', 'PILLFLOW · NOW'),
                         style: TextStyle(
                           color: scheme.brightness == Brightness.dark
                               ? pillDarkTeal
@@ -466,7 +503,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        'Đến giờ uống ${med.name}',
+                        tr('Đến giờ uống ${med.name}', 'Time to take ${med.name}'),
                         style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
@@ -481,14 +518,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       ),
                       if (locked)
                         Text(
-                          'Hết thuốc',
+                          tr('Hết thuốc', 'Out of stock'),
                           style: TextStyle(color: scheme.error, fontSize: 12),
                         ),
                     ],
                   ),
                 ),
                 IconButton(
-                  tooltip: 'Đóng thông báo',
+                  tooltip: tr('Đóng thông báo', 'Dismiss'),
                   onPressed: busy
                       ? null
                       : () => setState(() => _dismissedReminders.add(slot.key)),
@@ -510,10 +547,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       ),
                     ),
                     onPressed: busy ? null : () => _snoozeReminder(slot),
-                    child: const Text(
-                      'Nhắc lại 15p',
+                    child: Text(
+                      tr('Nhắc lại 15p', 'Snooze 15m'),
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 12),
+                      style: const TextStyle(fontSize: 12),
                     ),
                   ),
                 ),
@@ -534,10 +571,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                             if (store.statusOf(slot) != null) return;
                             _toggleDose(slot);
                           },
-                    child: const Text(
-                      '✓ Đánh dấu đã uống',
+                    child: Text(
+                      tr('✓ Đánh dấu đã uống', '✓ Mark as taken'),
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 12),
+                      style: const TextStyle(fontSize: 12),
                     ),
                   ),
                 ),
@@ -559,7 +596,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         const Duration(minutes: 15),
       );
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Đã hoãn nhắc sau 15 phút!')),
+        SnackBar(
+            content: Text(tr('Đã hoãn nhắc sau 15 phút!', 'Snoozed for 15 minutes!'))),
       );
     } finally {
       _pendingSlots.remove(slot.key);
@@ -567,46 +605,63 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
   }
 
-  Widget _weekSelectorStrip(ColorScheme scheme, DateTime today) => Row(
+  Widget _weekSelectorStrip(
+          ColorScheme scheme, DateTime today, DateTime viewingDay) =>
+      Row(
         children: [
           for (var i = 6; i >= 0; i--) ...[
             if (i < 6) const SizedBox(width: 4),
             Expanded(
-                child: _dayButton(scheme,
-                    DateTime(today.year, today.month, today.day - i), i == 0)),
+              child: Builder(builder: (_) {
+                final day = DateTime(today.year, today.month, today.day - i);
+                return _dayButton(
+                  scheme,
+                  day,
+                  isToday: i == 0,
+                  isSelected: DateUtils.isSameDay(day, viewingDay),
+                );
+              }),
+            ),
           ],
         ],
       );
 
-  Widget _dayButton(ColorScheme scheme, DateTime day, bool isToday) {
+  Widget _dayButton(
+    ColorScheme scheme,
+    DateTime day, {
+    required bool isToday,
+    required bool isSelected,
+  }) {
     final store = widget.store;
     final slots = store.slotsForDay(day);
     final taken = slots.where((slot) => pillTaken(store.statusOf(slot))).length;
     final decoration = pillPanel(scheme, radius: 16);
     return Semantics(
       button: true,
-      selected: isToday,
-      label: '${formatDateVn(day)}, $taken/${slots.length} liều đã uống',
+      selected: isSelected,
+      label: tr('${formatDateLocal(day)}, $taken/${slots.length} liều đã uống',
+          '${formatDateLocal(day)}, $taken/${slots.length} doses taken'),
       excludeSemantics: true,
       child: Material(
         color: Colors.transparent,
         child: Ink(
-          decoration: isToday
+          decoration: isSelected
               ? BoxDecoration(
                   gradient: pillGradient(scheme),
                   borderRadius: decoration.borderRadius)
-              : decoration,
+              : isToday
+                  ? decoration.copyWith(
+                      border: Border.all(
+                        color: scheme.surfaceAccent.withAlpha(140),
+                        width: 1.5,
+                      ),
+                    )
+                  : decoration,
           child: InkWell(
             borderRadius: BorderRadius.circular(16),
-            onTap: () => showModalBottomSheet<void>(
-              context: context,
-              showDragHandle: true,
-              isScrollControlled: true,
-              builder: (_) => FractionallySizedBox(
-                heightFactor: .75,
-                child: HistoryScreen(store: store, detailDay: day),
-              ),
-            ),
+            onTap: () => setState(() {
+              _selectedHomeDay = isToday ? null : day;
+            }),
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
               child: Column(
@@ -614,18 +669,19 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   Text(pillWeekday(day),
                       style: TextStyle(
                           fontSize: 10,
-                          color: isToday
+                          color: isSelected
                               ? Colors.white70
                               : scheme.onSurfaceVariant)),
                   Text('${day.day}',
                       style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
-                          color: isToday ? Colors.white : scheme.onSurface)),
+                          color:
+                              isSelected ? Colors.white : scheme.onSurface)),
                   const SizedBox(height: 4),
                   Icon(Icons.circle,
                       size: 6,
-                      color: isToday
+                      color: isSelected
                           ? Colors.white
                           : pillAdherenceDot(taken, slots.length)),
                 ],
@@ -654,7 +710,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     fontSize: 12,
                     letterSpacing: 1,
                     fontWeight: FontWeight.bold)),
-            Text('$taken/${slots.length} xong',
+            Text(tr('$taken/${slots.length} xong', '$taken/${slots.length} done'),
                 style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 11)),
           ],
         ),
@@ -693,14 +749,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               children: [
                 Text(
                     remaining == 0
-                        ? 'Hết thuốc: ${med.name}'
-                        : 'Sắp hết: ${med.name}',
+                        ? tr('Hết thuốc: ${med.name}', 'Out of stock: ${med.name}')
+                        : tr('Sắp hết: ${med.name}', 'Running low: ${med.name}'),
                     style: TextStyle(
                         fontWeight: FontWeight.bold, color: ink, fontSize: 13)),
                 Text(
                     remaining == 0
-                        ? 'Đã hết liều trong tủ thuốc'
-                        : 'Chỉ còn ${remaining ~/ perDose} liều trong tủ thuốc',
+                        ? tr('Đã hết liều trong tủ thuốc', 'No doses left in your cabinet')
+                        : tr('Chỉ còn ${remaining ~/ perDose} liều trong tủ thuốc',
+                            'Only ${remaining ~/ perDose} ${enPlural(remaining ~/ perDose, 'dose', 'doses')} left in your cabinet'),
                     style: TextStyle(fontSize: 11, color: ink)),
               ],
             ),
@@ -708,7 +765,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           TextButton(
             onPressed: () => _handleRefill(med),
             style: TextButton.styleFrom(foregroundColor: ink),
-            child: const Text('Bổ sung'),
+            child: Text(tr('Bổ sung', 'Refill')),
           ),
         ],
       ),
@@ -731,10 +788,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         ? store.settings.remindIntervalMinutes
         : 15;
     final detail = switch (status) {
-      'late' => 'Đã uống trễ',
-      'skipped' => 'Đã bỏ qua',
-      null when locked => 'Hết thuốc',
-      null when lateMin > 0 => 'Trễ ${_formatLate(lateMin)}',
+      'late' => tr('Đã uống trễ', 'Taken late'),
+      'skipped' => tr('Đã bỏ qua', 'Skipped'),
+      null when locked => tr('Hết thuốc', 'Out of stock'),
+      null when lateMin > 0 =>
+        tr('Trễ ${_formatLate(lateMin)}', 'Late by ${_formatLate(lateMin)}'),
       _ => null,
     };
 
@@ -811,10 +869,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(minWidth: 40, minHeight: 44),
                 tooltip: status != null
-                    ? 'Hoàn tác'
+                    ? tr('Hoàn tác', 'Undo')
                     : locked
-                        ? 'Hết thuốc'
-                        : 'Đã uống',
+                        ? tr('Hết thuốc', 'Out of stock')
+                        : tr('Đã uống', 'Taken'),
                 onPressed: locked || busy ? null : () => _toggleDose(slot),
                 icon: Container(
                   width: 32,
@@ -836,7 +894,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               ),
             ),
             PopupMenuButton<String>(
-              tooltip: 'Tùy chọn liều uống',
+              tooltip: tr('Tùy chọn liều uống', 'Dose options'),
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(minWidth: 140),
               enabled: !busy,
@@ -852,20 +910,26 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     await _askSkip(slot);
                   case 'snooze':
                     await store.scheduleSnooze(slot.key, snooze);
-                    if (mounted) _toast('Đã hoãn nhắc sau $snooze phút!');
+                    if (mounted) {
+                      _toast(tr('Đã hoãn nhắc sau $snooze phút!',
+                          'Snoozed for $snooze minutes!'));
+                    }
                 }
               },
               itemBuilder: (_) => [
                 if (status != null)
-                  const PopupMenuItem(value: 'undo', child: Text('Hoàn tác'))
+                  PopupMenuItem(value: 'undo', child: Text(tr('Hoàn tác', 'Undo')))
                 else ...[
                   if (locked)
-                    const PopupMenuItem(value: 'refill', child: Text('Bổ sung'))
+                    PopupMenuItem(
+                        value: 'refill', child: Text(tr('Bổ sung', 'Refill')))
                   else
                     PopupMenuItem(
-                        value: 'snooze', child: Text('Hoãn ${snooze}p')),
-                  const PopupMenuItem(
-                      value: 'skip', child: Text('Bỏ qua lần này')),
+                        value: 'snooze',
+                        child: Text(tr('Hoãn ${snooze}p', 'Snooze ${snooze}m'))),
+                  PopupMenuItem(
+                      value: 'skip',
+                      child: Text(tr('Bỏ qua lần này', 'Skip this dose'))),
                 ],
               ],
             ),
@@ -892,21 +956,27 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     try {
       if (undo) {
         await store.undoTaken(slot);
-        if (mounted) _toast('Đã hoàn tác, liều quay lại chưa uống.');
+        if (mounted) {
+          _toast(tr('Đã hoàn tác, liều quay lại chưa uống.',
+              'Undone, the dose is back to not taken.'));
+        }
         return;
       }
       final before = store.earnedBadgeIds();
       final status = await store.markTaken(slot);
       if (!mounted) return;
       final message = status == 'late'
-          ? 'Đã ghi nhận uống trễ ${slot.medicine.name}'
-          : 'Đã ghi nhận uống ${slot.medicine.name} ✓';
+          ? tr('Đã ghi nhận uống trễ ${slot.medicine.name}',
+              'Logged ${slot.medicine.name} as taken late')
+          : tr('Đã ghi nhận uống ${slot.medicine.name} ✓',
+              'Logged ${slot.medicine.name} as taken ✓');
       final earned = store.earnedBadgeIds().difference(before);
       if (earned.isEmpty) {
         _toast(message);
       } else {
         final badge = allBadges.firstWhere((badge) => badge.id == earned.first);
-        _toast('$message\nMở khóa danh hiệu: ${badge.emoji} ${badge.title}!');
+        _toast(
+            '$message\n${tr('Mở khóa danh hiệu', 'Badge unlocked')}: ${badge.emoji} ${badge.title}!');
       }
     } finally {
       _pendingSlots.remove(slot.key);
@@ -915,21 +985,40 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Widget _summaryBanner(
-      ColorScheme scheme, int taken, int total, DoseSlot? nextSlot) {
+    ColorScheme scheme,
+    int taken,
+    int total,
+    DoseSlot? nextSlot, {
+    required DateTime viewingDay,
+    required bool isToday,
+  }) {
     String summary;
     final hour = DateTime.now().hour;
-    final timeGreeting =
-        hour < 12 ? 'Sáng nay' : (hour < 17 ? 'Chiều nay' : 'Tối nay');
+    final timeGreeting = hour < 12
+        ? tr('Sáng nay', 'This morning')
+        : (hour < 17 ? tr('Chiều nay', 'This afternoon') : tr('Tối nay', 'This evening'));
+    final dayLabel = '${weekdayFull(viewingDay.weekday)}, ${monthDayLabel(viewingDay)}';
+    final left = total - taken;
 
     if (total == 0) {
-      summary = 'Không có lịch uống thuốc trong ngày này.';
+      summary = tr('Không có lịch uống thuốc trong ngày này.',
+          'No medication scheduled for this day.');
+    } else if (!isToday) {
+      summary = taken == total
+          ? tr('$dayLabel bạn đã uống đủ $taken/$total liều. Tuyệt vời!',
+              'On $dayLabel you took all $taken/$total doses. Great job!')
+          : tr('$dayLabel bạn đã uống $taken/$total liều (còn $left liều chưa uống).',
+              'On $dayLabel you took $taken/$total doses ($left not taken).');
     } else if (taken == total) {
-      summary = '$timeGreeting bạn đã uống đủ $taken/$total liều. Tuyệt vời!';
+      summary = tr('$timeGreeting bạn đã uống đủ $taken/$total liều. Tuyệt vời!',
+          '$timeGreeting you took all $taken/$total doses. Great job!');
     } else if (nextSlot != null) {
-      summary =
-          '$timeGreeting bạn đã uống $taken/$total liều. Còn ${total - taken} liều lúc ${nextSlot.time} — ${nextSlot.medicine.name}.';
+      summary = tr(
+          '$timeGreeting bạn đã uống $taken/$total liều. Còn $left liều lúc ${nextSlot.time} — ${nextSlot.medicine.name}.',
+          '$timeGreeting you took $taken/$total doses. $left ${enPlural(left, 'dose', 'doses')} left, next at ${nextSlot.time} — ${nextSlot.medicine.name}.');
     } else {
-      summary = '$timeGreeting bạn đã uống $taken/$total liều thuốc.';
+      summary = tr('$timeGreeting bạn đã uống $taken/$total liều thuốc.',
+          '$timeGreeting you took $taken/$total doses.');
     }
 
     return Container(
@@ -991,13 +1080,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       children: [
         Row(
           children: [
-            const Expanded(
-                child: Text('TỦ THUỐC THÔNG MINH',
-                    style: TextStyle(
+            Expanded(
+                child: Text(tr('TỦ THUỐC THÔNG MINH', 'SMART MEDICINE CABINET'),
+                    style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
                         letterSpacing: .7))),
-            Text('$activeCount loại đang dùng',
+            Text(
+                tr('$activeCount loại đang dùng', '$activeCount in use'),
                 style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
@@ -1010,12 +1100,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             controller: _cabinetSearchController,
             onChanged: (value) => setState(() => _cabinetQuery = value),
             decoration: InputDecoration(
-              hintText: 'Tìm kiếm thuốc...',
+              hintText: tr('Tìm kiếm thuốc...', 'Search medicine...'),
               prefixIcon: const Icon(Icons.search),
               suffixIcon: _cabinetQuery.isEmpty
                   ? null
                   : IconButton(
-                      tooltip: 'Xóa tìm kiếm',
+                      tooltip: tr('Xóa tìm kiếm', 'Clear search'),
                       icon: const Icon(Icons.clear),
                       onPressed: () {
                         _cabinetSearchController.clear();
@@ -1028,9 +1118,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           Wrap(
             spacing: 8,
             children: [
-              _filterChip('Tất cả (${store.medicines.length})', 'all', scheme),
-              _filterChip('Đang dùng ($activeCount)', 'active', scheme),
-              _filterChip('Sắp hết ($lowCount)', 'low', scheme),
+              _filterChip(
+                  tr('Tất cả (${store.medicines.length})',
+                      'All (${store.medicines.length})'),
+                  'all',
+                  scheme),
+              _filterChip(tr('Đang dùng ($activeCount)', 'In use ($activeCount)'),
+                  'active', scheme),
+              _filterChip(
+                  tr('Sắp hết ($lowCount)', 'Running low ($lowCount)'), 'low', scheme),
             ],
           ),
           const SizedBox(height: 12),
@@ -1040,10 +1136,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Text(query.isNotEmpty && !compact
-                  ? 'Không tìm thấy thuốc phù hợp.'
+                  ? tr('Không tìm thấy thuốc phù hợp.', 'No matching medicine found.')
                   : !compact && _cabinetFilter == 'low'
-                      ? 'Không có thuốc nào sắp hết.'
-                      : 'Tủ thuốc đang trống.'),
+                      ? tr('Không có thuốc nào sắp hết.', 'No medicine is running low.')
+                      : tr('Tủ thuốc đang trống.', 'Your cabinet is empty.')),
             ),
           ),
         for (final med in filtered)
@@ -1051,7 +1147,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         if (!compact)
           FilledButton.icon(
             icon: const Icon(Icons.add),
-            label: const Text('Thêm thuốc mới'),
+            label: Text(tr('Thêm thuốc mới', 'Add medicine')),
             onPressed: () => _openAdd(),
           ),
       ],
@@ -1091,7 +1187,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                             fontSize: 13, fontWeight: FontWeight.bold))),
                 if (remaining != null) ...[
                   const SizedBox(width: 8),
-                  Text('Còn $remaining/${med.totalPills} viên',
+                  Text(
+                      tr('Còn $remaining/${med.totalPills} viên',
+                          '$remaining/${med.totalPills} pills left'),
                       style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
@@ -1110,8 +1208,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
                     onPressed: () => _handleRefill(med),
-                    child: const Text('+ Nạp',
-                        style: TextStyle(
+                    child: Text(tr('+ Nạp', '+ Refill'),
+                        style: const TextStyle(
                             fontSize: 11, fontWeight: FontWeight.bold)),
                   ),
                 ],
@@ -1129,7 +1227,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 ),
               )
             else
-              Text('Chưa theo dõi số lượng',
+              Text(tr('Chưa theo dõi số lượng', 'Quantity not tracked'),
                   style:
                       TextStyle(fontSize: 11, color: scheme.onSurfaceVariant)),
             if (!compact) ...[
@@ -1138,7 +1236,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   style:
                       TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
               if (days != null)
-                Text('Đủ $days ngày',
+                Text(
+                    tr('Đủ $days ngày',
+                        'Enough for $days ${enPlural(days, 'day', 'days')}'),
                     style: TextStyle(
                         fontSize: 11, color: scheme.onSurfaceVariant)),
               if (med.note.isNotEmpty)
@@ -1151,30 +1251,31 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   if (remaining != null && !low)
                     TextButton(
                         onPressed: () => _handleRefill(med),
-                        child: const Text('Bổ sung +10')),
+                        child: Text(tr('Bổ sung +10', 'Refill +10'))),
                   TextButton.icon(
                     icon: const Icon(Icons.edit_outlined, size: 16),
-                    label: const Text('Sửa'),
+                    label: Text(tr('Sửa', 'Edit')),
                     onPressed: () => _openAdd(med),
                   ),
                   TextButton.icon(
                     style: TextButton.styleFrom(foregroundColor: scheme.error),
                     icon: const Icon(Icons.delete_outline, size: 16),
-                    label: const Text('Xóa'),
+                    label: Text(tr('Xóa', 'Delete')),
                     onPressed: () async {
                       final ok = await showDialog<bool>(
                         context: context,
                         builder: (ctx) => AlertDialog(
-                          title: const Text('Xóa thuốc này?'),
-                          content: Text(
-                              'Xóa "${med.name}" khỏi tủ thuốc? Lịch nhắc và lịch sử cũng sẽ bị xóa.'),
+                          title: Text(tr('Xóa thuốc này?', 'Delete this medicine?')),
+                          content: Text(tr(
+                              'Xóa "${med.name}" khỏi tủ thuốc? Lịch nhắc và lịch sử cũng sẽ bị xóa.',
+                              'Delete "${med.name}" from your cabinet? Its reminders and history will also be deleted.')),
                           actions: [
                             TextButton(
                                 onPressed: () => Navigator.pop(ctx, false),
-                                child: const Text('Hủy')),
+                                child: Text(tr('Hủy', 'Cancel'))),
                             TextButton(
                                 onPressed: () => Navigator.pop(ctx, true),
-                                child: const Text('Xóa')),
+                                child: Text(tr('Xóa', 'Delete'))),
                           ],
                         ),
                       );
@@ -1218,18 +1319,41 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     return ListView(
       padding: const EdgeInsets.fromLTRB(18, 20, 18, 24),
       children: [
+        // 0. Ngôn ngữ / Language
+        HomeSectionLabel(tr('NGÔN NGỮ', 'LANGUAGE')),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(8),
+            child: Column(
+              children: [
+                for (final lang in AppLang.values)
+                  _LanguageOption(
+                    lang: lang,
+                    selected: settings.language == lang,
+                    onTap: () => store.updateLanguage(lang),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+
         // 1. Nhóm "Hiển thị & âm thanh"
-        const HomeSectionLabel('HIỂN THỊ & ÂM THANH'),
+        HomeSectionLabel(tr('HIỂN THỊ & ÂM THANH', 'DISPLAY & SOUND')),
         Card(
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Chế độ'),
+                Text(tr('Chế độ', 'Mode')),
                 const SizedBox(height: 6),
                 _ThemeModeControl(
-                  labels: const ['Sáng', 'Tối', 'Theo điện thoại'],
+                  labels: [
+                    tr('Sáng', 'Light'),
+                    tr('Tối', 'Dark'),
+                    tr('Theo điện thoại', 'System')
+                  ],
                   systemIndex: 2,
                   selectedIndex: appModes.indexOf(settings.appThemeMode),
                   onSelected: (index) => store.updateAppTheme(appModes[index]),
@@ -1237,7 +1361,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 const SizedBox(height: 12),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: const Text('Âm thanh nhắc'),
+                  title: Text(tr('Âm thanh nhắc', 'Reminder sound')),
                   value: settings.sound,
                   onChanged: (v) async {
                     await store.updateSettings(settings.copyWith(sound: v));
@@ -1245,14 +1369,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 ),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: const Text('Rung khi nhắc'),
+                  title: Text(tr('Rung khi nhắc', 'Vibrate on reminder')),
                   value: settings.vibration,
                   onChanged: (v) async {
                     await store.updateSettings(settings.copyWith(vibration: v));
                   },
                 ),
                 const Divider(height: 20),
-                const Text('Bảng màu giao diện'),
+                Text(tr('Bảng màu giao diện', 'Color palette')),
                 const SizedBox(height: 8),
                 LayoutBuilder(
                   builder: (context, constraints) {
@@ -1295,7 +1419,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         const SizedBox(height: 16),
 
         // 2. Nhóm "Thời gian hoãn nhắc mặc định" (5 / 10 / 15 / 30 phút)
-        const HomeSectionLabel('THỜI GIAN HOÃN NHẮC MẶC ĐỊNH'),
+        HomeSectionLabel(tr('THỜI GIAN HOÃN NHẮC MẶC ĐỊNH', 'DEFAULT SNOOZE TIME')),
         Card(
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -1303,7 +1427,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Thời gian nhắc lại khi bấm nút "Hoãn" trên thẻ liều thuốc hoặc thông báo:',
+                  tr('Thời gian nhắc lại khi bấm nút "Hoãn" trên thẻ liều thuốc hoặc thông báo:',
+                      'Reminder delay when you tap "Snooze" on a dose card or notification:'),
                   style: TextStyle(color: muted, fontSize: 13),
                 ),
                 const SizedBox(height: 10),
@@ -1312,7 +1437,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   children: [5, 10, 15, 30].map((mins) {
                     final selected = settings.remindIntervalMinutes == mins;
                     return ChoiceChip(
-                      label: Text('$mins phút'),
+                      label: Text(tr('$mins phút', '$mins min')),
                       selected: selected,
                       selectedColor: scheme.surfaceAccent.withAlpha(30),
                       onSelected: (_) async {
@@ -1329,7 +1454,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         const SizedBox(height: 16),
 
         // 3. Độ mờ widget
-        const HomeSectionLabel('ĐỘ MỜ WIDGET'),
+        HomeSectionLabel(tr('ĐỘ MỜ WIDGET', 'WIDGET OPACITY')),
         Card(
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -1337,12 +1462,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Nền widget trong suốt dần khi kéo xuống. 100% là đặc như hiện tại, 0% là nền biến mất hoàn toàn.',
+                  tr('Nền widget trong suốt dần khi kéo xuống. 100% là đặc như hiện tại, 0% là nền biến mất hoàn toàn.',
+                      'The widget background gets more transparent as you drag down. 100% is solid as it is now, 0% makes the background disappear completely.'),
                   style: TextStyle(color: muted),
                 ),
                 Row(
                   children: [
-                    const Text('Mờ hơn'),
+                    Text(tr('Mờ hơn', 'Clearer')),
                     Expanded(
                       child: Slider(
                         value: (settings.widgetOpacity / 100).clamp(0.0, 1.0),
@@ -1361,10 +1487,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   ],
                 ),
                 const SizedBox(height: 8),
-                const Text('Giao diện widget'),
+                Text(tr('Giao diện widget', 'Widget theme')),
                 const SizedBox(height: 6),
                 _ThemeModeControl(
-                  labels: const ['Theo điện thoại', 'Sáng', 'Tối'],
+                  labels: [
+                    tr('Theo điện thoại', 'System'),
+                    tr('Sáng', 'Light'),
+                    tr('Tối', 'Dark')
+                  ],
                   systemIndex: 0,
                   selectedIndex: settings.widgetThemeMode.index,
                   onSelected: (index) =>
@@ -1377,26 +1507,27 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         const SizedBox(height: 16),
 
         // 4. Giờ yên lặng
-        const HomeSectionLabel('GIỜ YÊN LẶNG'),
+        HomeSectionLabel(tr('GIỜ YÊN LẶNG', 'QUIET HOURS')),
         Card(
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
               children: [
                 _SettingsField(
-                  label: 'Giờ yên lặng bắt đầu',
+                  label: tr('Giờ yên lặng bắt đầu', 'Quiet hours start'),
                   value: settings.quietStart,
                   onTap: () => pickQuiet(true),
                 ),
                 const SizedBox(height: 11),
                 _SettingsField(
-                  label: 'Giờ yên lặng kết thúc',
+                  label: tr('Giờ yên lặng kết thúc', 'Quiet hours end'),
                   value: settings.quietEnd,
                   onTap: () => pickQuiet(false),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Trong giờ yên lặng, app không lên lịch nhắc mới. Các lần uống vẫn hiện trên lịch hôm nay.',
+                  tr('Trong giờ yên lặng, app không lên lịch nhắc mới. Các lần uống vẫn hiện trên lịch hôm nay.',
+                      'During quiet hours the app does not schedule new reminders. Doses still appear on today\'s schedule.'),
                   style: TextStyle(color: muted, fontSize: 12),
                 ),
               ],
@@ -1406,7 +1537,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         const SizedBox(height: 16),
 
         // 5. Thông báo & Báo thức
-        const HomeSectionLabel('THÔNG BÁO'),
+        HomeSectionLabel(tr('THÔNG BÁO', 'NOTIFICATIONS')),
         Card(
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -1414,7 +1545,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  'Lịch nhắc dùng báo thức hệ thống. Nếu đã từ chối quyền vĩnh viễn, bật thủ công tại Cài đặt máy > Ứng dụng > Thuốc Vui > Thông báo.',
+                  tr('Lịch nhắc dùng báo thức hệ thống. Nếu đã từ chối quyền vĩnh viễn, bật thủ công tại Cài đặt máy > Ứng dụng > Thuốc Vui > Thông báo.',
+                      'Reminders use system alarms. If you permanently denied the permission, enable it manually in Phone Settings > Apps > Thuốc Vui > Notifications.'),
                   style: TextStyle(color: muted, fontSize: 12),
                 ),
                 const SizedBox(height: 12),
@@ -1422,7 +1554,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   width: double.infinity,
                   child: OutlinedButton.icon(
                     icon: const Icon(Icons.notifications_outlined),
-                    label: const Text('Xin quyền thông báo'),
+                    label: Text(tr('Xin quyền thông báo', 'Request notification permission')),
                     onPressed: () async {
                       final granted =
                           await store.requestNotificationPermission();
@@ -1430,8 +1562,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text(granted
-                              ? 'Đã có quyền thông báo, lịch nhắc đã lên lại!'
-                              : 'Chưa có quyền thông báo. Hãy bật tay trong Cài đặt máy > Ứng dụng > Thuốc Vui.'),
+                              ? tr('Đã có quyền thông báo, lịch nhắc đã lên lại!',
+                                  'Notification permission granted, reminders are scheduled again!')
+                              : tr('Chưa có quyền thông báo. Hãy bật tay trong Cài đặt máy > Ứng dụng > Thuốc Vui.',
+                                  'Notification permission is not granted. Enable it manually in Phone Settings > Apps > Thuốc Vui.')),
                         ),
                       );
                     },
@@ -1442,24 +1576,26 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   width: double.infinity,
                   child: OutlinedButton.icon(
                     icon: const Icon(Icons.alarm_outlined),
-                    label: const Text('Cho phép báo thức chính xác'),
+                    label: Text(tr('Cho phép báo thức chính xác', 'Allow exact alarms')),
                     onPressed: () async {
                       final canExact = await store.canScheduleExact();
                       if (canExact) {
                         if (!context.mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                              content: Text(
-                                  'Máy đã cho phép báo thức chính xác rồi, nhắc sẽ đúng giờ.')),
+                          SnackBar(
+                              content: Text(tr(
+                                  'Máy đã cho phép báo thức chính xác rồi, nhắc sẽ đúng giờ.',
+                                  'Exact alarms are already allowed, reminders will be on time.'))),
                         );
                         return;
                       }
                       await store.requestExactAlarmPermission();
                       if (!context.mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                            content: Text(
-                                'Đã mở màn hình Báo thức & nhắc nhở. Bật "Cho phép đặt báo thức và nhắc nhở" cho Thuốc Vui nhé!')),
+                        SnackBar(
+                            content: Text(tr(
+                                'Đã mở màn hình Báo thức & nhắc nhở. Bật "Cho phép đặt báo thức và nhắc nhở" cho Thuốc Vui nhé!',
+                                'Opened the Alarms & reminders screen. Turn on "Allow setting alarms and reminders" for Thuốc Vui!'))),
                       );
                     },
                   ),
@@ -1469,7 +1605,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   width: double.infinity,
                   child: OutlinedButton.icon(
                     icon: const Icon(Icons.battery_charging_full_outlined),
-                    label: const Text('Tắt tối ưu pin cho Thuốc Vui'),
+                    label: Text(tr('Tắt tối ưu pin cho Thuốc Vui', 'Disable battery optimization for Thuốc Vui')),
                     onPressed: () async {
                       final opened =
                           await store.requestIgnoreBatteryOptimizations();
@@ -1477,8 +1613,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                             content: Text(opened
-                                ? 'Đã mở màn hình miễn tối ưu pin. Bấm "Cho phép" để Thuốc Vui không bị máy cho ngủ.'
-                                : 'Không mở được màn hình pin. Vào Cài đặt máy > Ứng dụng > Thuốc Vui > Pin > Không giới hạn.')),
+                                ? tr('Đã mở màn hình miễn tối ưu pin. Bấm "Cho phép" để Thuốc Vui không bị máy cho ngủ.',
+                                    'Opened the battery optimization screen. Tap "Allow" so Thuốc Vui is not put to sleep.')
+                                : tr('Không mở được màn hình pin. Vào Cài đặt máy > Ứng dụng > Thuốc Vui > Pin > Không giới hạn.',
+                                    'Could not open the battery screen. Go to Phone Settings > Apps > Thuốc Vui > Battery > Unrestricted.'))),
                       );
                     },
                   ),
@@ -1494,22 +1632,22 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             padding: const EdgeInsets.all(16),
             child: Column(children: [
               _SettingsField(
-                label: 'Số lần báo lại nếu chưa uống',
+                label: tr('Số lần báo lại nếu chưa uống', 'Repeat reminders if not taken'),
                 value: settings.remindTimes == 0
-                    ? 'Tắt'
-                    : '${settings.remindTimes} lần',
+                    ? tr('Tắt', 'Off')
+                    : tr('${settings.remindTimes} lần', '${settings.remindTimes}x'),
                 onTap: () async {
                   final picked = await showDialog<int>(
                     context: context,
                     builder: (ctx) => SimpleDialog(
-                      title: const Text('Số lần báo lại nếu chưa uống'),
+                      title: Text(tr('Số lần báo lại nếu chưa uống', 'Repeat reminders if not taken')),
                       children: [
                         for (final n in [0, 1, 2, 3, 5])
                           SimpleDialogOption(
                             onPressed: () => Navigator.pop(ctx, n),
                             child: Padding(
                               padding: const EdgeInsets.symmetric(vertical: 8),
-                              child: Text(n == 0 ? 'Tắt' : '$n lần',
+                              child: Text(n == 0 ? tr('Tắt', 'Off') : tr('$n lần', '${n}x'),
                                   style: const TextStyle(fontSize: 16)),
                             ),
                           ),
@@ -1527,12 +1665,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         ),
         const SizedBox(height: 16),
         Text(
-          'Lưu ý: app chỉ nhắc giờ uống và ghi nhận đã uống, không thay thế chỉ định của bác sĩ. Khởi động lại điện thoại xong, mở app một lần để lịch nhắc hoạt động lại.',
+          tr('Lưu ý: app chỉ nhắc giờ uống và ghi nhận đã uống, không thay thế chỉ định của bác sĩ. Khởi động lại điện thoại xong, mở app một lần để lịch nhắc hoạt động lại.',
+              'Note: the app only reminds you when to take medicine and logs doses; it does not replace your doctor\'s instructions. After restarting your phone, open the app once so reminders work again.'),
           style: TextStyle(color: muted, fontSize: 12),
         ),
         const SizedBox(height: 20),
         Center(
-          child: Text('Thuốc Vui • Phiên bản $_appVersion+$_appBuild',
+          child: Text(tr('Thuốc Vui • Phiên bản $_appVersion+$_appBuild', 'Thuốc Vui • Version $_appVersion+$_appBuild'),
               style: TextStyle(color: muted, fontSize: 13)),
         ),
       ],
@@ -1542,7 +1681,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   void _openSettings() {
     Navigator.of(context).push(MaterialPageRoute<void>(
       builder: (context) => Scaffold(
-        appBar: AppBar(title: const Text('Cài đặt'), centerTitle: true),
+        appBar: AppBar(title: Text(tr('Cài đặt', 'Settings')), centerTitle: true),
         body: ListenableBuilder(
           listenable: widget.store,
           builder: (context, _) => _settingsTab(context),
@@ -1552,12 +1691,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Widget _navigation(ColorScheme scheme) {
-    const labels = [
-      'Hôm nay',
-      'Lịch',
-      'Thêm thuốc mới',
-      'Thống kê',
-      'Tủ thuốc'
+    final labels = [
+      tr('Hôm nay', 'Today'),
+      tr('Lịch', 'Calendar'),
+      tr('Thêm thuốc mới', 'Add medicine'),
+      tr('Thống kê', 'Stats'),
+      tr('Tủ thuốc', 'Cabinet')
     ];
     const icons = [
       Icons.home_outlined,
@@ -1860,8 +1999,60 @@ class _SettingsField extends StatelessWidget {
 
 /// Số phút trễ thành "35 phút" / "1 giờ 25 phút" / "2 giờ".
 String _formatLate(int minutes) {
-  if (minutes < 60) return '$minutes phút';
+  if (minutes < 60) return tr('$minutes phút', '$minutes min');
   final h = minutes ~/ 60;
   final m = minutes % 60;
-  return m == 0 ? '$h giờ' : '$h giờ $m phút';
+  return m == 0
+      ? tr('$h giờ', '$h h')
+      : tr('$h giờ $m phút', '$h h $m min');
+}
+
+/// Một dòng chọn ngôn ngữ trong Cài đặt: cờ + tên + dấu chọn.
+class _LanguageOption extends StatelessWidget {
+  const _LanguageOption({
+    required this.lang,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final AppLang lang;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: lang.label,
+      excludeSemantics: true,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+          child: Row(
+            children: [
+              FlagIcon(lang: lang, width: 36),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  lang.label,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  ),
+                ),
+              ),
+              Icon(
+                selected ? Icons.check_circle : Icons.circle_outlined,
+                color: selected ? scheme.surfaceAccent : scheme.outline,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

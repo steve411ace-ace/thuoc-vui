@@ -10,6 +10,7 @@ import 'package:timezone/timezone.dart' as tz;
 
 import 'home_style.dart';
 import 'models.dart';
+import 'strings.dart';
 
 const String _storageKey = 'thuoc_vui_v1';
 const String _channelId = 'thuoc_vui_reminder';
@@ -31,6 +32,7 @@ class AppSettings {
   // Độ mờ nền widget (%), 100 = đặc như cũ, 50 = trong suốt nhất cho phép.
   int widgetOpacity;
   final WidgetThemeMode widgetThemeMode;
+  final AppLang language;
 
   AppSettings({
     this.sound = true,
@@ -44,6 +46,7 @@ class AppSettings {
     this.appThemeMode = ThemeMode.system,
     this.widgetOpacity = 100,
     this.widgetThemeMode = WidgetThemeMode.system,
+    this.language = AppLang.vi,
   });
 
   AppSettings copyWith({
@@ -58,6 +61,7 @@ class AppSettings {
     ThemeMode? appThemeMode,
     int? widgetOpacity,
     WidgetThemeMode? widgetThemeMode,
+    AppLang? language,
   }) =>
       AppSettings(
         sound: sound ?? this.sound,
@@ -71,6 +75,7 @@ class AppSettings {
         appThemeMode: appThemeMode ?? this.appThemeMode,
         widgetOpacity: widgetOpacity ?? this.widgetOpacity,
         widgetThemeMode: widgetThemeMode ?? this.widgetThemeMode,
+        language: language ?? this.language,
       );
 
   Map<String, dynamic> toJson() => {
@@ -85,6 +90,7 @@ class AppSettings {
         'appThemeMode': appThemeMode.name,
         'widgetOpacity': widgetOpacity,
         'widgetThemeMode': widgetThemeMode.name,
+        'language': language.code,
       };
 
   factory AppSettings.fromJson(Map<String, dynamic>? j) {
@@ -109,6 +115,7 @@ class AppSettings {
         (mode) => mode.name == j['widgetThemeMode'],
         orElse: () => WidgetThemeMode.system,
       ),
+      language: AppLang.fromCode(j['language']),
     );
   }
 
@@ -163,6 +170,7 @@ class ThuocStore extends ChangeNotifier {
       purchases = [];
       logs = {};
       settings = AppSettings();
+      Lang.current = settings.language;
       return;
     }
     try {
@@ -184,11 +192,13 @@ class ThuocStore extends ChangeNotifier {
         }
       }
       settings = AppSettings.fromJson(data['settings'] as Map<String, dynamic>?);
+      Lang.current = settings.language;
     } catch (_) {
       medicines = [];
       purchases = [];
       logs = {};
       settings = AppSettings();
+      Lang.current = settings.language;
     }
   }
 
@@ -425,10 +435,18 @@ class ThuocStore extends ChangeNotifier {
   String? buyPrompt(Medicine med) {
     final remaining = remainingPills(med);
     if (remaining == null) return null;
-    if (remaining <= 0) return 'Hết thuốc ${med.name} rồi! Mua hộp mới ngay nhé!';
+    if (remaining <= 0) {
+      return tr(
+        'Hết thuốc ${med.name} rồi! Mua hộp mới ngay nhé!',
+        '${med.name} is out of stock! Buy a new box soon!',
+      );
+    }
     final days = daysSupply(med);
     if (days != null && days <= 3) {
-      return 'Sắp hết thuốc ${med.name}, còn $remaining viên (đủ $days ngày), nhớ mua trước nhé!';
+      return tr(
+        'Sắp hết thuốc ${med.name}, còn $remaining viên (đủ $days ngày), nhớ mua trước nhé!',
+        'Low on ${med.name}: $remaining ${enPlural(remaining, 'pill', 'pills')} left ($days ${enPlural(days, 'day', 'days')}), remember to refill!',
+      );
     }
     if (days != null && days > 7) return null; // Còn nhiều, khỏi nhắc mua.
     return null; // 4–7 ngày: chỉ hiện số viên, không nhắc mua.
@@ -440,7 +458,7 @@ class ThuocStore extends ChangeNotifier {
     for (final med in medicines) {
       final prompt = buyPrompt(med);
       if (prompt == null) continue;
-      if (prompt.startsWith('Hết thuốc')) return prompt;
+      if ((remainingPills(med) ?? 1) <= 0) return prompt;
       low ??= prompt;
     }
     return low;
@@ -624,7 +642,7 @@ class ThuocStore extends ChangeNotifier {
             mainAlarms.add({
               'id': stableHash('main|${med.id}|$weekday|$time') % 2000000000,
               'triggerMillis': scheduled.millisecondsSinceEpoch,
-              'title': 'Đến giờ uống thuốc rồi!',
+              'title': tr('Đến giờ uống thuốc rồi!', 'Time to take your medicine!'),
               'body': body,
               'medId': med.id,
               'slotTime': time,
@@ -690,8 +708,14 @@ class ThuocStore extends ChangeNotifier {
                 alarms.add({
                   'id': stableHash('remind|${med.id}|$weekday|$time|$i') % 2000000000,
                   'triggerMillis': trigger.millisecondsSinceEpoch,
-                  'title': 'Nhắc lại lần $i: đến giờ uống thuốc!',
-                  'body': '${med.formEmoji} ${med.name} — ${med.dose}\nChưa thấy bạn bấm đã uống, nhắc lại lần $i.',
+                  'title': tr(
+                    'Nhắc lại lần $i: đến giờ uống thuốc!',
+                    'Reminder #$i: time to take your medicine!',
+                  ),
+                  'body': tr(
+                    '${med.formEmoji} ${med.name} — ${med.dose}\nChưa thấy bạn bấm đã uống, nhắc lại lần $i.',
+                    '${med.formEmoji} ${med.name} — ${med.dose}\nNot checked in yet — reminder #$i.',
+                  ),
                   'medId': med.id,
                   'slotTime': time,
                   'intervalMinutes': settings.remindIntervalMinutes,
@@ -743,22 +767,22 @@ class ThuocStore extends ChangeNotifier {
       final at = tz.TZDateTime.now(tz.local).add(Duration(minutes: snoozeMin));
       await notifications.zonedSchedule(
         stableHash('snooze|$slotKey') % 2000000000,
-        'Nhắc lại: đến giờ uống thuốc!',
+        tr('Nhắc lại: đến giờ uống thuốc!', 'Reminder: time to take your medicine!'),
         '${med.first.formEmoji} ${med.first.name} — ${med.first.dose}',
         at,
         NotificationDetails(
           android: AndroidNotificationDetails(
             _channelId,
-            'Nhắc uống thuốc',
+            tr('Nhắc uống thuốc', 'Medicine reminders'),
           icon: 'ic_stat_pip',
-            channelDescription: 'Nhắc uống thuốc đúng giờ mỗi ngày',
+            channelDescription: tr('Nhắc uống thuốc đúng giờ mỗi ngày', 'Daily on-time medicine reminders'),
             importance: Importance.max,
             priority: Priority.high,
             playSound: settings.sound,
             enableVibration: settings.vibration,
-            actions: const [
-              AndroidNotificationAction('taken', 'Đã uống'),
-              AndroidNotificationAction('snooze', 'Nhắc lại sau'),
+            actions: [
+              AndroidNotificationAction('taken', tr('Đã uống', 'Taken')),
+              AndroidNotificationAction('snooze', tr('Nhắc lại sau', 'Snooze')),
             ],
           ),
         ),
@@ -861,6 +885,15 @@ class ThuocStore extends ChangeNotifier {
     await _save();
   }
 
+  Future<void> updateLanguage(AppLang lang) async {
+    if (settings.language == lang && Lang.current == lang) return;
+    settings = settings.copyWith(language: lang);
+    Lang.current = lang;
+    notifyListeners();
+    await _save();
+    await rescheduleAll();
+  }
+
   Future<void> updateSettings(AppSettings next) async {
     // Android: kênh thông báo đã tạo rồi thì đổi âm thanh/rung trong
     // NotificationDetails sẽ không có tác dụng (hệ thống giữ kênh cũ).
@@ -869,6 +902,7 @@ class ThuocStore extends ChangeNotifier {
     // Cài đặt trước đây trông như không có tác dụng.
     final soundChanged = next.sound != settings.sound || next.vibration != settings.vibration;
     settings = next;
+    Lang.current = settings.language;
     await _save();
     notifyListeners();
     if (soundChanged) {
@@ -961,7 +995,7 @@ class ThuocStore extends ChangeNotifier {
     final now = DateTime.now();
     final todayDate = DateTime(now.year, now.month, now.day);
     final monday = todayDate.subtract(Duration(days: todayDate.weekday - 1));
-    const labels = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+    final labels = [for (var d = 1; d <= 7; d++) weekdayShort(d)];
     final list = <DailyAdherence>[];
     for (var i = 0; i < 7; i++) {
       final day = monday.add(Duration(days: i));
@@ -1035,7 +1069,10 @@ class ThuocStore extends ChangeNotifier {
     for (final e in counts.entries) {
       if (e.value > best.value) best = e;
     }
-    return '${best.key} (${best.value} lần)';
+    return tr(
+      '${best.key} (${best.value} lần)',
+      '${best.key} (${best.value} ${enPlural(best.value, 'time', 'times')})',
+    );
   }
 
   bool _isCompleted(DoseSlot s) =>
@@ -1101,34 +1138,75 @@ class ThuocStore extends ChangeNotifier {
       final streak = onTimeStreak();
       final String pipMessage;
       if (slots.isEmpty) {
-        pipMessage = '😊 Thêm thuốc để Pip nhắc bạn nhé!';
+        pipMessage = tr(
+          '😊 Thêm thuốc để Pip nhắc bạn nhé!',
+          '😊 Add a medicine so Pip can remind you!',
+        );
       } else if (onTime == slots.length) {
         pipMessage = streak >= 2
-            ? '🥳 Hôm nay uống đủ và đúng giờ hết rồi! Chuỗi: $streak ngày 🔥'
-            : '🥳 Hôm nay uống đủ và đúng giờ hết rồi, tuyệt vời!';
+            ? tr(
+                '🥳 Hôm nay uống đủ và đúng giờ hết rồi! Chuỗi: $streak ngày 🔥',
+                '🥳 All doses taken on time today! Streak: $streak ${enPlural(streak, 'day', 'days')} 🔥',
+              )
+            : tr(
+                '🥳 Hôm nay uống đủ và đúng giờ hết rồi, tuyệt vời!',
+                '🥳 All doses taken on time today — awesome!',
+              );
       } else if (completed == slots.length) {
-        pipMessage = '😊 Hôm nay uống đủ hết rồi, có ${completed - onTime} lần trễ, lần sau cố đúng giờ nhé!';
+        final lateCount = completed - onTime;
+        pipMessage = tr(
+          '😊 Hôm nay uống đủ hết rồi, có $lateCount lần trễ, lần sau cố đúng giờ nhé!',
+          '😊 All doses done today, $lateCount late — try to be on time next time!',
+        );
       } else if (overdue) {
-        pipMessage = '😟 Ơ, có lần uống quá giờ chưa thấy bạn bấm, uống bù nhé?';
+        pipMessage = tr(
+          '😟 Ơ, có lần uống quá giờ chưa thấy bạn bấm, uống bù nhé?',
+          '😟 A dose is overdue and not checked in — take it now?',
+        );
       } else if (skipped > 0) {
-        pipMessage = '😟 Hôm nay bạn bỏ qua $skipped lần, mai cố nhé?';
+        pipMessage = tr(
+          '😟 Hôm nay bạn bỏ qua $skipped lần, mai cố nhé?',
+          '😟 You skipped $skipped ${enPlural(skipped, 'dose', 'doses')} today — try again tomorrow?',
+        );
       } else {
+        final remainingCount = slots.length - completed;
         pipMessage = streak >= 2
-            ? '😊 Hôm nay còn ${slots.length - completed} lần nữa là xong! Chuỗi: $streak ngày 🔥'
-            : '😊 Hôm nay còn ${slots.length - completed} lần nữa là xong, cố lên nhé!';
+            ? tr(
+                '😊 Hôm nay còn $remainingCount lần nữa là xong! Chuỗi: $streak ngày 🔥',
+                '😊 $remainingCount ${enPlural(remainingCount, 'dose', 'doses')} left today! Streak: $streak ${enPlural(streak, 'day', 'days')} 🔥',
+              )
+            : tr(
+                '😊 Hôm nay còn $remainingCount lần nữa là xong, cố lên nhé!',
+                '😊 $remainingCount ${enPlural(remainingCount, 'dose', 'doses')} left today — you\'ve got this!',
+              );
       }
       // Nhắc mua thuốc lên widget luôn (nếu có), để người dùng thấy
       // ngay cả khi không mở app.
       final buyPrompt = todayBuyPrompt();
       await HomeWidget.saveWidgetData<String>(
           'pip_message', buyPrompt == null ? pipMessage : '$pipMessage 🛒 $buyPrompt');
-      await HomeWidget.saveWidgetData<String>('progress', slots.isEmpty ? 'Chưa có thuốc hôm nay' : 'Hôm nay: $completed/${slots.length} lần • đúng giờ $onTime lần');
-      await HomeWidget.saveWidgetData<String>('next_text', next == null ? (slots.isEmpty ? 'Thêm thuốc để Pip nhắc bạn nhé!' : '🎉 Đã xong hôm nay!') : '${next.medicine.formEmoji} ${next.medicine.name} — ${next.medicine.dose}');
-      await HomeWidget.saveWidgetData<String>('next_time',
+      await HomeWidget.saveWidgetData<String>(
+          'progress',
+          slots.isEmpty
+              ? tr('Chưa có thuốc hôm nay', 'No medicines today')
+              : tr(
+                  'Hôm nay: $completed/${slots.length} lần • đúng giờ $onTime lần',
+                  'Today: $completed/${slots.length} doses • $onTime on time',
+                ));
+      await HomeWidget.saveWidgetData<String>(
+          'next_text',
+          next == null
+              ? (slots.isEmpty
+                  ? tr('Thêm thuốc để Pip nhắc bạn nhé!', 'Add a medicine so Pip can remind you!')
+                  : tr('🎉 Đã xong hôm nay!', '🎉 All done for today!'))
+              : '${next.medicine.formEmoji} ${next.medicine.name} — ${next.medicine.dose}');
+      final nextRem = next == null ? null : remainingPills(next.medicine);
+      await HomeWidget.saveWidgetData<String>(
+          'next_time',
           next == null
               ? ''
-              : 'Lúc ${next.time} • ${next.medicine.mealLabel}'
-                  '${remainingPills(next.medicine) != null ? ' • Còn ${remainingPills(next.medicine)} viên' : ''}');
+              : '${tr('Lúc', 'At')} ${next.time} • ${next.medicine.mealLabel}'
+                  '${nextRem != null ? tr(' • Còn $nextRem viên', ' • $nextRem ${enPlural(nextRem, 'pill', 'pills')} left') : ''}');
       // 1.2.33: cờ hết thuốc cho nút widget — widget đọc cờ này để mờ
       // nút "Đã uống lần này" khi lần tiếp theo đã hết thuốc.
       await HomeWidget.saveWidgetData<String>('next_out_of_stock',
@@ -1146,13 +1224,25 @@ class ThuocStore extends ChangeNotifier {
         final atStr = at != null
             ? '${at.hour.toString().padLeft(2, '0')}:${at.minute.toString().padLeft(2, '0')}'
             : '';
-        final takenStr = log?.status == 'late' ? 'Đã uống trễ lúc $atStr' : 'Đã uống đúng giờ lúc $atStr';
+        final takenStr = log?.status == 'late'
+            ? tr('Đã uống trễ lúc $atStr', 'Taken late at $atStr')
+            : tr('Đã uống đúng giờ lúc $atStr', 'Taken on time at $atStr');
         final rem = remainingPills(s.medicine);
         final days = daysSupply(s.medicine);
-        final remStr = rem != null ? ' • Còn $rem viên${days != null ? ' (đủ $days ngày)' : ''}' : '';
-        doneLines.add('${s.medicine.formEmoji} ${s.medicine.name} — ${s.medicine.dose} • Lúc ${s.time} • ${s.medicine.mealLabel}\n$takenStr$remStr');
+        final remStr = rem != null
+            ? tr(
+                ' • Còn $rem viên${days != null ? ' (đủ $days ngày)' : ''}',
+                ' • $rem ${enPlural(rem, 'pill', 'pills')} left${days != null ? ' (enough for $days ${enPlural(days, 'day', 'days')})' : ''}',
+              )
+            : '';
+        doneLines.add('${s.medicine.formEmoji} ${s.medicine.name} — ${s.medicine.dose} • ${tr('Lúc', 'At')} ${s.time} • ${s.medicine.mealLabel}\n$takenStr$remStr');
       }
-      if (doneSlots.length > 3) doneLines.add('… và ${doneSlots.length - 3} lần nữa');
+      if (doneSlots.length > 3) {
+        doneLines.add(tr(
+          '… và ${doneSlots.length - 3} lần nữa',
+          '… and ${doneSlots.length - 3} more',
+        ));
+      }
       await HomeWidget.saveWidgetData<String>('done_detail', doneLines.join('\n'));
       await HomeWidget.saveWidgetData<String>('all_done', next == null && slots.isNotEmpty ? '1' : '0');
       await settings.saveWidgetAppearance();

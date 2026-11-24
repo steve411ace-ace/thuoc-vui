@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'home_style.dart';
+import 'strings.dart';
 
 class HomeColorPicker extends StatefulWidget {
   const HomeColorPicker({super.key, required this.initialColor});
@@ -72,7 +73,7 @@ class _HomeColorPickerState extends State<HomeColorPicker> {
     final color = _selection.toColor();
     final scheme = Theme.of(context).colorScheme;
     return AlertDialog(
-      title: const Text('Chọn màu tùy chỉnh'),
+      title: Text(tr('Chọn màu tùy chỉnh', 'Choose custom color')),
       scrollable: true,
       content: SizedBox(
         width: 300,
@@ -85,7 +86,7 @@ class _HomeColorPickerState extends State<HomeColorPicker> {
                 for (final palette in HomePalette.values)
                   if (palette != HomePalette.custom)
                     IconButton(
-                      tooltip: palette.label,
+                      tooltip: palette.displayLabel,
                       onPressed: () => setState(() => _selection =
                           HSVColor.fromColor(Color(palette.primary))),
                       icon: _swatch(
@@ -156,11 +157,11 @@ class _HomeColorPickerState extends State<HomeColorPicker> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Hủy'),
+          child: Text(tr('Hủy', 'Cancel')),
         ),
         TextButton(
           onPressed: () => Navigator.of(context).pop(color),
-          child: const Text('Lưu'),
+          child: Text(tr('Lưu', 'Save')),
         ),
       ],
     );
