@@ -1,5 +1,9 @@
 # Nhật ký thay đổi
 
+## 1.2.59+62
+
+- Sửa hộp thoại "Ghi lần mua": các trường cách nhau 12dp để nhãn không bị viền chèn, ô đơn giá gợi ý từ lần mua gần nhất của cùng loại thuốc.
+
 ## 1.2.58+61
 
 - Icon app mới theo phong cách PillFlow: nền gradient hero, viên nang trắng, huy hiệu tích xanh tách khỏi viên thuốc.

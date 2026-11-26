@@ -224,6 +224,28 @@ class PurchaseHistoryScreen extends StatelessWidget {
   }
 }
 
+int _suggestedPriceFor(List<PurchaseRecord> purchases, String medicineId) {
+  PurchaseRecord? latest;
+  DateTime? latestDate;
+  for (final record in purchases) {
+    if (record.medicineId != medicineId) continue;
+    final parsedDate = DateTime.tryParse(record.date);
+    if (latest == null) {
+      latest = record;
+      latestDate = parsedDate;
+      continue;
+    }
+    final cmp = parsedDate != null && latestDate != null
+        ? parsedDate.compareTo(latestDate)
+        : record.date.compareTo(latest.date);
+    if (cmp > 0 || (cmp == 0 && record.id.compareTo(latest.id) > 0)) {
+      latest = record;
+      latestDate = parsedDate;
+    }
+  }
+  return latest?.pricePerBox ?? 0;
+}
+
 Future<void> showPurchaseForm(
   BuildContext context,
   ThuocStore store, {
@@ -253,102 +275,13 @@ Future<void> showPurchaseForm(
     return;
   }
 
-  var selectedMedicine = purchase?.medicineId ??
-      (medicines.containsKey(medicineId) ? medicineId! : medicines.keys.first);
-  final today = DateUtils.dateOnly(DateTime.now());
-  var date = purchase == null ? today : DateTime.parse(purchase.date);
-  final formKey = GlobalKey<FormState>();
-  var boxes = purchase?.boxes ?? 1;
-  var price = purchase?.pricePerBox ?? 0;
-  var pills = purchase?.pillsPerBox ?? 10;
-
   final result = await showDialog<PurchaseRecord>(
     context: context,
-    builder: (context) => StatefulBuilder(
-      builder: (context, setState) => AlertDialog(
-        title: Text(purchase == null
-            ? tr('Ghi lần mua', 'Add purchase')
-            : tr('Sửa lần mua', 'Edit purchase')),
-        scrollable: true,
-        content: Form(
-          key: formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              OutlinedButton.icon(
-                icon: const Icon(Icons.calendar_today_outlined),
-                label: Text(_formatPurchaseDate(_purchaseDateKey(date))),
-                onPressed: () async {
-                  final picked = await showDatePicker(
-                    context: context,
-                    initialDate: date,
-                    firstDate: DateTime(1),
-                    lastDate: date.isAfter(today) ? date : today,
-                  );
-                  if (picked != null && context.mounted) {
-                    setState(() => date = picked);
-                  }
-                },
-              ),
-              DropdownButtonFormField<String>(
-                value: selectedMedicine,
-                isExpanded: true,
-                decoration: InputDecoration(labelText: tr('Thuốc', 'Medicine')),
-                items: [
-                  for (final medicine in medicines.entries)
-                    DropdownMenuItem(
-                      value: medicine.key,
-                      child:
-                          Text(medicine.value, overflow: TextOverflow.ellipsis),
-                    ),
-                ],
-                onChanged: (value) => selectedMedicine = value!,
-              ),
-              _numberField(
-                  tr('Số vỉ', 'Number of boxes'), boxes.toString(), 1, (value) => boxes = value),
-              _numberField(
-                tr('Đơn giá mỗi vỉ (đ)', 'Price per box (VND)'),
-                purchase?.pricePerBox.toString(),
-                0,
-                (value) => price = value,
-              ),
-              _numberField(
-                tr('Số viên mỗi vỉ', 'Pills per box'),
-                pills.toString(),
-                1,
-                (value) => pills = value,
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(tr('Hủy', 'Cancel')),
-          ),
-          FilledButton(
-            onPressed: () {
-              final form = formKey.currentState!;
-              if (!form.validate()) return;
-              form.save();
-              Navigator.pop(
-                context,
-                PurchaseRecord(
-                  id: purchase?.id ??
-                      DateTime.now().microsecondsSinceEpoch.toString(),
-                  medicineId: selectedMedicine,
-                  date: _purchaseDateKey(date),
-                  boxes: boxes,
-                  pricePerBox: price,
-                  pillsPerBox: pills,
-                ),
-              );
-            },
-            child: Text(tr('Lưu', 'Save')),
-          ),
-        ],
-      ),
+    builder: (context) => _PurchaseFormDialog(
+      store: store,
+      medicines: medicines,
+      purchase: purchase,
+      medicineId: medicineId,
     ),
   );
   if (result == null) return;
@@ -359,16 +292,178 @@ Future<void> showPurchaseForm(
   }
 }
 
+class _PurchaseFormDialog extends StatefulWidget {
+  final ThuocStore store;
+  final Map<String, String> medicines;
+  final PurchaseRecord? purchase;
+  final String? medicineId;
+
+  const _PurchaseFormDialog({
+    required this.store,
+    required this.medicines,
+    required this.purchase,
+    required this.medicineId,
+  });
+
+  @override
+  State<_PurchaseFormDialog> createState() => _PurchaseFormDialogState();
+}
+
+class _PurchaseFormDialogState extends State<_PurchaseFormDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late final DateTime _today;
+  late String _selectedMedicine;
+  late DateTime _date;
+  late int _boxes;
+  late int _price;
+  late int _pills;
+  late final TextEditingController _priceController;
+  var _priceEdited = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final purchase = widget.purchase;
+    _selectedMedicine = purchase?.medicineId ??
+        (widget.medicines.containsKey(widget.medicineId)
+            ? widget.medicineId!
+            : widget.medicines.keys.first);
+    _today = DateUtils.dateOnly(DateTime.now());
+    _date = purchase == null ? _today : DateTime.parse(purchase.date);
+    _boxes = purchase?.boxes ?? 1;
+    _price = purchase?.pricePerBox ??
+        _suggestedPriceFor(widget.store.purchases, _selectedMedicine);
+    _pills = purchase?.pillsPerBox ?? 10;
+    _priceController = TextEditingController(text: _price.toString());
+  }
+
+  @override
+  void dispose() {
+    _priceController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final purchase = widget.purchase;
+    return AlertDialog(
+      title: Text(purchase == null
+          ? tr('Ghi lần mua', 'Add purchase')
+          : tr('Sửa lần mua', 'Edit purchase')),
+      scrollable: true,
+      content: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            OutlinedButton.icon(
+              icon: const Icon(Icons.calendar_today_outlined),
+              label: Text(_formatPurchaseDate(_purchaseDateKey(_date))),
+              onPressed: () async {
+                final picked = await showDatePicker(
+                  context: context,
+                  initialDate: _date,
+                  firstDate: DateTime(1),
+                  lastDate: _date.isAfter(_today) ? _date : _today,
+                );
+                if (picked != null && context.mounted) {
+                  setState(() => _date = picked);
+                }
+              },
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              value: _selectedMedicine,
+              isExpanded: true,
+              decoration: InputDecoration(labelText: tr('Thuốc', 'Medicine')),
+              items: [
+                for (final medicine in widget.medicines.entries)
+                  DropdownMenuItem(
+                    value: medicine.key,
+                    child:
+                        Text(medicine.value, overflow: TextOverflow.ellipsis),
+                  ),
+              ],
+              onChanged: (value) {
+                if (value == null) return;
+                setState(() {
+                  _selectedMedicine = value;
+                  if (purchase == null && !_priceEdited) {
+                    final suggested =
+                        _suggestedPriceFor(widget.store.purchases, value);
+                    _price = suggested;
+                    _priceController.text = suggested.toString();
+                  }
+                });
+              },
+            ),
+            const SizedBox(height: 12),
+            _numberField(
+                tr('Số vỉ', 'Number of boxes'), _boxes.toString(), 1, (value) => _boxes = value),
+            const SizedBox(height: 12),
+            _numberField(
+              tr('Đơn giá mỗi vỉ (đ)', 'Price per box (VND)'),
+              null,
+              0,
+              (value) => _price = value,
+              controller: _priceController,
+              onChanged: (_) => _priceEdited = true,
+            ),
+            const SizedBox(height: 12),
+            _numberField(
+              tr('Số viên mỗi vỉ', 'Pills per box'),
+              _pills.toString(),
+              1,
+              (value) => _pills = value,
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(tr('Hủy', 'Cancel')),
+        ),
+        FilledButton(
+          onPressed: () {
+            final form = _formKey.currentState!;
+            if (!form.validate()) return;
+            form.save();
+            Navigator.pop(
+              context,
+              PurchaseRecord(
+                id: purchase?.id ??
+                    DateTime.now().microsecondsSinceEpoch.toString(),
+                medicineId: _selectedMedicine,
+                date: _purchaseDateKey(_date),
+                boxes: _boxes,
+                pricePerBox: _price,
+                pillsPerBox: _pills,
+              ),
+            );
+          },
+          child: Text(tr('Lưu', 'Save')),
+        ),
+      ],
+    );
+  }
+}
+
 Widget _numberField(
   String label,
   String? initialValue,
   int min,
-  ValueChanged<int> onSaved,
-) {
+  ValueChanged<int> onSaved, {
+  TextEditingController? controller,
+  ValueChanged<String>? onChanged,
+}) {
   return TextFormField(
-    initialValue: initialValue,
+    controller: controller,
+    initialValue: controller == null ? initialValue : null,
     decoration: InputDecoration(labelText: label),
     keyboardType: TextInputType.number,
+    onChanged: onChanged,
     validator: (value) {
       final number = int.tryParse(value?.trim() ?? '', radix: 10);
       return number == null || number < min ? tr('Nhập số nguyên ≥ $min', 'Enter an integer ≥ $min') : null;
