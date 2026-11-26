@@ -1,5 +1,9 @@
 # Nhật ký thay đổi
 
+## 1.2.60+63
+
+- Hai thẻ KPI "Tuân thủ tuần này" và "Uống đúng giờ" trên màn Thống kê luôn cao bằng nhau.
+
 ## 1.2.59+62
 
 - Sửa hộp thoại "Ghi lần mua": các trường cách nhau 12dp để nhãn không bị viền chèn, ô đơn giá gợi ý từ lần mua gần nhất của cùng loại thuốc.

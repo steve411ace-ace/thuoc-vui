@@ -106,34 +106,36 @@ class _HistoryScreenState extends State<HistoryScreen> {
           ],
         ),
         const SizedBox(height: 16),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-                child: _kpi(
-              tr('Tuân thủ tuần này', 'Adherence this week'),
-              '$percent%',
-              current.total == 0
-                  ? tr('Chưa có liều đến giờ', 'No doses due yet')
-                  : previous.total == 0
-                      ? tr('Chưa có dữ liệu tuần trước',
-                          'No data for last week yet')
-                      : tr(
-                          '${delta >= 0 ? '+' : '−'}${delta.abs()} điểm % so với tuần trước',
-                          '${delta >= 0 ? '+' : '−'}${delta.abs()} pts vs. last week'),
-              scheme.surfaceAccent,
-            )),
-            const SizedBox(width: 10),
-            Expanded(
-                child: _kpi(
-              tr('Uống đúng giờ', 'Taken on time'),
-              '${current.onTime}/${current.total}',
-              tr(
-                  '${current.taken - current.onTime} lần uống trễ',
-                  '${current.taken - current.onTime} late ${enPlural(current.taken - current.onTime, 'dose', 'doses')}'),
-              scheme.onSurface,
-            )),
-          ],
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                  child: _kpi(
+                tr('Tuân thủ tuần này', 'Adherence this week'),
+                '$percent%',
+                current.total == 0
+                    ? tr('Chưa có liều đến giờ', 'No doses due yet')
+                    : previous.total == 0
+                        ? tr('Chưa có dữ liệu tuần trước',
+                            'No data for last week yet')
+                        : tr(
+                            '${delta >= 0 ? '+' : '−'}${delta.abs()} điểm % so với tuần trước',
+                            '${delta >= 0 ? '+' : '−'}${delta.abs()} pts vs. last week'),
+                scheme.surfaceAccent,
+              )),
+              const SizedBox(width: 10),
+              Expanded(
+                  child: _kpi(
+                tr('Uống đúng giờ', 'Taken on time'),
+                '${current.onTime}/${current.total}',
+                tr(
+                    '${current.taken - current.onTime} lần uống trễ',
+                    '${current.taken - current.onTime} late ${enPlural(current.taken - current.onTime, 'dose', 'doses')}'),
+                scheme.onSurface,
+              )),
+            ],
+          ),
         ),
         const SizedBox(height: 16),
         _weeklyChart(store, today),
